@@ -4,6 +4,208 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from utils import delay, highlight_element, click_save_button
 
+
+def setup_preferences(driver: webdriver.Chrome, storeId: str):
+    """Vào trang online store preferences và điền thông tin Name và Description"""
+    print("\n" + "="*60)
+    print("⚙️  SETUP PREFERENCES...")
+    print("="*60)
+
+    try:
+        # Vào trang online store preferences
+        preferences_url = f"https://admin.shopify.com/store/{storeId}/online_store/preferences"
+        print(f"Đang vào trang: {preferences_url}")
+        driver.get(preferences_url)
+
+        # Đợi page load hoàn toàn
+        print("⏳ Đang chờ page load...")
+        WebDriverWait(driver, 30).until(
+            lambda d: d.execute_script("return document.readyState") == "complete"
+        )
+        delay(15)  # Đợi thêm 15 giây cho JS load hoàn toàn
+
+        # Scroll xuống để đảm bảo elements hiển thị
+        print("📜 Scroll xuống để load elements...")
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        delay(2)
+        driver.execute_script("window.scrollTo(0, 0);")
+        delay(2)
+
+        print("✅ Page đã load xong, bắt đầu tìm iframes...")
+
+        # TÌM VÀ SWITCH VÀO IFRAME
+        print("🔍 Tìm tất cả iframes trên page...")
+        try:
+            iframes = driver.find_elements(By.TAG_NAME, "iframe")
+            print(f"📝 Tìm thấy {len(iframes)} iframe(s)")
+
+            iframe_switched = False
+            for i, iframe in enumerate(iframes):
+                try:
+                    iframe_src = iframe.get_attribute("src") or "no-src"
+                    iframe_id = iframe.get_attribute("id") or "no-id"
+                    iframe_name = iframe.get_attribute("name") or "no-name"
+                    print(f"   Iframe {i+1}: ID='{iframe_id}', Name='{iframe_name}', Src='{iframe_src[:80]}'")
+
+                    # Switch vào iframe này
+                    driver.switch_to.frame(iframe)
+                    print(f"   ✅ Đã switch vào iframe {i+1}")
+
+                    # Thử tìm input với ID ':r5:' trong iframe này
+                    try:
+                        name_input = driver.find_element(By.ID, ":r5:")
+                        print(f"   🎯 Tìm thấy input ':r5:' trong iframe {i+1}!")
+                        iframe_switched = True
+                        break
+                    except:
+                        print(f"   ⚠️ Không có input ':r5:' trong iframe {i+1}, thử iframe tiếp theo...")
+                        driver.switch_to.default_content()
+
+                except Exception as e:
+                    print(f"   ❌ Lỗi khi xử lý iframe {i+1}: {e}")
+                    driver.switch_to.default_content()
+
+            if not iframe_switched:
+                print("⚠️ Không tìm thấy input trong bất kỳ iframe nào. Thử tìm ở main page...")
+
+        except Exception as e:
+            print(f"❌ Lỗi khi tìm iframes: {e}")
+
+        # Tìm input Name bằng ID
+        print("\n🔍 Tìm input Name bằng ID ':r5:'...")
+        try:
+            # Đợi element hiển thị và có thể tương tác
+            name_input = WebDriverWait(driver, 20).until(
+                EC.element_to_be_clickable((By.ID, ":r5:"))
+            )
+            highlight_element(driver, name_input)
+            print(f"✅ Tìm thấy input Name. Giá trị hiện tại: '{name_input.get_attribute('value')}'")
+
+            # Click vào input để focus
+            driver.execute_script("arguments[0].click();", name_input)
+            delay(0.5)
+
+            # Clear và điền "Name" bằng JavaScript để tránh vấn đề với React
+            driver.execute_script("arguments[0].value = '';", name_input)
+            delay(0.3)
+            driver.execute_script("arguments[0].value = 'Name';", name_input)
+
+            # Trigger events để React nhận biết thay đổi
+            driver.execute_script("""
+                var event = new Event('input', { bubbles: true });
+                arguments[0].dispatchEvent(event);
+                var changeEvent = new Event('change', { bubbles: true });
+                arguments[0].dispatchEvent(changeEvent);
+            """, name_input)
+            delay(1)
+            print("✅ Đã điền 'Name' vào input Name.")
+        except Exception as e:
+            print(f"❌ Không tìm thấy input Name với ID ':r5:': {e}")
+
+        # Tìm textarea Description bằng ID
+        print("\n🔍 Tìm textarea Description bằng ID ':r6:'...")
+        try:
+            # Đợi element hiển thị và có thể tương tác
+            desc_textarea = WebDriverWait(driver, 20).until(
+                EC.element_to_be_clickable((By.ID, ":r6:"))
+            )
+            highlight_element(driver, desc_textarea)
+            print(f"✅ Tìm thấy textarea Description. Giá trị hiện tại: '{desc_textarea.get_attribute('value')}'")
+
+            # Click vào textarea để focus
+            driver.execute_script("arguments[0].click();", desc_textarea)
+            delay(0.5)
+
+            # Clear và điền "Desc" bằng JavaScript
+            driver.execute_script("arguments[0].value = '';", desc_textarea)
+            delay(0.3)
+            driver.execute_script("arguments[0].value = 'Desc';", desc_textarea)
+
+            # Trigger events để React nhận biết thay đổi
+            driver.execute_script("""
+                var event = new Event('input', { bubbles: true });
+                arguments[0].dispatchEvent(event);
+                var changeEvent = new Event('change', { bubbles: true });
+                arguments[0].dispatchEvent(changeEvent);
+            """, desc_textarea)
+            delay(1)
+            print("✅ Đã điền 'Desc' vào textarea Description.")
+        except Exception as e:
+            print(f"❌ Không tìm thấy textarea Description với ID ':r6:': {e}")
+
+        # Tìm button upload và upload file aa.png
+        print("\n🔍 Tìm button upload file...")
+        try:
+            upload_button = WebDriverWait(driver, 15).until(
+                EC.element_to_be_clickable((By.XPATH, "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[2]/form[1]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/button[1]"))
+            )
+            highlight_element(driver, upload_button)
+            print("✅ Tìm thấy button upload.")
+
+            # Tìm input file (thường ẩn) - có thể trong cùng container với button
+            print("🔍 Tìm input type='file'...")
+            try:
+                # Thử tìm input file gần button upload
+                file_input = driver.find_element(By.XPATH, "//input[@type='file']")
+                print("✅ Tìm thấy input file")
+
+                # Lấy đường dẫn đến file aa.png trong Downloads
+                import os
+                downloads_path = os.path.join(os.path.expanduser("~"), "Downloads", "aaa.png")
+                print(f"📁 File path: {downloads_path}")
+
+                # Kiểm tra file có tồn tại không
+                if os.path.exists(downloads_path):
+                    print(f"✅ File tồn tại: {downloads_path}")
+
+                    # Upload file bằng cách send_keys vào input file
+                    file_input.send_keys(downloads_path)
+                    delay(2)
+                    print("✅ Đã upload file aa.png thành công!")
+                else:
+                    print(f"❌ File không tồn tại: {downloads_path}")
+                    print("⚠️ Vui lòng đảm bảo file aa.png có trong thư mục Downloads")
+
+            except Exception as e:
+                print(f"⚠️ Không tìm thấy input file: {e}")
+                print("🔄 Thử click vào button để mở file picker...")
+                try:
+                    driver.execute_script("arguments[0].click();", upload_button)
+                    delay(2)
+                    print("✅ Đã click vào button upload. Vui lòng chọn file thủ công nếu cần.")
+                except Exception as e2:
+                    print(f"❌ Không thể click button upload: {e2}")
+
+        except Exception as e:
+            print(f"❌ Không tìm thấy button upload: {e}")
+
+        # Switch về main content trước khi click Save
+        print("\n🔄 Switch về main content...")
+        driver.switch_to.default_content()
+        delay(1)
+
+        # Click Save button
+        print("🔍 Click Save button...")
+        save_clicked = click_save_button(driver)
+        if save_clicked:
+            print("✅ Đã click Save button thành công.")
+        else:
+            print("⚠️ Không thể click Save button.")
+
+        print("\n✅ HOÀN TẤT SETUP PREFERENCES!")
+        print("="*60)
+
+    except Exception as e:
+        print(f"❌ Lỗi khi setup preferences: {e}")
+        print("="*60)
+    finally:
+        # Đảm bảo luôn switch về default content
+        try:
+            driver.switch_to.default_content()
+        except:
+            pass
+
+
 def import_theme(driver: webdriver.Chrome, storeId: str):
     """Vào trang themes và thực hiện import theme bằng cách click Import theme (data-state="closed") rồi Upload zip file trong menu (data-state="open")"""
     print("\n" + "="*60)
@@ -52,6 +254,7 @@ def import_theme(driver: webdriver.Chrome, storeId: str):
     except Exception as e:
         print(f"❌ Lỗi khi import theme: {e}")
         print("="*60)
+
 
 def upload_favicon(driver: webdriver.Chrome, storeId: str):
     """Vào trang online store preferences và upload favicon (aaa.png từ Downloads folder)"""

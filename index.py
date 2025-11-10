@@ -7,10 +7,8 @@ from webdriver_manager.chrome import ChromeDriverManager
 from typing import Optional
 import inquirer
 
-# Import utility functions
 from utils import load_credentials
 
-# Import feature modules
 from auth import login_to_shopify
 from install import install_apps
 from dsers import handle_dser_open_and_confirm
@@ -18,9 +16,9 @@ from market import setup_world_market
 from policies import setup_legal_policies
 from pages import setup_contact_page
 from shipping import setup_shipping_zones
+from themes import setup_preferences
 
 def setup_driver() -> Optional[webdriver.Chrome]:
-    """Setup và khởi tạo Chrome WebDriver với session lưu trữ"""
     try:
         print("Setting up Chrome WebDriver...")
         service = Service(ChromeDriverManager().install())
@@ -28,11 +26,11 @@ def setup_driver() -> Optional[webdriver.Chrome]:
         options = webdriver.ChromeOptions()
         options.add_argument("--start-maximized")
 
-        # LƯU SESSION VÀO FOLDER selenium_data
+        # SAVE SESSION TO selenium_data FOLDER
         user_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "selenium_data")
         options.add_argument(f"--user-data-dir={user_data_dir}")
 
-        # Tắt các thông báo không cần thiết
+        # Disable unnecessary logs
         options.add_experimental_option("excludeSwitches", ["enable-logging"])
         options.add_argument("--disable-blink-features=AutomationControlled")
 
@@ -40,64 +38,58 @@ def setup_driver() -> Optional[webdriver.Chrome]:
         driver.implicitly_wait(10)
         return driver
     except Exception as e:
-        print(f"❌ Lỗi nghiêm trọng khi khởi tạo WebDriver. Chi tiết: {e}")
-        print("Vui lòng kiểm tra xem Chrome đã được cài đặt và không có phiên Selenium nào đang chạy ngầm.")
+        print(f"❌ Critical error initializing WebDriver. Details: {e}")
+        print("Please check if Chrome is installed and no Selenium sessions are running in the background.")
         return None
 
 def show_interactive_menu():
-    """Hiển thị menu interactive để chọn các functions muốn chạy"""
     print("\n" + "="*80)
-    print("🎯 CHỌN CÁC TASKS BẠN MUỐN CHẠY")
+    print("🎯 SELECT THE TASKS YOU WANT TO RUN")
     print("="*80)
-    print("📌 Sử dụng phím ↑/↓ để di chuyển")
-    print("📌 Nhấn SPACE để chọn/bỏ chọn")
-    print("📌 Nhấn ENTER để xác nhận và chạy")
+    print("📌 Use ↑/↓ keys to navigate")
+    print("📌 Press SPACE to select/deselect")
+    print("📌 Press ENTER to confirm and run")
     print("="*80 + "\n")
 
-    # Định nghĩa các options
     task_options = [
-        ('install_apps', '📦 Cài đặt Apps'),
-        ('handle_dser_open_and_confirm', '🛠️  Xử lý DSers Open & Confirm'),
-        ('setup_world_market', '🌍 Cài đặt World Market'),
-        ('setup_legal_policies', '📜 Cài đặt Legal Policies'),
-        ('setup_contact_page', '📄 Cài đặt Contact Page'),
-        ('setup_shipping_zones', '🚚 Cài đặt Shipping Zones'),
+        ('install_apps', '📦 Install Apps'),
+        ('handle_dser_open_and_confirm', '🛠️  DSers (progress)'),
+        ('setup_world_market', '🌍 Markets'),
+        ('setup_legal_policies', '📜 Policies'),
+        ('setup_contact_page', '📄 Pages'),
+        ('setup_shipping_zones', '🚚 Shipping (progress)'),
+        ('setup_preferences', '⚙️  Preferences'),
     ]
 
-    # Tạo câu hỏi checkbox
     questions = [
         inquirer.Checkbox(
             'tasks',
-            message="Chọn các tasks bạn muốn chạy",
+            message="Select the tasks you want to run",
             choices=[label for _, label in task_options],
-            default=[]  # Không chọn mặc định, để trống
+            default=[]
         ),
     ]
 
-    # Hiển thị menu và lấy kết quả
     try:
         answers = inquirer.prompt(questions)
         if not answers or not answers['tasks']:
-            print("\n⚠️  Không có task nào được chọn. Thoát chương trình.")
+            print("\n⚠️  No tasks selected. Exiting program.")
             return []
 
-        # Map labels trở lại function names
         selected_labels = set(answers['tasks'])
         selected_tasks = [func_name for func_name, label in task_options if label in selected_labels]
 
-        print(f"\n✅ Đã chọn {len(selected_tasks)} task(s):")
+        print(f"\n✅ Selected {len(selected_tasks)} task(s):")
         for task in selected_tasks:
             print(f"   - {task}")
         print()
 
         return selected_tasks
     except KeyboardInterrupt:
-        print("\n\n⚠️  Đã hủy bởi người dùng. Thoát chương trình.")
+        print("\n\n⚠️  Cancelled by user. Exiting program.")
         return []
 
 def main():
-    """Main execution function"""
-    # Load credentials (chỉ một object duy nhất)
     entry = load_credentials()
     if not entry:
         print("No valid credentials found. Exiting.")
@@ -110,19 +102,16 @@ def main():
     print(f"📌 EMAIL: {email}")
     print(f"{'='*60}\n")
 
-    # Hiển thị menu để chọn tasks
     selected_tasks = show_interactive_menu()
     if not selected_tasks:
         return
 
-    # Setup WebDriver
     driver = setup_driver()
     if not driver:
         return
 
     try:
-        # BƯỚC 1: LOGIN (luôn chạy)
-        print("\n🔐 BƯỚC 1: ĐĂNG NHẬP VÀO SHOPIFY...")
+        print("\n🔐 Login to Shopify...")
         print("="*60)
         logged = login_to_shopify(driver, email, password, storeId)
 
@@ -130,56 +119,45 @@ def main():
             print("🚫 Cannot proceed. Login failed.")
             return
 
-        print("\n✅ ĐĂNG NHẬP THÀNH CÔNG!")
+        print("\n✅ Login successful!")
         print("="*60)
 
-        # Chạy các tasks đã chọn
         if 'install_apps' in selected_tasks:
-            print("\n📦 BƯỚC 2: CÀI ĐẶT APPS...")
-            print("="*60)
             install_apps(driver, storeId)
 
         if 'handle_dser_open_and_confirm' in selected_tasks:
-            print("\n🛠️ BƯỚC 3: XỬ LÝ DSERS OPEN VÀ CONFIRM...")
-            print("="*60)
             handle_dser_open_and_confirm(driver, storeId)
 
         if 'setup_world_market' in selected_tasks:
-            print("\n🌍 BƯỚC 4: CÀI ĐẶT WORLD MARKET...")
-            print("="*60)
             setup_world_market(driver, storeId)
 
         if 'setup_legal_policies' in selected_tasks:
-            print("\n📜 BƯỚC 5: CÀI ĐẶT LEGAL POLICIES...")
-            print("="*60)
             setup_legal_policies(driver, storeId, entry.get("policies", {}))
 
         if 'setup_contact_page' in selected_tasks:
-            print("\n📄 BƯỚC 6: CÀI ĐẶT CONTACT PAGE...")
-            print("="*60)
             setup_contact_page(driver, storeId)
 
         if 'setup_shipping_zones' in selected_tasks:
-            print("\n🚚 BƯỚC 7: CÀI ĐẶT SHIPPING ZONES...")
-            print("="*60)
             setup_shipping_zones(driver, storeId)
+
+        if 'setup_preferences' in selected_tasks:
+            setup_preferences(driver, storeId)
 
     except Exception as e:
         print(f"\nAn unexpected error occurred during processing: {e}")
     finally:
-        # ⚠️ GIỮ BROWSER MỞ - Chờ user xác nhận trước khi đóng
         print("\n" + "="*80)
-        print("✅ [Hoàn thành] Tất cả các tác vụ đã hoàn tất.")
-        print("📌 Browser sẽ VẪN MỞ để bạn kiểm tra kết quả.")
-        print("🔴 Nhấn Enter ở đây khi bạn MUỐN ĐÓNG browser...")
+        print("✅ [Completed] All tasks have been completed.")
+        print("📌 The browser will REMAIN OPEN for you to check the results.")
+        print("🔴 Press Enter here when you WANT TO CLOSE the browser...")
         print("="*80)
         input()
 
         try:
             driver.quit()
-            print("✅ Browser đã được đóng thành công.")
+            print("✅ Browser has been closed successfully.")
         except:
-            print("⚠️ Browser có thể đã được đóng thủ công.")
+            print("⚠️ Browser may have been closed manually.")
 
 if __name__ == "__main__":
     main()
