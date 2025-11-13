@@ -9,7 +9,9 @@ source automation-env/bin/activate  # On Mac/Linux
 automation-env\Scripts\activate  # On Windows
 ```
 
-### Install packages (for VM)
+### Vitual machine
+
+##### Install packages
 
 ```bash
 pip install pyautogui
@@ -18,7 +20,15 @@ pip install opencv-python
 pip install pillow
 ```
 
-### Install packages (for Store)
+##### Run
+
+```bash
+python index.py 2022-example.com 185.253.122.152:5961:lkqbgbdk:klwsil8ci4hw Louisiana
+```
+
+### Store
+
+##### Install packages
 
 ```bash
 pip install selenium

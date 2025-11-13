@@ -1,18 +1,21 @@
+import sys
 import pyautogui, subprocess, time, random
 
-name = "2022-example.com"
-sock = "185.253.122.152:5961:lkqbgbdk:klwsil8ci4hw"
-address = "Louisiana"
+if len(sys.argv) < 4:
+    print("⚠️ Usage: python index.py <name> <sock> <address>")
+    sys.exit(1)
+
+name = sys.argv[1]
+sock = sys.argv[2]
+address = sys.argv[3]
+
 host, port, user, passwd = (sock.split(":") + [""] * 4)[:4]
-DELAY = 0.5
 
 command = 'dir D:\\*.iso /s /b'
 default_iso = r"D:\Soft\Windows_10_21H2_x64_Tiny.iso"
 result = subprocess.run(command, shell=True, capture_output=True, text=True)
-iso = result.stdout.strip()
-
-if not iso:
-    iso = default_iso
+iso = result.stdout.strip() or default_iso
+DELAY = 0.5
 
 def delay(sec=DELAY):
     time.sleep(sec)
@@ -33,16 +36,21 @@ def hotkey(*keys, sec=DELAY):
     pyautogui.hotkey(*keys)
     delay(sec)
 
+hotkey('win', 'd')
+
 hotkey('win', 's')
 type_text("virtual")
 delay()
-press_key("enter", sec=2)
+press_key("enter", 2)
 press_key("enter")
 delay(1)
 hotkey('ctrl', 'n')
 
 move_click(737, 212)
 type_text(name)
+
+hotkey('win', 'up')
+delay(1)
 
 move_click(800, 259)
 hotkey('ctrl', 'a')
@@ -109,3 +117,8 @@ move_click(873, 605)
 move_click(610, 466)
 move_click(1131, 485)
 press_key('enter')
+
+pyautogui.rightClick(30, 1010, duration=DELAY)
+delay()
+move_click(75, 753)
+move_click(320, 753)
