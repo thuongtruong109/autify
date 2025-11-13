@@ -4,7 +4,7 @@ import pyautogui
 import threading
 import time
 
-template_path = "recognite.png"
+template_path = "./recognite2.png"
 threshold = 0.8
 check_interval = 0.5
 
@@ -31,7 +31,7 @@ def watch_screen():
                 pt = (loc[1][0], loc[0][0])
                 x, y = pt[0] + w//2, pt[1] + h//2
                 pyautogui.click(x, y)
-                print(f"[Watcher] Đã tìm thấy và click tại: {x}, {y}")
+                # print(f"[Watcher] Đã tìm thấy và click tại: {x}, {y}")
                 already_clicked = True
         else:
             found_event.clear()

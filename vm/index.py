@@ -4,6 +4,7 @@ name = "2022-example.com"
 sock = "185.253.122.152:5961:lkqbgbdk:klwsil8ci4hw"
 address = "Louisiana"
 host, port, user, passwd = (sock.split(":") + [""] * 4)[:4]
+DELAY = 0.5
 
 command = 'dir D:\\*.iso /s /b'
 default_iso = r"D:\Soft\Windows_10_21H2_x64_Tiny.iso"
@@ -13,114 +14,98 @@ iso = result.stdout.strip()
 if not iso:
     iso = default_iso
 
-pyautogui.hotkey('win', 's')
-pyautogui.typewrite("virtual")
-time.sleep(1)
-pyautogui.press("enter")
-time.sleep(1)
-pyautogui.moveTo(1060, 545, duration=1)
-pyautogui.click()
-time.sleep(1)
-pyautogui.hotkey('ctrl', 'n')
-time.sleep(1)
+def delay(sec=DELAY):
+    time.sleep(sec)
 
-pyautogui.moveTo(737, 200, duration=1)
-pyautogui.click()
-pyautogui.typewrite(name)
+def move_click(x, y, sec=DELAY, clicks=1):
+    pyautogui.moveTo(x, y, duration=sec)
+    for _ in range(clicks):
+        pyautogui.click()
 
-pyautogui.moveTo(800, 258, duration=1)
-pyautogui.click()
-pyautogui.typewrite(iso)
+def type_text(text, sec=DELAY):
+    pyautogui.typewrite(text)
 
-pyautogui.moveTo(715, 457, duration=1)
-pyautogui.click()
+def press_key(key, sec=DELAY):
+    pyautogui.press(key)
+    delay(sec)
 
-pyautogui.moveTo(1360, 312, duration=1)
-pyautogui.click()
-pyautogui.press("backspace")
-pyautogui.typewrite("4")
+def hotkey(*keys, sec=DELAY):
+    pyautogui.hotkey(*keys)
+    delay(sec)
 
-pyautogui.moveTo(726, 422, duration=1)
-pyautogui.click()
+hotkey('win', 's')
+type_text("virtual")
+delay()
+press_key("enter", sec=2)
+press_key("enter")
+delay(1)
+hotkey('ctrl', 'n')
 
-pyautogui.moveTo(675, 312, duration=1)
-pyautogui.click()
+move_click(737, 212)
+type_text(name)
 
-pyautogui.moveTo(1139, 366, duration=1)
-pyautogui.click()
+move_click(800, 259)
+hotkey('ctrl', 'a')
+press_key("backspace")
+type_text(iso)
 
-pyautogui.moveTo(1080, 405, duration=1)
-pyautogui.click()
+move_click(715, 457)
+move_click(1360, 317)
+press_key("backspace")
+type_text("4")
 
-pyautogui.moveTo(732, 483, duration=1)
-pyautogui.click()
+move_click(726, 422)
+move_click(672, 318)
+move_click(1139, 370)
+press_key("am")
+hotkey('ctrl', 'enter')
 
-pyautogui.moveTo(1008, 397, duration=1)
-pyautogui.click()
-pyautogui.click()
+move_click(732, 483)
+move_click(1008, 401, clicks=2)
+move_click(1358, 401, clicks=2)
+move_click(675, 489)
+move_click(812, 544)
+type_text(host)
+move_click(1075, 538)
+hotkey('ctrl', 'a')
+press_key("backspace")
+type_text(port)
+move_click(1258, 537)
+type_text("8.8.8.8")
+move_click(836, 562)
+type_text(user)
+move_click(1057, 563)
+type_text(passwd)
+move_click(777, 622)
+type_text(address)
+press_key("down")
+press_key("enter")
+move_click(676, 714)
+move_click(676, 767)
+move_click(912, 688)
 
-pyautogui.moveTo(1358, 396, duration=1)
-pyautogui.click()
-pyautogui.click()
+move_click(707, 801)
+move_click(676, 427)
+move_click(676, 606)
 
-pyautogui.moveTo(675, 486, duration=1)
-pyautogui.click()
+move_click(697, 830)
+move_click(902, 433)
 
-pyautogui.moveTo(812, 532, duration=1)
-pyautogui.click()
-pyautogui.typewrite(host)
+for _ in range(random.randint(1, 7)):
+    press_key('down', sec=0.2)
+    hotkey('ctrl', 'enter', sec=0.2)
 
-pyautogui.moveTo(1062, 534, duration=1)
-pyautogui.click()
-pyautogui.typewrite(port)
+press_key('enter')
 
-pyautogui.moveTo(836, 559, duration=1)
-pyautogui.click()
-pyautogui.typewrite(user)
+move_click(1270, 878)
+hotkey('ctrl', 's')
+move_click(833, 382)
+move_click(900, 469)
+type_text("bi")
+hotkey('ctrl', 'enter')
 
-pyautogui.moveTo(1057, 560, duration=1)
-pyautogui.click()
-pyautogui.typewrite(passwd)
-
-pyautogui.moveTo(1258, 536, duration=1)
-pyautogui.click()
-pyautogui.typewrite("8.8.8.8")
-
-pyautogui.moveTo(676, 710, duration=1)
-pyautogui.click()
-
-pyautogui.moveTo(777, 620, duration=1)
-pyautogui.click()
-pyautogui.typewrite(address)
-pyautogui.sleep(1)
-pyautogui.press("down")
-pyautogui.press("enter")
-
-pyautogui.moveTo(676, 763, duration=1)
-pyautogui.click()
-
-pyautogui.moveTo(912, 684, duration=1)
-pyautogui.click()
-
-pyautogui.moveTo(707, 797, duration=1)
-pyautogui.click()
-
-pyautogui.moveTo(676, 421, duration=1)
-pyautogui.click()
-
-pyautogui.moveTo(676, 600, duration=1)
-pyautogui.click()
-
-pyautogui.moveTo(697, 827, duration=1)
-pyautogui.click()
-
-n = random.randint(1, 7)
-
-for i in range(n):
-    pyautogui.press('down')
-    time.sleep(0.2)
-
-pyautogui.press('enter')
-
-pyautogui.moveTo(1270, 876, duration=1)
-pyautogui.click()
+move_click(600, 427)
+move_click(873, 605)
+move_click(610, 466)
+move_click(1131, 485)
+press_key('enter')
