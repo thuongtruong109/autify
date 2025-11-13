@@ -1,0 +1,5 @@
+- làm sao để biết khi nào click install button khi cài win
+
+pyautogui.scroll(-300)
+# pyautogui.scroll(300)
+# pyautogui.doubleClick()
