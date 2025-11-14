@@ -1,6 +1,76 @@
 import sys
 import pyautogui, subprocess, time, random
+import cv2
+import numpy as np
+import pyautogui
+import threading
+import time
+import pygetwindow as gw
 
+template_path = "./templates/install_software.png"
+threshold = 0.8
+check_interval = 0.5
+
+template = cv2.imread(template_path, cv2.IMREAD_UNCHANGED)
+template_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
+w, h = template_gray.shape[::-1]
+
+found_event = threading.Event()
+already_clicked = False
+
+def watch_screen():
+    global already_clicked
+    while True:
+        screenshot = pyautogui.screenshot()
+        screenshot_np = np.array(screenshot)
+        screenshot_gray = cv2.cvtColor(screenshot_np, cv2.COLOR_BGR2GRAY)
+
+        res = cv2.matchTemplate(screenshot_gray, template_gray, cv2.TM_CCOEFF_NORMED)
+        loc = np.where(res >= threshold)
+
+        if loc[0].size > 0:
+            found_event.set()
+            if not already_clicked:
+                pt = (loc[1][0], loc[0][0])
+                x, y = pt[0] + w//2, pt[1] + h//2
+                pyautogui.click(x, y)
+                # print(f"[Watcher] Đã tìm thấy và click tại: {x}, {y}")
+                already_clicked = True
+        else:
+            found_event.clear()
+            already_clicked = False
+
+        time.sleep(check_interval)
+
+watcher_thread = threading.Thread(target=watch_screen, daemon=True)
+watcher_thread.start()
+
+command = 'dir D:\\*.iso /s /b'
+default_iso = r"D:\Soft\Windows_10_21H2_x64_Tiny.iso"
+result = subprocess.run(command, shell=True, capture_output=True, text=True)
+iso = result.stdout.strip() or default_iso
+DELAY = 0.5
+
+# gui_lock = threading.Lock()
+
+# def my_callback(x, y, name):
+#     with gui_lock:
+#         pyautogui.moveTo(x, y, duration=0.5)
+#         pyautogui.click()
+#         print(f"Detected {name} at ({x}, {y})")
+#         delay(10)
+#         type_text(iso, sec=0.5)
+#         press_key('enter')
+
+# templates = [
+#     {'template_path': './templates/install_software.png', 'name': 'Mount'},
+# ]
+
+# # watcher = ParallelMultiWatcher(templates, threshold=0.85, gui_lock=gui_lock)
+# watcher = ParallelMultiWatcher(templates, threshold=0.85)
+# watcher.start()
+
+# VM
 if len(sys.argv) < 4:
     print("⚠️ Usage: python index.py <name> <sock> <address>")
     sys.exit(1)
@@ -10,12 +80,6 @@ sock = sys.argv[2]
 address = sys.argv[3]
 
 host, port, user, passwd = (sock.split(":") + [""] * 4)[:4]
-
-command = 'dir D:\\*.iso /s /b'
-default_iso = r"D:\Soft\Windows_10_21H2_x64_Tiny.iso"
-result = subprocess.run(command, shell=True, capture_output=True, text=True)
-iso = result.stdout.strip() or default_iso
-DELAY = 0.5
 
 def delay(sec=DELAY):
     time.sleep(sec)
@@ -44,35 +108,38 @@ delay()
 press_key("enter", 2)
 press_key("enter")
 delay(1)
-hotkey('ctrl', 'n')
-
-move_click(737, 212)
-type_text(name)
-
 hotkey('win', 'up')
 delay(1)
+hotkey('ctrl', 'n')
+
+# Name and Operating System
+move_click(737, 212)
+type_text(name)
 
 move_click(800, 259)
 hotkey('ctrl', 'a')
 press_key("backspace")
 type_text(iso)
 
+# Harware
 move_click(715, 457)
 move_click(1360, 317)
 press_key("backspace")
 type_text("4")
 
+# Preset
 move_click(726, 422)
-move_click(672, 318)
+move_click(672, 312)
 move_click(1139, 370)
-press_key("am")
+press_key("a")
 hotkey('ctrl', 'enter')
 
+# Network
 move_click(732, 483)
-move_click(1008, 401, clicks=2)
-move_click(1358, 401, clicks=2)
+move_click(1008, 399, clicks=2)
+move_click(1358, 399, clicks=2)
 move_click(675, 489)
-move_click(812, 544)
+move_click(812, 540)
 type_text(host)
 move_click(1075, 538)
 hotkey('ctrl', 'a')
@@ -92,10 +159,12 @@ move_click(676, 714)
 move_click(676, 767)
 move_click(912, 688)
 
+# AntiOS
 move_click(707, 801)
 move_click(676, 427)
 move_click(676, 606)
 
+# Fingerprint
 move_click(697, 830)
 move_click(902, 433)
 
@@ -105,6 +174,7 @@ for _ in range(random.randint(1, 7)):
 
 press_key('enter')
 
+# Settings
 move_click(1270, 878)
 hotkey('ctrl', 's')
 move_click(833, 382)
@@ -118,7 +188,82 @@ move_click(610, 466)
 move_click(1131, 485)
 press_key('enter')
 
+def wait_for_new_window(existing_windows, timeout=10):
+    end_time = time.time() + timeout
+    while time.time() < end_time:
+        current_windows = gw.getAllWindows()
+        for w in current_windows:
+            if w.title not in existing_windows and w.title.strip() != "":
+                w.activate()
+                delay(0.5)
+                return w
+        delay(0.5)
+    raise Exception("No new window appeared")
+
+
+existing_windows = set(w.title for w in gw.getAllWindows())
+
+# Start
 pyautogui.rightClick(30, 1010, duration=DELAY)
 delay()
 move_click(75, 753)
 move_click(320, 753)
+
+modal_window = wait_for_new_window(existing_windows)
+
+hotkey('alt', 'tab')
+
+delay(10)
+
+hotkey('alt', 'tab')
+
+move_click(1100, 1060, clicks=2)
+delay(2)
+pyautogui.moveTo(1079, 500, duration=0.5)
+move_click(1079, 500, clicks=5)
+# delay(0.5)
+type_text(iso, sec=0.1)
+
+search_location = pyautogui.locateCenterOnScreen('mount_iso2.png', confidence=0.8)
+
+if search_location:
+    print("Tìm thấy nút Search tại:", search_location)
+    pyautogui.moveTo(search_location, duration=0.3)
+    pyautogui.click()
+    print("Clicked in new modal window")
+    # for _ in range(50):
+    #     press_key('enter')
+else:
+    print("Không tìm thấy nút Search. Hãy kiểm tra ảnh mẫu hoặc độ sáng màn hình.")
+
+# hotkey('alt', 'tab')
+# delay(2)
+# hotkey('alt', 'tab')
+
+# move_click(1100, 1060, clicks=2)
+# pyautogui.moveTo(1079, 500, duration=0.5)
+# move_click(1079, 500)
+for _ in range(100):
+    press_key('enter', 0.1)
+
+delay(50)
+move_click(1079, 500)
+move_click(1090, 530)
+
+delay(420)
+hotkey('alt', 'tab')
+delay(2)
+hotkey('alt', 'tab')
+move_click(1100, 1060, clicks=2)
+delay(2)
+move_click(1079, 500)
+hotkey('win', 'up')
+hotkey('win', 's')
+
+# if found_event.is_set():
+#     print("Image found and clicked, continuing automation...")
+    # for _ in range(100):
+    #     press_key('enter', sec=0.1)
+    #     print("Clicked")
+# else:
+#     print("Image not found within timeout, skipping this step.")

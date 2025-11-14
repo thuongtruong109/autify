@@ -4,7 +4,7 @@ import pyautogui
 import threading
 import time
 
-template_path = "./recognite2.png"
+template_path = "./templates/install_software.png"
 threshold = 0.8
 check_interval = 0.5
 

@@ -1,5 +1,7 @@
 selenium_data
 __pycache__
-data.json
+config.json
 dns.js
 dns.txt
+build
+dist
