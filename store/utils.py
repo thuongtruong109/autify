@@ -143,3 +143,47 @@ def click_save_button(driver: webdriver.Chrome, timeout: int = 10) -> bool:
         else:
             print("⚠️ Không tìm thấy button 'Save' nào.")
             return False
+
+def find_iframe_with_element(driver: webdriver.Chrome, element_id: str, timeout: int = 10) -> bool:
+    """
+    Tìm và switch vào iframe chứa element với ID được chỉ định.
+    Return True nếu tìm thấy và switch thành công, False nếu không.
+    """
+    print(f"🔍 Đang tìm iframe chứa element với ID '{element_id}'...")
+    try:
+        # Lấy tất cả các iframe trong trang
+        iframes = driver.find_elements(By.TAG_NAME, "iframe")
+        print(f"   Tìm thấy {len(iframes)} iframe(s) trong trang.")
+
+        for i, iframe in enumerate(iframes):
+            try:
+                # Switch vào iframe
+                driver.switch_to.frame(iframe)
+                print(f"   Đang kiểm tra iframe {i+1}/{len(iframes)}...")
+
+                # Thử tìm element trong iframe
+                try:
+                    element = WebDriverWait(driver, 2).until(
+                        EC.presence_of_element_located((By.ID, element_id))
+                    )
+                    print(f"✅ Tìm thấy element với ID '{element_id}' trong iframe {i+1}!")
+                    return True
+                except:
+                    # Không tìm thấy element trong iframe này
+                    driver.switch_to.default_content()
+                    continue
+
+            except Exception as e:
+                print(f"   Lỗi khi kiểm tra iframe {i+1}: {e}")
+                driver.switch_to.default_content()
+                continue
+
+        # Không tìm thấy element trong bất kỳ iframe nào
+        print(f"⚠️ Không tìm thấy element với ID '{element_id}' trong bất kỳ iframe nào.")
+        driver.switch_to.default_content()
+        return False
+
+    except Exception as e:
+        print(f"⚠️ Lỗi khi tìm iframe: {e}")
+        driver.switch_to.default_content()
+        return False

@@ -1,15 +1,34 @@
+# file này mới nhất, chưa push
+
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from utils import delay, highlight_element, click_save_button
+from utils import delay, highlight_element, click_save_button, find_iframe_with_element
+import os
 
 
-def setup_preferences(driver: webdriver.Chrome, storeId: str):
+def setup_preferences(driver: webdriver.Chrome, storeId: str, seo_data: dict = None):
     """Vào trang online store preferences và điền thông tin Name và Description"""
     print("\n" + "="*60)
     print("⚙️  SETUP PREFERENCES...")
     print("="*60)
+
+    # Nếu không có seo_data, load từ config.json (cho CLI mode)
+    if seo_data is None:
+        from utils import load_credentials
+        entry = load_credentials()
+        seo_data = entry.get("seo", {})
+
+    seo_title = seo_data.get("title", "")
+    seo_description = seo_data.get("description", "")
+
+    if not seo_title or not seo_description:
+        print("⚠️ Không tìm thấy seo.title hoặc seo.description")
+        return
+
+    print(f"📝 SEO Title: {seo_title}")
+    print(f"📝 SEO Description: {seo_description}")
 
     try:
         # Vào trang online store preferences
@@ -33,43 +52,11 @@ def setup_preferences(driver: webdriver.Chrome, storeId: str):
 
         print("✅ Page đã load xong, bắt đầu tìm iframes...")
 
-        # TÌM VÀ SWITCH VÀO IFRAME
-        print("🔍 Tìm tất cả iframes trên page...")
-        try:
-            iframes = driver.find_elements(By.TAG_NAME, "iframe")
-            print(f"📝 Tìm thấy {len(iframes)} iframe(s)")
+        # TÌM VÀ SWITCH VÀO IFRAME (sử dụng utility function)
+        iframe_switched = find_iframe_with_element(driver, ":r5:")
 
-            iframe_switched = False
-            for i, iframe in enumerate(iframes):
-                try:
-                    iframe_src = iframe.get_attribute("src") or "no-src"
-                    iframe_id = iframe.get_attribute("id") or "no-id"
-                    iframe_name = iframe.get_attribute("name") or "no-name"
-                    print(f"   Iframe {i+1}: ID='{iframe_id}', Name='{iframe_name}', Src='{iframe_src[:80]}'")
-
-                    # Switch vào iframe này
-                    driver.switch_to.frame(iframe)
-                    print(f"   ✅ Đã switch vào iframe {i+1}")
-
-                    # Thử tìm input với ID ':r5:' trong iframe này
-                    try:
-                        name_input = driver.find_element(By.ID, ":r5:")
-                        print(f"   🎯 Tìm thấy input ':r5:' trong iframe {i+1}!")
-                        iframe_switched = True
-                        break
-                    except:
-                        print(f"   ⚠️ Không có input ':r5:' trong iframe {i+1}, thử iframe tiếp theo...")
-                        driver.switch_to.default_content()
-
-                except Exception as e:
-                    print(f"   ❌ Lỗi khi xử lý iframe {i+1}: {e}")
-                    driver.switch_to.default_content()
-
-            if not iframe_switched:
-                print("⚠️ Không tìm thấy input trong bất kỳ iframe nào. Thử tìm ở main page...")
-
-        except Exception as e:
-            print(f"❌ Lỗi khi tìm iframes: {e}")
+        if not iframe_switched:
+            print("⚠️ Không tìm thấy input trong bất kỳ iframe nào. Thử tìm ở main page...")
 
         # Tìm input Name bằng ID
         print("\n🔍 Tìm input Name bằng ID ':r5:'...")
@@ -81,14 +68,18 @@ def setup_preferences(driver: webdriver.Chrome, storeId: str):
             highlight_element(driver, name_input)
             print(f"✅ Tìm thấy input Name. Giá trị hiện tại: '{name_input.get_attribute('value')}'")
 
+            # Focus vào input trước
+            driver.execute_script("arguments[0].focus();", name_input)
+            delay(0.3)
+
             # Click vào input để focus
             driver.execute_script("arguments[0].click();", name_input)
             delay(0.5)
 
-            # Clear và điền "Name" bằng JavaScript để tránh vấn đề với React
+            # Clear và điền giá trị từ seo.title
             driver.execute_script("arguments[0].value = '';", name_input)
             delay(0.3)
-            driver.execute_script("arguments[0].value = 'Name';", name_input)
+            driver.execute_script(f"arguments[0].value = '{seo_title}';", name_input)
 
             # Trigger events để React nhận biết thay đổi
             driver.execute_script("""
@@ -98,7 +89,7 @@ def setup_preferences(driver: webdriver.Chrome, storeId: str):
                 arguments[0].dispatchEvent(changeEvent);
             """, name_input)
             delay(1)
-            print("✅ Đã điền 'Name' vào input Name.")
+            print(f"✅ Đã điền '{seo_title}' vào input Name.")
         except Exception as e:
             print(f"❌ Không tìm thấy input Name với ID ':r5:': {e}")
 
@@ -112,14 +103,18 @@ def setup_preferences(driver: webdriver.Chrome, storeId: str):
             highlight_element(driver, desc_textarea)
             print(f"✅ Tìm thấy textarea Description. Giá trị hiện tại: '{desc_textarea.get_attribute('value')}'")
 
+            # Focus vào textarea trước
+            driver.execute_script("arguments[0].focus();", desc_textarea)
+            delay(0.3)
+
             # Click vào textarea để focus
             driver.execute_script("arguments[0].click();", desc_textarea)
             delay(0.5)
 
-            # Clear và điền "Desc" bằng JavaScript
+            # Clear và điền giá trị từ seo.description
             driver.execute_script("arguments[0].value = '';", desc_textarea)
             delay(0.3)
-            driver.execute_script("arguments[0].value = 'Desc';", desc_textarea)
+            driver.execute_script(f"arguments[0].value = '{seo_description}';", desc_textarea)
 
             # Trigger events để React nhận biết thay đổi
             driver.execute_script("""
@@ -129,7 +124,7 @@ def setup_preferences(driver: webdriver.Chrome, storeId: str):
                 arguments[0].dispatchEvent(changeEvent);
             """, desc_textarea)
             delay(1)
-            print("✅ Đã điền 'Desc' vào textarea Description.")
+            print(f"✅ Đã điền '{seo_description}' vào textarea Description.")
         except Exception as e:
             print(f"❌ Không tìm thấy textarea Description với ID ':r6:': {e}")
 

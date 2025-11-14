@@ -9,7 +9,6 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from typing import Optional
 
-from utils import load_credentials
 from auth import login_to_shopify
 from install import install_apps
 from dsers import handle_dser_open_and_confirm
@@ -38,15 +37,23 @@ class StoreAutomationGUI:
         # GUI Components
         self.create_widgets()
 
-        # Load credentials on startup
-        self.load_credentials_on_start()
-
     def setup_styles(self):
         """Configure ttk styles"""
         style = ttk.Style()
         style.theme_use('clam')
 
-        # Configure button styles
+        # Configure Notebook (Tabs) style
+        style.configure('TNotebook', background='#ecf0f1', borderwidth=0)
+        style.configure('TNotebook.Tab',
+                       padding=[20, 10],
+                       font=('Segoe UI', 11, 'bold'),
+                       background='#bdc3c7',
+                       foreground='#2c3e50',
+                       width=15)  # Fixed width to prevent size change
+        style.map('TNotebook.Tab',
+                 background=[('selected', '#3498db'), ('active', '#5dade2')],
+                 foreground=[('selected', 'white'), ('active', 'white')],
+                 padding=[('selected', [20, 10]), ('active', [20, 10])])  # Keep same padding        # Configure button styles
         style.configure('Task.TButton',
                        padding=10,
                        font=('Segoe UI', 10),
@@ -66,50 +73,173 @@ class StoreAutomationGUI:
                  background=[('active', '#1976D2'), ('disabled', '#cccccc')])
 
     def create_widgets(self):
-        """Create all GUI widgets"""
         # Header Frame
-        header_frame = tk.Frame(self.root, bg='#2c3e50', height=80)
-        header_frame.pack(fill='x')
-        header_frame.pack_propagate(False)
+        # header_frame = tk.Frame(self.root, bg='#2c3e50', height=40)
+        # header_frame.pack(fill='x')
+        # header_frame.pack_propagate(False)
 
-        title_label = tk.Label(header_frame,
-                              text="🛍️ Store Automation Tool",
-                              font=('Segoe UI', 20, 'bold'),
-                              bg='#2c3e50',
-                              fg='white')
-        title_label.pack(pady=20)
+        # title_label = tk.Label(header_frame,
+        #                       text="🛍️ Store Automation Tool",
+        #                       font=('Segoe UI', 20, 'bold'),
+        #                       bg='#2c3e50',
+        #                       fg='white')
+        # title_label.pack(pady=10)
 
         # Main Container
         main_container = tk.Frame(self.root, bg='#ecf0f1')
-        main_container.pack(fill='both', expand=True, padx=20, pady=20)
+        main_container.pack(fill='both', expand=True, padx=6, pady=6)
 
-        # Credentials Info Frame
-        info_frame = tk.LabelFrame(main_container,
-                                   text="📌 Store Information",
-                                   font=('Segoe UI', 11, 'bold'),
-                                   bg='#ecf0f1',
-                                   fg='#2c3e50',
-                                   padx=10,
-                                   pady=10)
-        info_frame.pack(fill='x', pady=(0, 15))
+        # Create Notebook (Tabs)
+        self.notebook = ttk.Notebook(main_container)
+        self.notebook.pack(fill='both', expand=True)
 
-        self.store_label = tk.Label(info_frame,
-                                    text="Store: Not loaded",
-                                    font=('Segoe UI', 10),
+        # Create Credentials Tab
+        self.credentials_tab = self.create_credentials_tab()
+        self.notebook.add(self.credentials_tab, text='🔑 Credentials')
+
+        # Create Tasks Tab
+        self.tasks_tab = self.create_tasks_tab()
+        self.notebook.add(self.tasks_tab, text='🎯 Tasks')
+
+        # Log Frame (outside tabs, at bottom)
+        log_frame = tk.LabelFrame(main_container,
+                                 text="📋 Activity Log",
+                                 font=('Segoe UI', 11, 'bold'),
+                                 bg='#ecf0f1',
+                                 fg='#2c3e50',
+                                 padx=10,
+                                 pady=10)
+        log_frame.pack(fill='both', expand=True, pady=(10, 0))
+
+        self.log_text = scrolledtext.ScrolledText(log_frame,
+                                                 height=6,
+                                                 font=('Consolas', 9),
+                                                 bg='#2c3e50',
+                                                 fg='#ecf0f1',
+                                                 insertbackground='white',
+                                                 wrap=tk.WORD)
+        self.log_text.pack(fill='both', expand=True)
+
+        # Redirect stdout to log
+        sys.stdout = TextRedirector(self.log_text, "stdout")
+
+        self.log("Application started successfully")
+        self.log("Please enter your store credentials and click Login")
+
+    def create_credentials_tab(self):
+        """Create the Credentials tab with scrollbar"""
+        # Create frame for tab
+        tab_frame = tk.Frame(self.notebook, bg='#ecf0f1')
+
+        # Create canvas and scrollbar
+        canvas = tk.Canvas(tab_frame, bg='#ecf0f1', highlightthickness=0)
+        scrollbar = ttk.Scrollbar(tab_frame, orient='vertical', command=canvas.yview)
+
+        # Create scrollable frame
+        scrollable_frame = tk.Frame(canvas, bg='#ecf0f1')
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor='nw')
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Pack scrollbar and canvas
+        scrollbar.pack(side='right', fill='y')
+        canvas.pack(side='left', fill='both', expand=True)
+
+        # Enable mousewheel scrolling
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+        # Credentials Input Frame
+        input_frame = tk.LabelFrame(scrollable_frame,
+                                    text="🔑 Store Credentials",
+                                    font=('Segoe UI', 11, 'bold'),
                                     bg='#ecf0f1',
-                                    fg='#34495e',
-                                    anchor='w')
-        self.store_label.pack(fill='x', pady=2)
+                                    fg='#2c3e50',
+                                    padx=15,
+                                    pady=10)
+        input_frame.pack(fill='x', pady=(10, 15), padx=10)
 
-        self.email_label = tk.Label(info_frame,
-                                    text="Email: Not loaded",
-                                    font=('Segoe UI', 10),
-                                    bg='#ecf0f1',
-                                    fg='#34495e',
-                                    anchor='w')
-        self.email_label.pack(fill='x', pady=2)
+        # Store ID
+        tk.Label(input_frame, text="Store ID:", font=('Segoe UI', 10),
+                bg='#ecf0f1', fg='#2c3e50', anchor='w').grid(row=0, column=0, sticky='w', pady=5)
+        self.store_id_entry = tk.Entry(input_frame, font=('Segoe UI', 10), width=40)
+        self.store_id_entry.grid(row=0, column=1, sticky='ew', pady=5, padx=(10, 0))
 
-        self.status_label = tk.Label(info_frame,
+        # Email
+        tk.Label(input_frame, text="Email:", font=('Segoe UI', 10),
+                bg='#ecf0f1', fg='#2c3e50', anchor='w').grid(row=1, column=0, sticky='w', pady=5)
+        self.email_entry = tk.Entry(input_frame, font=('Segoe UI', 10), width=40)
+        self.email_entry.grid(row=1, column=1, sticky='ew', pady=5, padx=(10, 0))
+
+        # Password
+        tk.Label(input_frame, text="Password:", font=('Segoe UI', 10),
+                bg='#ecf0f1', fg='#2c3e50', anchor='w').grid(row=2, column=0, sticky='w', pady=5)
+        self.password_entry = tk.Entry(input_frame, font=('Segoe UI', 10), width=40, show='*')
+        self.password_entry.grid(row=2, column=1, sticky='ew', pady=5, padx=(10, 0))
+
+        # SEO Title
+        tk.Label(input_frame, text="SEO Title:", font=('Segoe UI', 10),
+                bg='#ecf0f1', fg='#2c3e50', anchor='w').grid(row=3, column=0, sticky='w', pady=5)
+        self.seo_title_entry = tk.Entry(input_frame, font=('Segoe UI', 10), width=40)
+        self.seo_title_entry.grid(row=3, column=1, sticky='ew', pady=5, padx=(10, 0))
+
+        # SEO Description
+        tk.Label(input_frame, text="SEO Description:", font=('Segoe UI', 10),
+                bg='#ecf0f1', fg='#2c3e50', anchor='w').grid(row=4, column=0, sticky='w', pady=5)
+        self.seo_description_entry = tk.Entry(input_frame, font=('Segoe UI', 10), width=40)
+        self.seo_description_entry.grid(row=4, column=1, sticky='ew', pady=5, padx=(10, 0))
+
+        # Configure grid
+        input_frame.columnconfigure(1, weight=1)
+
+        return tab_frame
+
+    def create_tasks_tab(self):
+        """Create the Tasks tab with scrollbar"""
+        # Create frame for tab
+        tab_frame = tk.Frame(self.notebook, bg='#ecf0f1')
+
+        # Create canvas and scrollbar
+        canvas = tk.Canvas(tab_frame, bg='#ecf0f1', highlightthickness=0)
+        scrollbar = ttk.Scrollbar(tab_frame, orient='vertical', command=canvas.yview)
+
+        # Create scrollable frame
+        scrollable_frame = tk.Frame(canvas, bg='#ecf0f1')
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor='nw')
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Pack scrollbar and canvas
+        scrollbar.pack(side='right', fill='y')
+        canvas.pack(side='left', fill='both', expand=True)
+
+        # Enable mousewheel scrolling
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+        # Status Frame
+        status_frame = tk.LabelFrame(scrollable_frame,
+                                     text="📌 Login Status",
+                                     font=('Segoe UI', 11, 'bold'),
+                                     bg='#ecf0f1',
+                                     fg='#2c3e50',
+                                     padx=10,
+                                     pady=10)
+        status_frame.pack(fill='x', pady=(10, 15), padx=10)
+
+        self.status_label = tk.Label(status_frame,
                                      text="Status: ⚪ Not logged in",
                                      font=('Segoe UI', 10, 'bold'),
                                      bg='#ecf0f1',
@@ -118,21 +248,21 @@ class StoreAutomationGUI:
         self.status_label.pack(fill='x', pady=2)
 
         # Login Button
-        self.login_button = ttk.Button(info_frame,
+        self.login_button = ttk.Button(status_frame,
                                       text="🔐 Login to Shopify",
                                       style='Login.TButton',
                                       command=self.login_action)
         self.login_button.pack(pady=10)
 
         # Tasks Frame
-        tasks_frame = tk.LabelFrame(main_container,
+        tasks_frame = tk.LabelFrame(scrollable_frame,
                                    text="🎯 Available Tasks",
                                    font=('Segoe UI', 11, 'bold'),
                                    bg='#ecf0f1',
                                    fg='#2c3e50',
                                    padx=15,
                                    pady=10)
-        tasks_frame.pack(fill='both', expand=True, pady=(0, 15))
+        tasks_frame.pack(fill='both', expand=True, pady=(0, 10), padx=10)
 
         # Create task buttons in a grid
         self.task_buttons = {}
@@ -166,47 +296,45 @@ class StoreAutomationGUI:
         tasks_frame.columnconfigure(0, weight=1)
         tasks_frame.columnconfigure(1, weight=1)
 
-        # Log Frame
-        log_frame = tk.LabelFrame(main_container,
-                                 text="📋 Activity Log",
-                                 font=('Segoe UI', 11, 'bold'),
-                                 bg='#ecf0f1',
-                                 fg='#2c3e50',
-                                 padx=10,
-                                 pady=10)
-        log_frame.pack(fill='both', expand=True)
+        return tab_frame
 
-        self.log_text = scrolledtext.ScrolledText(log_frame,
-                                                 height=8,
-                                                 font=('Consolas', 9),
-                                                 bg='#2c3e50',
-                                                 fg='#ecf0f1',
-                                                 insertbackground='white',
-                                                 wrap=tk.WORD)
-        self.log_text.pack(fill='both', expand=True)
+    def validate_inputs(self):
+        """Validate input fields"""
+        store_id = self.store_id_entry.get().strip()
+        email = self.email_entry.get().strip()
+        password = self.password_entry.get().strip()
+        seo_title = self.seo_title_entry.get().strip()
+        seo_description = self.seo_description_entry.get().strip()
 
-        # Redirect stdout to log
-        sys.stdout = TextRedirector(self.log_text, "stdout")
+        if not store_id:
+            messagebox.showerror("Error", "Store ID is required!")
+            return False
+        if not email:
+            messagebox.showerror("Error", "Email is required!")
+            return False
+        if not password:
+            messagebox.showerror("Error", "Password is required!")
+            return False
+        if not seo_title:
+            messagebox.showerror("Error", "SEO Title is required!")
+            return False
+        if not seo_description:
+            messagebox.showerror("Error", "SEO Description is required!")
+            return False
 
-        self.log("Application started successfully")
+        return True
 
-    def load_credentials_on_start(self):
-        """Load credentials when app starts"""
-        try:
-            self.credentials = load_credentials()
-            if self.credentials:
-                email = self.credentials.get('email', 'N/A')
-                store_id = self.credentials.get('storeId', 'N/A')
-
-                self.store_label.config(text=f"Store: {store_id}")
-                self.email_label.config(text=f"Email: {email}")
-                self.log(f"✅ Credentials loaded for store: {store_id}")
-            else:
-                self.log("⚠️ No credentials found in config.json")
-                messagebox.showwarning("Warning", "No credentials found. Please check config.json file.")
-        except Exception as e:
-            self.log(f"❌ Error loading credentials: {e}")
-            messagebox.showerror("Error", f"Failed to load credentials: {e}")
+    def get_credentials_from_inputs(self):
+        """Get credentials from input fields"""
+        return {
+            'storeId': self.store_id_entry.get().strip(),
+            'email': self.email_entry.get().strip(),
+            'password': self.password_entry.get().strip(),
+            'seo': {
+                'title': self.seo_title_entry.get().strip(),
+                'description': self.seo_description_entry.get().strip()
+            }
+        }
 
     def log(self, message):
         """Add message to log"""
@@ -245,12 +373,22 @@ class StoreAutomationGUI:
             self.log("⚠️ Already logged in")
             return
 
-        if not self.credentials:
-            messagebox.showerror("Error", "No credentials loaded. Please check config.json file.")
+        # Validate inputs
+        if not self.validate_inputs():
             return
 
-        # Disable login button
+        # Get credentials from input fields
+        self.credentials = self.get_credentials_from_inputs()
+
+        self.log(f"📝 Credentials validated for store: {self.credentials['storeId']}")
+
+        # Disable login button and input fields
         self.login_button.config(state='disabled')
+        self.store_id_entry.config(state='disabled')
+        self.email_entry.config(state='disabled')
+        self.password_entry.config(state='disabled')
+        self.seo_title_entry.config(state='disabled')
+        self.seo_description_entry.config(state='disabled')
 
         # Run login in separate thread
         thread = threading.Thread(target=self.login_thread, daemon=True)
@@ -282,7 +420,7 @@ class StoreAutomationGUI:
             else:
                 self.log("❌ Login failed")
                 self.root.after(0, lambda: messagebox.showerror("Login Failed", "Could not login to Shopify"))
-                self.root.after(0, lambda: self.login_button.config(state='normal'))
+                self.root.after(0, self.enable_inputs)
 
                 if self.driver:
                     self.driver.quit()
@@ -291,11 +429,20 @@ class StoreAutomationGUI:
         except Exception as e:
             self.log(f"❌ Login error: {e}")
             self.root.after(0, lambda: messagebox.showerror("Error", f"Login error:\n{e}"))
-            self.root.after(0, lambda: self.login_button.config(state='normal'))
+            self.root.after(0, self.enable_inputs)
 
             if self.driver:
                 self.driver.quit()
                 self.driver = None
+
+    def enable_inputs(self):
+        """Re-enable input fields and login button"""
+        self.login_button.config(state='normal')
+        self.store_id_entry.config(state='normal')
+        self.email_entry.config(state='normal')
+        self.password_entry.config(state='normal')
+        self.seo_title_entry.config(state='normal')
+        self.seo_description_entry.config(state='normal')
 
     def on_login_success(self):
         """Update UI after successful login"""
@@ -331,10 +478,13 @@ class StoreAutomationGUI:
 
             store_id = self.credentials['storeId']
 
-            # Check if task requires policies
+            # Check if task requires special parameters
             if task_func == setup_legal_policies:
                 policies = self.credentials.get('policies', {})
                 task_func(self.driver, store_id, policies)
+            elif task_func == setup_preferences:
+                seo_data = self.credentials.get('seo', {})
+                task_func(self.driver, store_id, seo_data)
             else:
                 task_func(self.driver, store_id)
 
