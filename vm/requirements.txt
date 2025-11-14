@@ -1,5 +1,6 @@
 pyautogui
 numpy
 opencv-python
-pyautogui
 pillow
+pygetwindow
+pyperclip

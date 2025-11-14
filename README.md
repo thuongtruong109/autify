@@ -2,6 +2,7 @@
 
 - Python 3.7+
 - Chrome Browser
+- Turn off unikey app (avoid conflict with typing input)
 
 ### Isolation environment (optional)
 
@@ -14,7 +15,7 @@ source automation-env/bin/activate  # On Mac/Linux
 automation-env\Scripts\activate  # On Windows
 ```
 
-### Vitual machine
+### Virtual machine
 
 ##### Install packages
 
@@ -28,8 +29,8 @@ pip install pillow
 ##### Run
 
 ```bash
-python index.py 2022-example.com 138.226.89.226:7414:lkqbgbdk:klwsil8ci4hw Louisiana
-193.160.82.72:6044:lkqbgbdk:klwsil8ci4hw
+python index.py 2022-example.com 185.253.122.152:5961:lkqbgbdk:klwsil8ci4hw Louisiana
+# 193.160.82.72:6044:lkqbgbdk:klwsil8ci4hw
 ```
 
 ### Store
