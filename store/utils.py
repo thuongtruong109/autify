@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 import time
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -7,7 +8,17 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from typing import List, Dict, Any
 
-CRED_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data.json")
+def get_config_path():
+    """Get the correct path to config.json whether running as script or exe"""
+    if getattr(sys, 'frozen', False):
+        # Running as exe - config.json should be in the same folder as exe
+        exe_dir = os.path.dirname(sys.executable)
+        return os.path.join(exe_dir, "./config.json")
+    else:
+        # Running as script - config.json is in the same folder as utils.py
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "./config.json")
+
+CRED_PATH = get_config_path()
 
 def delay(seconds: float):
     time.sleep(seconds)
@@ -24,15 +35,15 @@ def load_credentials() -> Dict[str, Any]:
     try:
         data = json.loads(content)
     except json.JSONDecodeError as e:
-        print(f"Error: JSON parse error in data.json: {e}")
+        print(f"Error: JSON parse error in config.json: {e}")
         return {}
 
     if not isinstance(data, dict):
-        print(f"Error: data.json must be a single object, not an array or other type.")
+        print(f"Error: config.json must be a single object, not an array or other type.")
         return {}
 
     if not (data.get("email") and data.get("password") and data.get("storeId")):
-        print(f"Error: data.json missing required fields: email, password, storeId")
+        print(f"Error: config.json missing required fields: email, password, storeId")
         return {}
 
     print(f"Loaded credentials for store: {data['storeId']}")
