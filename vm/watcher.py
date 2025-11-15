@@ -1,93 +1,50 @@
+# watcher.py
 import cv2
 import numpy as np
-import pyautogui
 import threading
+import pyautogui
 import time
 
-class ParallelMultiWatcher:
-    def __init__(self, templates, threshold=0.8, check_interval=0.5, gui_lock=None):
-        """
-        templates: list of dict, mỗi dict gồm:
-            - 'template_path' hoặc 'template_image' (np.ndarray)
-            - 'name': tên template
-            - 'callback': hàm tùy chọn khi detect (nếu không có sẽ click mặc định)
-        threshold: ngưỡng match
-        check_interval: delay mỗi lần check
-        gui_lock: threading.Lock() để tránh xung đột thao tác GUI
-        """
-        self.templates = templates
+class ScreenWatcher:
+    def __init__(self, template_path, threshold=0.8, check_interval=0.5):
+        self.template_path = template_path
         self.threshold = threshold
         self.check_interval = check_interval
-        self.threads = []
-        self.detected_flags = {}  # lưu trạng thái đã detect từng template
-        self.gui_lock = gui_lock or threading.Lock()
-        self.running = False
 
-    def _watch_screen(self, template_gray, name, callback):
-        w, h = template_gray.shape[::-1]
-        print(f"[Watcher-{name}] Bắt đầu theo dõi template...")
+        # Load template
+        self.template = cv2.imread(template_path, cv2.IMREAD_UNCHANGED)
+        self.template_gray = cv2.cvtColor(self.template, cv2.COLOR_BGR2GRAY)
+        self.w, self.h = self.template_gray.shape[::-1]
 
-        while self.running and not self.detected_flags.get(name, False):
+        # Thread control
+        self.found_event = threading.Event()
+        self.already_clicked = False
+        self.thread = threading.Thread(target=self._watch_screen, daemon=True)
+
+    def start(self):
+        """Start watching thread"""
+        self.thread.start()
+
+    def _watch_screen(self):
+        while True:
             screenshot = pyautogui.screenshot()
             screenshot_np = np.array(screenshot)
             screenshot_gray = cv2.cvtColor(screenshot_np, cv2.COLOR_BGR2GRAY)
 
-            res = cv2.matchTemplate(screenshot_gray, template_gray, cv2.TM_CCOEFF_NORMED)
+            res = cv2.matchTemplate(screenshot_gray, self.template_gray, cv2.TM_CCOEFF_NORMED)
             loc = np.where(res >= self.threshold)
 
             if loc[0].size > 0:
-                pt = (loc[1][0], loc[0][0])
-                x, y = pt[0] + w // 2, pt[1] + h // 2
+                self.found_event.set()
 
-                with self.gui_lock:
-                    if callback:
-                        callback(x, y, name)
-                    else:
-                        pyautogui.click(x, y)
-                        print(f"[Watcher-{name}] Click mặc định tại ({x},{y})")
-
-                self.detected_flags[name] = True
-                break
+                if not self.already_clicked:
+                    pt = (loc[1][0], loc[0][0])
+                    x, y = pt[0] + self.w // 2, pt[1] + self.h // 2
+                    pyautogui.click(x, y)
+                    print(f"[ScreenWatcher] Clicked {self.template_path} at: {x}, {y}")
+                    self.already_clicked = True
+            else:
+                self.found_event.clear()
+                self.already_clicked = False
 
             time.sleep(self.check_interval)
-
-        print(f"[Watcher-{name}] Kết thúc watcher.")
-
-    def start(self):
-        """Bắt đầu tất cả watcher trong thread riêng (non-blocking)"""
-        self.running = True
-        for template_info in self.templates:
-            name = template_info.get('name', 'Unnamed')
-            callback = template_info.get('callback', None)
-
-            # Load template
-            if 'template_path' in template_info:
-                template = cv2.imread(template_info['template_path'], cv2.IMREAD_UNCHANGED)
-            elif 'template_image' in template_info:
-                template = template_info['template_image']
-            else:
-                print(f"[Watcher-{name}] Không có template hợp lệ, bỏ qua")
-                continue
-
-            if template is None:
-                print(f"[Watcher-{name}] Không load được template, bỏ qua")
-                continue
-
-            template_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
-
-            self.detected_flags[name] = False
-            t = threading.Thread(
-                target=self._watch_screen,
-                args=(template_gray, name, callback),
-                daemon=True
-            )
-            self.threads.append(t)
-            t.start()
-
-        print("[ParallelMultiWatcher] Tất cả watcher đã start (non-blocking).")
-
-    def stop(self):
-        """Dừng tất cả watcher"""
-        self.running = False
-        print("[ParallelMultiWatcher] Đang dừng tất cả watcher...")
-        # không cần join các daemon thread, chúng sẽ tự kết thúc khi main thread kết thúc

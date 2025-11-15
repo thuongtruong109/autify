@@ -24,14 +24,50 @@ pip install pyautogui
 pip install numpy
 pip install opencv-python
 pip install pillow
+pip install pygetwindow
+pip install pyperclip
 ```
 
 ##### Run
+
+- From command line:
+
+```bash
+python index.py  <name> <sock> <address>
+```
+
+- Example:
 
 ```bash
 python index.py 2022-example.com 185.253.122.152:5961:lkqbgbdk:klwsil8ci4hw Louisiana
 # 193.160.82.72:6044:lkqbgbdk:klwsil8ci4hw
 ```
+
+- Arguments
+
+- `<name>`: Tên VM (ví dụ: 2022-example.com)
+- `<sock>`: Thông tin socket theo định dạng `host:port:user:password`
+- `<address>`: Địa chỉ (ví dụ: Louisiana)
+
+##### 🔨 Build
+
+```bash
+cd vm
+./build.bat
+```
+
+hoặc
+
+```bash
+cd vm
+pyinstaller build.spec --clean
+```
+
+## ⚠️ Notes
+
+- File executable cần thư mục `templates` ở cùng cấp để hoạt động đúng
+- Console window được bật để hiển thị log và nhận command-line arguments
+- Đảm bảo các file template (.png) có trong thư mục templates trước khi chạy
 
 ### Store
 

@@ -8,54 +8,55 @@ import time
 import pygetwindow as gw
 import pyperclip
 
-# from watcher import ParallelMultiWatcher
+from watcher import ScreenWatcher
 
-# templates = [
-#     {'template_path': './templates/open_chrome.png', 'name': 'Open Chrome'},
-# ]
+watchers = [
+    ScreenWatcher("./templates/cancel.png"),
+    ScreenWatcher("./templates/install_software.png"),
+    ScreenWatcher("./templates/skip_location.png", threshold=0.75),
+    ScreenWatcher("./sample.png", threshold=0.75),
+]
 
-# watcher = ParallelMultiWatcher(templates, threshold=0.85)
-# watcher.start()
+for w in watchers:
+    w.start()
 
-# ################################################
+# template_path = "./templates/install_software.png"
+# threshold = 0.8
+# check_interval = 0.5
 
-template_path = "./templates/install_software.png"
-threshold = 0.8
-check_interval = 0.5
+# template = cv2.imread(template_path, cv2.IMREAD_UNCHANGED)
+# template_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
+# w, h = template_gray.shape[::-1]
 
-template = cv2.imread(template_path, cv2.IMREAD_UNCHANGED)
-template_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
-w, h = template_gray.shape[::-1]
+# found_event = threading.Event()
+# already_clicked = False
 
-found_event = threading.Event()
-already_clicked = False
+# def watch_screen():
+#     global already_clicked
+#     while True:
+#         screenshot = pyautogui.screenshot()
+#         screenshot_np = np.array(screenshot)
+#         screenshot_gray = cv2.cvtColor(screenshot_np, cv2.COLOR_BGR2GRAY)
 
-def watch_screen():
-    global already_clicked
-    while True:
-        screenshot = pyautogui.screenshot()
-        screenshot_np = np.array(screenshot)
-        screenshot_gray = cv2.cvtColor(screenshot_np, cv2.COLOR_BGR2GRAY)
+#         res = cv2.matchTemplate(screenshot_gray, template_gray, cv2.TM_CCOEFF_NORMED)
+#         loc = np.where(res >= threshold)
 
-        res = cv2.matchTemplate(screenshot_gray, template_gray, cv2.TM_CCOEFF_NORMED)
-        loc = np.where(res >= threshold)
+#         if loc[0].size > 0:
+#             found_event.set()
+#             if not already_clicked:
+#                 pt = (loc[1][0], loc[0][0])
+#                 x, y = pt[0] + w//2, pt[1] + h//2
+#                 pyautogui.click(x, y)
+#                 print(f"[Watcher] Clicked {template_path} at: {x}, {y}")
+#                 already_clicked = True
+#         else:
+#             found_event.clear()
+#             already_clicked = False
 
-        if loc[0].size > 0:
-            found_event.set()
-            if not already_clicked:
-                pt = (loc[1][0], loc[0][0])
-                x, y = pt[0] + w//2, pt[1] + h//2
-                pyautogui.click(x, y)
-                print(f"[Watcher] Clicked {template_path} at: {x}, {y}")
-                already_clicked = True
-        else:
-            found_event.clear()
-            already_clicked = False
+#         time.sleep(check_interval)
 
-        time.sleep(check_interval)
-
-watcher_thread = threading.Thread(target=watch_screen, daemon=True)
-watcher_thread.start()
+# watcher_thread = threading.Thread(target=watch_screen, daemon=True)
+# watcher_thread.start()
 
 # #############################################################
 command = 'dir D:\\*.iso /s /b'
@@ -216,7 +217,7 @@ def hotkey(*keys, sec=DELAY):
 # move_click(1079, 500, clicks=5)
 # type_text(iso, sec=0.1)
 
-# search_location = pyautogui.locateCenterOnScreen('mount_iso2.png', confidence=0.8)
+# search_location = pyautogui.locateCenterOnScreen('mount_iso.png', confidence=0.8)
 
 # if search_location:
 #     pyautogui.moveTo(search_location, duration=0.3)
@@ -236,60 +237,7 @@ def hotkey(*keys, sec=DELAY):
 # delay(2)
 
 # In the VM window
-move_click(1079, 500)
-# hotkey('win', 'up')
-# delay(1)
-# move_click(300, 800)
-# move_click(1000, 444)
-# for _ in range(3):
-#     press_key('enter', sec=0.2)
-
-# # move_click(989, 1072)
-
-# Open Chrome (chưa dùng được)
-# hotkey('win', 's') # move_click(30, 998)
-# type_text("chrome")
-# delay(1)
-# press_key("enter", sec=3)
-# move_click(520, 750)
-# hotkey('win', 'up')
-# delay(1)
-
-# # Chrome settings (chưa dùng được)
-# hotkey('ctrl', 'l')
-# type_text("chrome://settings/content/location?search=pop")
-# press_key('tab')
-# press_key('tab')
-# press_key('down')
-# hotkey('ctrl', 'l')
-# type_text("chrome://settings/content/popups?search=pop")
-# press_key('tab')
-# press_key('tab')
-# press_key('up')
-
-# # Install GoLess extension (chưa dùng được)
-# hostkey('ctrl', 'l')
-# type_text("https://chromewebstore.google.com/detail/goless-browser-automation/ghlmiigebgipgagnhlanjmmniefbfihl")
-# press_key('tab', sec=0.2)
-# press_key('tab', sec=0.2)
-# press_key('tab', sec=0.2)
-# press_key('tab', sec=0.2)
-# press_key('tab', sec=0.2)
-
-# press_key('enter', sec=6)
-# press_key('left')
-# press_key('enter')
-
-# Turn on virtual keyboard
-move_click(30, 1003)
-move_click(23, 903)
-delay(1)
-move_click(800, 531)
-pyautogui.moveTo(150, 600, duration=0.5)
-pyautogui.scroll(-600)
-move_click(152, 573)
-move_click(414, 334)
-delay(1)
+move_click(550, 300)
 
 def paste_into_vm(x, y, text):
     pyperclip.copy(text)
@@ -301,14 +249,6 @@ def paste_into_vm(x, y, text):
     move_click(341, 940)
     move_click(723, 873)
     time.sleep(0.1)
-
-# def paste_vm(text):
-#     pyperclip.copy(text)
-#     time.sleep(0.1)
-
-#     move_click(341, 940)
-#     move_click(723, 873)
-#     time.sleep(0.1)
 
 def fullscreen_vm():
     move_click(430, 939)
@@ -327,24 +267,112 @@ def keyboard_vm(key):
         case "enter":
             move_click(1404, 808)
             return
+        case "tab":
+            move_click(280, 742)
+            return
+        case "up":
+            move_click(1305, 873)
+            return
+        case "down":
+            move_click(1311, 942)
+            return
+        case "left":
+            move_click(1228, 940)
+            return
         case _:
             return "Invalid day"
 
+def click_sock():
+    move_click(417, 995)
+    move_click(1079, 500)
+    keyboard_vm("enter")
+    keyboard_vm("enter")
+    keyboard_vm("enter")
+    keyboard_vm("enter")
+    keyboard_vm("enter")
+    move_click(417, 995)
+
 def search_vm(text):
-    # move_click(341, 940)
-    # move_click(1095, 808)
     keyboard_vm("ctrl+l")
     pyperclip.copy(text)
     time.sleep(0.1)
     keyboard_vm("ctrl+v")
-    # move_click(341, 940)
-    # move_click(723, 873)
 
-# Open Chrome
-paste_into_vm(110, 1000, "chrome")
-# move_click(1404, 808)
+# # Turn on virtual keyboard
+# move_click(30, 1003)
+# move_click(23, 903)
+# delay(1)
+# move_click(800, 531)
+# pyautogui.moveTo(150, 600, duration=0.5)
+# pyautogui.scroll(-600)
+# move_click(152, 573)
+# move_click(414, 334)
+# delay(1)
+
+# # Open Chrome
+# paste_into_vm(110, 1000, "chrome")
+# keyboard_vm("enter")
+# fullscreen_vm()
+
+# # Turn off location
+# search_vm("chrome://settings/content/location?search=pop")
+# keyboard_vm("enter")
+# delay(1)
+# keyboard_vm("tab")
+# keyboard_vm("tab")
+# keyboard_vm("down")
+
+# # Turn on popup
+# keyboard_vm("ctrl+l")
+# search_vm("chrome://settings/content/popups?search=pop")
+# keyboard_vm("enter")
+# delay(1)
+# keyboard_vm("tab")
+# keyboard_vm("tab")
+# keyboard_vm("up")
+click_sock()
+
+# Install GoLess
+keyboard_vm("ctrl+l")
+search_vm("https://chromewebstore.google.com/detail/goless-browser-automation/ghlmiigebgipgagnhlanjmmniefbfihl")
 keyboard_vm("enter")
+delay(16)
+keyboard_vm("tab")
+keyboard_vm("tab")
+keyboard_vm("tab")
+keyboard_vm("tab")
+keyboard_vm("tab")
+keyboard_vm("enter")
+delay(8)
+keyboard_vm("left")
+keyboard_vm("enter")
+delay(24)
 
-fullscreen_vm()
-search_vm("chrome://settings/content/location?search=pop")
+# Allow permission
+keyboard_vm("down")
+move_click(733, 504)
+keyboard_vm("left")
+keyboard_vm("enter")
+keyboard_vm("up")
 
+# Login Goless
+move_click(1350, 177)
+delay(6)
+paste_into_vm(1002, 383, "AngelineliewyeStiffler620@gmail.com")
+paste_into_vm(990, 476, "Snow2511@")
+keyboard_vm("enter")
+delay(10)
+move_click(1528, 516)
+move_click(1718, 103)
+move_click(1648, 258)
+move_click(1679, 105)
+delay(6)
+move_click(1423, 210)
+paste_into_vm(1423, 210, "google")
+move_click(1657, 309)
+
+delay(30)
+click_sock()
+click_sock()
+delay(30)
+click_sock()
