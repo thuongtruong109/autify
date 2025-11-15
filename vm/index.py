@@ -123,16 +123,19 @@ default_iso = r"D:\Soft\Windows_10_21H2_x64_Tiny.iso"
 result = subprocess.run(command, shell=True, capture_output=True, text=True)
 iso = result.stdout.strip() or default_iso
 # #############################################################
-# if len(sys.argv) < 4:
-#     print("⚠️ Usage: python index.py <name> <sock> <address>")
-#     sys.exit(1)
+# Get info from GUI or use default values
+try:
+    from launcher import get_vm_info
+    print("🚀 Starting GUI...")
+    info = get_vm_info()
 
-# name = sys.argv[1]
-# sock = sys.argv[2]
-# address = sys.argv[3]
-# host, port, user, passwd = (sock.split(":") + [""] * 4)[:4]
+    if not info:
+        print("✗ Cancelled by user")
+        sys.exit(0)
 
-info = ["2022-example.com", "185.253.122.152:5961:lkqbgbdk:klwsil8ci4hw", "Louisiana"]
+except Exception as e:
+    print(f"⚠️ GUI not available, using default values: {e}")
+    info = ["2022-example.com", "185.253.122.152:5961:lkqbgbdk:klwsil8ci4hw", "Louisiana"]
 
 if len(info) < 3:
     print("⚠️ Lack of infomation: <name> <sock> <address>")
@@ -142,6 +145,12 @@ name = info[0]
 sock = info[1]
 address = info[2]
 host, port, user, passwd = (sock.split(":") + [""] * 4)[:4]
+
+print(f"✓ Configuration loaded:")
+print(f"  - Name: {name}")
+print(f"  - Sock: {sock}")
+print(f"  - Address: {address}")
+print("="*50)
 # ##############################################################
 
 hotkey('win', 'd')

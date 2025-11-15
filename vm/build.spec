@@ -3,7 +3,7 @@
 block_cipher = None
 
 a = Analysis(
-    ['index.py'],
+    ['index.py', 'launcher.py', 'gui.py'],
     pathex=[],
     binaries=[],
     datas=[('templates', 'templates')],
@@ -16,6 +16,12 @@ a = Analysis(
         'pygetwindow',
         'pyperclip',
         'watcher',
+        'tkinter',
+        'tkinter.ttk',
+        'tkinter.messagebox',
+        'threading',
+        'launcher',
+        'gui',
     ],
     hookspath=[],
     hooksconfig={},
