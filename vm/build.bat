@@ -7,7 +7,6 @@ echo.
 echo [1/3] Installing dependencies...
 pip install -r requirements.txt
 pip install pyinstaller
-pip install pygetwindow
 
 echo.
 echo [2/3] Building executable with PyInstaller...
@@ -15,17 +14,17 @@ pyinstaller build.spec --clean
 
 echo.
 echo [3/3] Checking build result...
-if exist "dist\vm_automation.exe" (
+if exist "dist\autify_vm.exe" (
+    echo.
+    echo [4/4] Copying templates folder to dist...
+    xcopy /E /I /Y templates dist\templates
     echo.
     echo ====================================
     echo BUILD SUCCESSFUL!
     echo ====================================
     echo.
-    echo Executable created: dist\vm_automation.exe
-    echo Templates folder copied to: dist\templates
-    echo.
-    echo Usage: vm_automation.exe ^<name^> ^<sock^> ^<address^>
-    echo Example: vm_automation.exe 2022-example.com 185.253.122.152:5961:user:pass Louisiana
+    echo Executable created: dist\autify_vm.exe
+    echo Templates folder copied: dist\templates\
     echo.
 ) else (
     echo.

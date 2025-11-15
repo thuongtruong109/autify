@@ -109,7 +109,7 @@ watchers = [
     ScreenWatcher("./templates/install_goless_vi.png"),
     ScreenWatcher("./templates/skip_location_vi.png", threshold=0.75),
     ScreenWatcher("./templates/skip_location_us.png", threshold=0.75),
-    # ScreenWatcher("./sample.png", threshold=0.75),
+    # ScreenWatcher("./templates/sample.png", threshold=0.75),
     ScreenWatcher("./templates/skip_chrome_welcome1.png", threshold=0.6, callback=skip_chrome_location_callback),
     ScreenWatcher("./templates/skip_chrome_welcome2.png", threshold=0.6, callback=skip_chrome_location_callback)
 ]
@@ -123,13 +123,24 @@ default_iso = r"D:\Soft\Windows_10_21H2_x64_Tiny.iso"
 result = subprocess.run(command, shell=True, capture_output=True, text=True)
 iso = result.stdout.strip() or default_iso
 # #############################################################
-if len(sys.argv) < 4:
-    print("⚠️ Usage: python index.py <name> <sock> <address>")
+# if len(sys.argv) < 4:
+#     print("⚠️ Usage: python index.py <name> <sock> <address>")
+#     sys.exit(1)
+
+# name = sys.argv[1]
+# sock = sys.argv[2]
+# address = sys.argv[3]
+# host, port, user, passwd = (sock.split(":") + [""] * 4)[:4]
+
+info = ["2022-example.com", "185.253.122.152:5961:lkqbgbdk:klwsil8ci4hw", "Louisiana"]
+
+if len(info) < 3:
+    print("⚠️ Lack of infomation: <name> <sock> <address>")
     sys.exit(1)
 
-name = sys.argv[1]
-sock = sys.argv[2]
-address = sys.argv[3]
+name = info[0]
+sock = info[1]
+address = info[2]
 host, port, user, passwd = (sock.split(":") + [""] * 4)[:4]
 # ##############################################################
 
@@ -235,7 +246,6 @@ def wait_for_new_window(existing_windows, timeout=10):
                 return w
         delay(0.5)
     raise Exception("No new window appeared")
-
 
 existing_windows = set(w.title for w in gw.getAllWindows())
 
