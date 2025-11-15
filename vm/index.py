@@ -11,10 +11,12 @@ import pyperclip
 from watcher import ScreenWatcher
 
 watchers = [
-    ScreenWatcher("./templates/cancel.png"),
+    ScreenWatcher("./templates/cancel_capture.png"),
     ScreenWatcher("./templates/install_software.png"),
-    ScreenWatcher("./templates/skip_location.png", threshold=0.75),
-    ScreenWatcher("./sample.png", threshold=0.75),
+    ScreenWatcher("./templates/install_goless_vi.png"),
+    ScreenWatcher("./templates/skip_location_vi.png", threshold=0.75),
+    ScreenWatcher("./templates/skip_location_us.png", threshold=0.75),
+    # ScreenWatcher("./sample.png", threshold=0.75),
 ]
 
 for w in watchers:
@@ -264,6 +266,9 @@ def keyboard_vm(key):
             move_click(341, 940)
             move_click(723, 873)
             return
+        case "win":
+            move_click(430, 939)
+            return
         case "enter":
             move_click(1404, 808)
             return
@@ -298,38 +303,38 @@ def search_vm(text):
     time.sleep(0.1)
     keyboard_vm("ctrl+v")
 
-# # Turn on virtual keyboard
-# move_click(30, 1003)
-# move_click(23, 903)
-# delay(1)
-# move_click(800, 531)
-# pyautogui.moveTo(150, 600, duration=0.5)
-# pyautogui.scroll(-600)
-# move_click(152, 573)
-# move_click(414, 334)
-# delay(1)
+# Turn on virtual keyboard
+move_click(30, 1003)
+move_click(23, 903)
+delay(1)
+move_click(800, 531)
+pyautogui.moveTo(150, 600, duration=0.5)
+pyautogui.scroll(-600)
+move_click(152, 573)
+move_click(414, 334)
+delay(1)
 
-# # Open Chrome
-# paste_into_vm(110, 1000, "chrome")
-# keyboard_vm("enter")
-# fullscreen_vm()
+# Open Chrome
+paste_into_vm(110, 1000, "chrome")
+keyboard_vm("enter")
+fullscreen_vm()
 
-# # Turn off location
-# search_vm("chrome://settings/content/location?search=pop")
-# keyboard_vm("enter")
-# delay(1)
-# keyboard_vm("tab")
-# keyboard_vm("tab")
-# keyboard_vm("down")
+# Turn off location
+search_vm("chrome://settings/content/location?search=pop")
+keyboard_vm("enter")
+delay(1)
+keyboard_vm("tab")
+keyboard_vm("tab")
+keyboard_vm("down")
 
-# # Turn on popup
-# keyboard_vm("ctrl+l")
-# search_vm("chrome://settings/content/popups?search=pop")
-# keyboard_vm("enter")
-# delay(1)
-# keyboard_vm("tab")
-# keyboard_vm("tab")
-# keyboard_vm("up")
+# Turn on popup
+keyboard_vm("ctrl+l")
+search_vm("chrome://settings/content/popups?search=pop")
+keyboard_vm("enter")
+delay(1)
+keyboard_vm("tab")
+keyboard_vm("tab")
+keyboard_vm("up")
 click_sock()
 
 # Install GoLess
@@ -370,9 +375,24 @@ delay(6)
 move_click(1423, 210)
 paste_into_vm(1423, 210, "google")
 move_click(1657, 309)
+click_sock()
 
-delay(30)
+# Run Goless
+delay(10)
 click_sock()
-click_sock()
-delay(30)
-click_sock()
+
+# Open new window and search
+move_click(341, 940)
+move_click(891, 880)
+search_vm("https://www.shopify.com/")
+keyboard_vm("enter")
+move_click(1845, 600)
+pyautogui.scroll(-600)
+keyboard_vm("win")
+keyboard_vm("down")
+keyboard_vm("win")
+keyboard_vm("down")
+
+for _ in range(35):
+    click_sock()
+    delay(15)
