@@ -106,12 +106,11 @@ def skip_chrome_location_callback(x, y):
 watchers = [
     ScreenWatcher("./templates/cancel_capture.png", min_delay=180),
     ScreenWatcher("./templates/install_software.png"),
-    ScreenWatcher("./templates/install_goless_vi.png"),
+    # ScreenWatcher("./templates/install_goless_vi.png"),
     ScreenWatcher("./templates/skip_location_vi.png", threshold=0.75),
     ScreenWatcher("./templates/skip_location_us.png", threshold=0.75),
-    # ScreenWatcher("./templates/sample.png", threshold=0.75),
-    ScreenWatcher("./templates/skip_chrome_welcome1.png", threshold=0.6, callback=skip_chrome_location_callback),
-    ScreenWatcher("./templates/skip_chrome_welcome2.png", threshold=0.6, callback=skip_chrome_location_callback)
+    ScreenWatcher("./templates/skip_chrome_welcome1.png", threshold=0.65, callback=skip_chrome_location_callback),
+    ScreenWatcher("./templates/skip_chrome_welcome2.png", threshold=0.65, callback=skip_chrome_location_callback)
 ]
 
 for w in watchers:
@@ -121,7 +120,6 @@ for w in watchers:
 command = 'dir D:\\*.iso /s /b'
 default_iso = r"D:\Soft\Windows_10_21H2_x64_Tiny.iso"
 result = subprocess.run(command, shell=True, capture_output=True, text=True)
-iso = result.stdout.strip() or default_iso
 # #############################################################
 # Get info from GUI or use default values
 try:
@@ -135,7 +133,7 @@ try:
 
 except Exception as e:
     print(f"⚠️ GUI not available, using default values: {e}")
-    info = ["2022-example.com", "185.253.122.152:5961:lkqbgbdk:klwsil8ci4hw", "Louisiana"]
+    info = ["2022-example.com", "185.253.122.152:5961:lkqbgbdk:klwsil8ci4hw", "Louisiana", ""]
 
 if len(info) < 3:
     print("⚠️ Lack of infomation: <name> <sock> <address>")
@@ -144,19 +142,24 @@ if len(info) < 3:
 name = info[0]
 sock = info[1]
 address = info[2]
+iso_path = info[3] if len(info) > 3 else ""
+
+# Use custom ISO path if provided, otherwise use detected or default ISO
+iso = iso_path if iso_path else (result.stdout.strip() or default_iso)
 host, port, user, passwd = (sock.split(":") + [""] * 4)[:4]
 
 print(f"✓ Configuration loaded:")
 print(f"  - Name: {name}")
 print(f"  - Sock: {sock}")
 print(f"  - Address: {address}")
+print(f"  - ISO: {iso}")
 print("="*50)
 # ##############################################################
 
 hotkey('win', 'd')
 
 hotkey('win', 's')
-type_text("virtual")
+type_text("a5")
 delay(1)
 press_key("enter", 4)
 press_key("enter")
@@ -167,7 +170,7 @@ hotkey('ctrl', 'n')
 delay(1)
 
 # Name and Operating System
-move_click(737, 212)
+move_click(737, 210)
 delay()
 type_text(name)
 
@@ -291,7 +294,7 @@ for _ in range(10):
 delay(50)
 move_click(1079, 500)
 move_click(1090, 530)
-delay(240)
+delay(420)
 move_click(1100, 1060, clicks=2)
 delay(2)
 

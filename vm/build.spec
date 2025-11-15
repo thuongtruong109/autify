@@ -3,7 +3,7 @@
 block_cipher = None
 
 a = Analysis(
-    ['index.py', 'launcher.py', 'gui.py'],
+    ['index.py', 'launcher.py'],
     pathex=[],
     binaries=[],
     datas=[('templates', 'templates')],
@@ -21,7 +21,6 @@ a = Analysis(
         'tkinter.messagebox',
         'threading',
         'launcher',
-        'gui',
     ],
     hookspath=[],
     hooksconfig={},
@@ -49,7 +48,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=True,  # Console window for debugging
+    console=False,  # Console window for debugging
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
