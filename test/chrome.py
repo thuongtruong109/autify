@@ -2,6 +2,8 @@ import pygetwindow as gw
 import pyautogui
 import time
 
+pyautogui.click(200, 200)
+
 # duyệt tất cả cửa sổ Chrome đang mở
 for win in gw.getAllWindows():
     title = win.title.lower()
@@ -15,5 +17,6 @@ for win in gw.getAllWindows():
         time.sleep(0.3)  # đợi Chrome focus
 
         # đóng tab
-        pyautogui.hotkey('ctrl', 'w')
+        # pyautogui.hotkey('ctrl', 'w')
+        pyautogui.moveTo(200, 0)  # tọa độ nút đóng tab (cần điều chỉnh theo
         print("Tab closed!")

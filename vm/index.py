@@ -165,7 +165,7 @@ try:
 
 except Exception as e:
     print(f"⚠️ GUI not available, using default values: {e}")
-    info = ["2022-example.com", "185.253.122.152:5961:lkqbgbdk:klwsil8ci4hw", "Louisiana", ""]
+    info = ["2022-example.com", "138.226.89.226:7414:lkqbgbdk:klwsil8ci4hw", "Louisiana", ""]
 
 if len(info) < 3:
     print("⚠️ Lack of infomation: <name> <sock> <address>")
@@ -198,10 +198,10 @@ hotkey('ctrl', 'n')
 delay(1)
 
 # Adjust create-modal location
-keyboard_location = pyautogui.locateCenterOnScreen('templates/create_vm.png', confidence=0.75)
+create_vm_location = pyautogui.locateCenterOnScreen('templates/create_vm.png', confidence=0.75)
 
-if keyboard_location:
-    pyautogui.moveTo(keyboard_location, duration=0.3)
+if create_vm_location:
+    pyautogui.moveTo(create_vm_location, duration=0.3)
     pyautogui.mouseDown()
     pyautogui.moveTo(590, 130, duration=0.7)
     pyautogui.mouseUp()
@@ -211,7 +211,7 @@ else:
 
 # Name and Operating System
 move_click(737, 210)
-delay()
+delay(1)
 type_text(name)
 
 move_click(800, 259)
@@ -276,60 +276,36 @@ press_key('enter')
 # Settings
 move_click(1270, 878)
 hotkey('ctrl', 's')
-move_click(833, 382)
-move_click(900, 469)
+
+setting_vm_location = pyautogui.locateCenterOnScreen('templates/setting_vm.png', confidence=0.75)
+
+if setting_vm_location:
+    x, y = setting_vm_location
+    pyautogui.moveTo(x, y - 77, duration=0.3)
+    pyautogui.mouseDown()
+    pyautogui.moveTo(666, 273, duration=0.7)
+    pyautogui.mouseUp()
+    print("Clicked setting new VM modal")
+else:
+    print("Image not found on screen.")
+
+move_click(648, 351)
+move_click(880, 379)
+move_click(945, 463)
 type_text("bi")
 hotkey('ctrl', 'enter')
 
-move_click(600, 427)
-move_click(873, 605)
-move_click(610, 466)
-move_click(1131, 485)
+move_click(650, 427)
+move_click(920, 603)
+move_click(650, 463)
+move_click(1176, 479)
 press_key('enter')
-
-def wait_for_new_window(existing_windows, timeout=10):
-    end_time = time.time() + timeout
-    while time.time() < end_time:
-        current_windows = gw.getAllWindows()
-        for w in current_windows:
-            if w.title not in existing_windows and w.title.strip() != "":
-                w.activate()
-                delay(0.5)
-                return w
-        delay(0.5)
-    raise Exception("No new window appeared")
-
-existing_windows = set(w.title for w in gw.getAllWindows())
 
 # Start
 pyautogui.rightClick(30, 1010, duration=DELAY)
 delay()
 move_click(75, 753)
 move_click(320, 753)
-
-# Mount ISO
-modal_window = wait_for_new_window(existing_windows)
-
-hotkey('alt', 'tab')
-delay(8)
-hotkey('alt', 'tab')
-move_click(1100, 1060, clicks=2)
-delay(2)
-pyautogui.moveTo(1079, 500, duration=0.5)
-move_click(1079, 500, clicks=5)
-type_text(iso, sec=0.1)
-
-search_location = pyautogui.locateCenterOnScreen('templates/mount_iso.png', confidence=0.8)
-
-if search_location:
-    pyautogui.moveTo(search_location, duration=0.3)
-    pyautogui.click()
-    print("Clicked mount iso button")
-else:
-    print("Image not found on screen.")
-
-for _ in range(10):
-    press_key('enter', sec=0.1)
 
 delay(50)
 move_click(1079, 500)
@@ -383,12 +359,13 @@ else:
 paste_into_vm(110, 1000, "chrome")
 keyboard_vm("enter")
 fullscreen_vm()
+delay(2)
 
 # Turn off ads privacy
 keyboard_vm("ctrl+l")
 search_vm("chrome://settings/adPrivacy")
 keyboard_vm("enter")
-delay(5)
+delay(3)
 
 keyboard_vm("tab")
 keyboard_vm("tab")
@@ -418,6 +395,7 @@ keyboard_vm("enter")
 keyboard_vm("tab")
 keyboard_vm("tab")
 keyboard_vm("enter")
+click_sock()
 
 # # test chrome
 # keyboard_vm("ctrl+l")
