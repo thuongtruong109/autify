@@ -82,7 +82,7 @@ def keyboard_vm(key):
 
 def click_sock():
     move_click(417, 995)
-    move_click(1079, 500)
+    move_click(1000, 500)
     keyboard_vm("enter")
     keyboard_vm("enter")
     keyboard_vm("enter")
@@ -166,7 +166,7 @@ try:
 
 except Exception as e:
     print(f"⚠️ GUI not available, using default values: {e}")
-    info = ["2022-example.com", "138.226.89.226:7414:lkqbgbdk:klwsil8ci4hw", "Louisiana", ""]
+    info = ["2022-example.com", "193.160.82.111:6083:lkqbgbdk:klwsil8ci4hw", "Louisiana", ""]
 
 if len(info) < 3:
     print("⚠️ Lack of infomation: <name> <sock> <address>")
@@ -309,9 +309,9 @@ move_click(75, 753)
 move_click(320, 753)
 
 delay(50)
-move_click(1079, 500)
+move_click(1000, 500)
 move_click(1090, 530)
-delay(420)
+delay(400)
 move_click(1100, 1060, clicks=2)
 delay(2)
 
@@ -461,13 +461,13 @@ paste_into_vm(990, 476, "Snow2511@")
 keyboard_vm("enter")
 delay(14)
 move_click(1528, 516)
-move_click(1718, 103)
-move_click(1648, 258)
-move_click(1679, 105)
+move_click(1807, 103)
+move_click(1738, 263)
+move_click(1771, 105)
 delay(6)
-move_click(1423, 210)
-paste_into_vm(1423, 210, "google")
-move_click(1657, 309)
+move_click(1511, 210)
+paste_into_vm(1511, 210, "google")
+move_click(1748, 309)
 click_sock()
 
 # Run Goless

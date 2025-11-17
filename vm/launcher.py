@@ -331,11 +331,8 @@ class VMAutomationGUI:
         if iso_path == "Có thể để trống":
             iso_path = ""
 
-        goless_username = self.goless_username_entry.get().strip()
-        goless_password = self.goless_password_entry.get().strip()
-
         # Store info and close window (iso_path can be empty)
-        self.info = [name, sock, address, iso_path, goless_username, goless_password]
+        self.info = [name, sock, address, iso_path]
         self.root.quit()
         self.root.destroy()
 
@@ -361,8 +358,6 @@ class VMAutomationGUI:
         self.iso_entry.delete(0, tk.END)
         self.iso_entry.insert(0, "Có thể để trống")
         self.iso_entry.config(foreground='grey')
-        self.goless_username_entry.delete(0, tk.END)
-        self.goless_password_entry.delete(0, tk.END)
         self.hide_address_dropdown()
         self.status_label.config(text="🗑️ All fields cleared", foreground="#e67e22")
         self.root.after(2000, lambda: self.status_label.config(
@@ -382,7 +377,5 @@ if __name__ == "__main__":
         print(f"✓ Sock: {info[1]}")
         print(f"✓ Address: {info[2]}")
         print(f"✓ ISO Path: {info[3] if info[3] else '(auto-detect)'}")
-        print(f"✓ Goless Email: {info[4] if info[4] else '(not set)'}")
-        print(f"✓ Goless Password: {'*' * len(info[5]) if info[5] else '(not set)'}")
     else:
         print("✗ Cancelled")
