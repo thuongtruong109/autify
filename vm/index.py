@@ -90,6 +90,11 @@ def click_sock():
     keyboard_vm("enter")
     move_click(417, 995)
 
+def minimize_keyboard_vm():
+    move_click(1624, 561)
+    delay(1)
+    move_click(514, 996)
+
 def search_vm(text):
     keyboard_vm("ctrl+l")
     pyperclip.copy(text)
@@ -139,12 +144,13 @@ threading.Thread(target=auto_close_chrome_tabs, daemon=True).start()
 watchers = [
     ScreenWatcher("./templates/cancel_capture.png", min_delay=180),
     ScreenWatcher("./templates/install_software.png"),
-    # ScreenWatcher("./templates/install_goless_vi.png"),
     ScreenWatcher("./templates/skip_location_vi.png", threshold=0.75),
     ScreenWatcher("./templates/skip_location_us.png", threshold=0.75),
+    ScreenWatcher("./templates/skip_location_us_2.png", threshold=0.75),
     ScreenWatcher("./templates/skip_chrome_welcome1.png", threshold=0.65, callback=skip_chrome_location_callback),
     ScreenWatcher("./templates/skip_chrome_welcome2.png", threshold=0.65, callback=skip_chrome_location_callback),
-    ScreenWatcher("./templates/skip_AI_banner.png", threshold=0.65, callback=skip_chrome_location_callback)
+    ScreenWatcher("./templates/skip_AI_banner.png", threshold=0.65),
+    ScreenWatcher("./templates/skip_privacy.png", threshold=0.65)
 ]
 
 for w in watchers:
@@ -311,7 +317,7 @@ move_click(320, 753)
 delay(50)
 move_click(1000, 500)
 move_click(1090, 530)
-delay(400)
+delay(380)
 move_click(1100, 1060, clicks=2)
 delay(2)
 
@@ -361,12 +367,14 @@ paste_into_vm(110, 1000, "chrome")
 keyboard_vm("enter")
 fullscreen_vm()
 delay(2)
+minimize_keyboard_vm()
 
 # Turn off ads privacy
 keyboard_vm("ctrl+l")
 search_vm("chrome://settings/adPrivacy")
 keyboard_vm("enter")
 delay(3)
+minimize_keyboard_vm()
 
 keyboard_vm("tab")
 keyboard_vm("tab")
@@ -397,6 +405,7 @@ keyboard_vm("tab")
 keyboard_vm("tab")
 keyboard_vm("enter")
 click_sock()
+minimize_keyboard_vm()
 
 # # test chrome
 # keyboard_vm("ctrl+l")
@@ -410,6 +419,7 @@ delay(1)
 keyboard_vm("tab")
 keyboard_vm("enter")
 click_sock()
+minimize_keyboard_vm()
 
 # Turn off location
 search_vm("chrome://settings/content/location?search=pop")
@@ -418,6 +428,7 @@ delay(1)
 keyboard_vm("tab")
 keyboard_vm("tab")
 keyboard_vm("down")
+minimize_keyboard_vm()
 
 # Turn on popup
 keyboard_vm("ctrl+l")
@@ -428,12 +439,13 @@ keyboard_vm("tab")
 keyboard_vm("tab")
 keyboard_vm("up")
 click_sock()
+minimize_keyboard_vm()
 
 # Install GoLess
 keyboard_vm("ctrl+l")
 search_vm("https://chromewebstore.google.com/detail/goless-browser-automation/ghlmiigebgipgagnhlanjmmniefbfihl")
 keyboard_vm("enter")
-delay(18)
+delay(2)
 keyboard_vm("tab")
 keyboard_vm("tab")
 keyboard_vm("tab")
@@ -473,7 +485,7 @@ click_sock()
 # Run Goless
 delay(10)
 click_sock()
-move_click()
+minimize_keyboard_vm()
 
 # Open new window and search
 move_click(341, 940)
