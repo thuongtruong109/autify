@@ -3,11 +3,13 @@ from tkinter import ttk, messagebox, filedialog
 import sys
 import os
 
+from states import US_STATES
+
 class VMAutomationGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Autify")
-        self.root.geometry("900x380")
+        self.root.geometry("700x400")
         self.root.resizable(False, False)
         self.root.configure(bg="#f5f5f5")
 
@@ -15,18 +17,7 @@ class VMAutomationGUI:
         self.info = None
 
         # US States list
-        self.us_states = [
-            "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado",
-            "Connecticut", "Delaware", "Florida", "Georgia", "Hawaii", "Idaho",
-            "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky", "Louisiana",
-            "Maine", "Maryland", "Massachusetts", "Michigan", "Minnesota",
-            "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada",
-            "New Hampshire", "New Jersey", "New Mexico", "New York",
-            "North Carolina", "North Dakota", "Ohio", "Oklahoma", "Oregon",
-            "Pennsylvania", "Rhode Island", "South Carolina", "South Dakota",
-            "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington",
-            "West Virginia", "Wisconsin", "Wyoming"
-        ]
+        self.us_states = US_STATES
 
         # Configure style
         style = ttk.Style()
@@ -46,23 +37,23 @@ class VMAutomationGUI:
         self.center_window()
 
         # Main frame
-        main_frame = ttk.Frame(root, padding="30", style='Main.TFrame')
+        main_frame = ttk.Frame(root, padding="10", style='Main.TFrame')
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
         # Title with icon
-        title_label = ttk.Label(main_frame, text="🖥️ Virtual Machine Automation",
-                                style='Title.TLabel')
-        title_label.grid(row=0, column=0, columnspan=2, pady=(0, 10))
+        # title_label = ttk.Label(main_frame, text="🖥️ Virtual Machine Automation",
+        #                         style='Title.TLabel')
+        # title_label.grid(row=0, column=0, columnspan=2, pady=(0, 10))
 
         # Status label with better styling - right under header
         status_frame = ttk.Frame(main_frame, style='Card.TFrame', relief="solid", borderwidth=1)
         status_frame.grid(row=1, column=0, columnspan=2, pady=(0, 20), sticky=(tk.W, tk.E))
 
         self.status_label = ttk.Label(status_frame,
-                                     text="💡 Note: Tắt Unikey hoặc chuyển qua tiếng Anh trước khi start",
+                                     text="❌ Notice: Tắt Unikey hoặc chuyển qua tiếng Anh trước khi chạy. Và không được di chuyển chuột khi tool đang chạy",
                                      font=('Segoe UI', 10, 'italic'),
-                                     foreground="#34495e",
-                                     background="#ecf0f1",
+                                     foreground="white",
+                                     background="red",
                                      padding=(10, 5))
         self.status_label.pack(fill=tk.X)
 
@@ -71,44 +62,33 @@ class VMAutomationGUI:
                               relief="solid", borderwidth=1)
         card_frame.grid(row=2, column=0, columnspan=2, pady=(0, 20), sticky=(tk.W, tk.E))
 
-        # Row 1: Name and Sock
-        # Name input
+        # Name section
         name_label = ttk.Label(card_frame, text="Name:", style='Field.TLabel')
         name_label.grid(row=0, column=0, padx=(0, 10), pady=(0, 15), sticky=tk.W)
-
-        self.name_entry = ttk.Entry(card_frame, width=30, font=('Segoe UI', 10))
-        self.name_entry.grid(row=0, column=1, padx=(0, 30), pady=(0, 15), sticky=(tk.W, tk.E))
+        self.name_entry = ttk.Entry(card_frame, width=50, font=('Segoe UI', 10))
+        self.name_entry.grid(row=0, column=1, pady=(0, 15), sticky=(tk.W, tk.E))
         self.name_entry.insert(0, "2022-example.com")
 
-        # Sock input
+        # Sock section
         sock_label = ttk.Label(card_frame, text="Sock:", style='Field.TLabel')
-        sock_label.grid(row=0, column=2, padx=(0, 10), pady=(0, 15), sticky=tk.W)
-
-        self.sock_entry = ttk.Entry(card_frame, width=35, font=('Segoe UI', 10))
-        self.sock_entry.grid(row=0, column=3, pady=(0, 15), sticky=(tk.W, tk.E))
+        sock_label.grid(row=1, column=0, padx=(0, 10), pady=(0, 15), sticky=tk.W)
+        self.sock_entry = ttk.Entry(card_frame, width=50, font=('Segoe UI', 10))
+        self.sock_entry.grid(row=1, column=1, pady=(0, 15), sticky=(tk.W, tk.E))
         self.sock_entry.insert(0, "185.253.122.152:5961:lkqbgbdk:klwsil8ci4hw")
 
-        # Row 2: Address (dropdown) and ISO Path
-        # Address input with custom dropdown
+        # Address section
         address_label = ttk.Label(card_frame, text="Address:", style='Field.TLabel')
-        address_label.grid(row=1, column=0, padx=(0, 10), pady=(0, 15), sticky=tk.W)
-
-        # Create frame for address input + dropdown button
+        address_label.grid(row=2, column=0, padx=(0, 10), pady=(0, 15), sticky=tk.W)
         address_frame = ttk.Frame(card_frame)
-        address_frame.grid(row=1, column=1, padx=(0, 30), pady=(0, 15), sticky=(tk.W, tk.E))
-
-        self.address_entry = ttk.Entry(address_frame, width=25, font=('Segoe UI', 10))
+        address_frame.grid(row=2, column=1, pady=(0, 15), sticky=(tk.W, tk.E))
+        self.address_entry = ttk.Entry(address_frame, width=38, font=('Segoe UI', 10))
         self.address_entry.grid(row=0, column=0, sticky=(tk.W, tk.E))
-        self.address_entry.insert(0, "Louisiana")
-
-        # Dropdown button
+        self.address_entry.insert(0, "Baton Rouge, Louisiana")
         self.address_dropdown_btn = tk.Button(address_frame, text="▼", width=2,
                                              command=self.toggle_address_dropdown,
                                              bg="#f0f0f0", fg="black", font=('Segoe UI', 8),
                                              relief="flat", cursor="hand2")
-        self.address_dropdown_btn.grid(row=0, column=1, sticky=tk.E)
-
-        # Configure frame weights
+        self.address_dropdown_btn.grid(row=0, column=1, padx=(10, 10))
         address_frame.columnconfigure(0, weight=1)
 
         # Custom dropdown variables
@@ -120,61 +100,60 @@ class VMAutomationGUI:
         self.address_entry.bind('<FocusOut>', self.on_address_focus_out)
         self.address_entry.bind('<Escape>', self.hide_address_dropdown)
 
-        # ISO Path input with placeholder
+        # ISO Path section
         iso_label = ttk.Label(card_frame, text="ISO Path:", style='Field.TLabel')
-        iso_label.grid(row=1, column=2, padx=(0, 10), pady=(0, 15), sticky=tk.W)
-
-        self.iso_entry = ttk.Entry(card_frame, width=35, font=('Segoe UI', 10), foreground='grey')
-        self.iso_entry.grid(row=1, column=3, pady=(0, 15), sticky=(tk.W, tk.E))
+        iso_label.grid(row=3, column=0, padx=(0, 10), pady=(0, 15), sticky=tk.W)
+        iso_frame = ttk.Frame(card_frame)
+        iso_frame.grid(row=3, column=1, pady=(0, 15), sticky=(tk.W, tk.E))
+        self.iso_entry = ttk.Entry(iso_frame, width=38, font=('Segoe UI', 10), foreground='grey')
+        self.iso_entry.grid(row=0, column=0, sticky=(tk.W, tk.E))
         self.iso_entry.insert(0, "Có thể để trống")
-
         # Bind events for placeholder behavior
         self.iso_entry.bind('<FocusIn>', self.on_iso_focus_in)
         self.iso_entry.bind('<FocusOut>', self.on_iso_focus_out)
-
-        # Browse button
-        browse_button = tk.Button(card_frame, text="📁 Browse",
+        browse_button = tk.Button(iso_frame, text="📁 Browse",
                                  command=self.browse_iso,
                                  bg="#3498db", fg="white",
                                  font=('Segoe UI', 9, 'bold'),
-                                 padx=15, pady=8,
+                                 width=10,
                                  cursor="hand2",
                                  relief="flat",
-                                 activebackground="#2980b9",
-                                 activeforeground="white")
-        browse_button.grid(row=1, column=4, padx=(10, 0), pady=(0, 15))
+                                 )
+        browse_button.grid(row=0, column=1, padx=(10, 10))
+        iso_frame.columnconfigure(0, weight=1)
 
         # Configure grid weights for responsive layout
         card_frame.columnconfigure(1, weight=1)
-        card_frame.columnconfigure(3, weight=1)
-
-        # Buttons frame
         button_frame = ttk.Frame(main_frame, style='Main.TFrame')
-        button_frame.grid(row=3, column=0, columnspan=2, pady=20)
+        button_frame.grid(row=6, column=0, columnspan=1, pady=10)
 
         # Start button
         self.start_button = tk.Button(button_frame, text="▶ Start Automation",
                                       command=self.start_automation,
                                       bg="#27ae60", fg="white",
                                       font=('Segoe UI', 11, 'bold'),
-                                      padx=30, pady=12,
+                                      padx=24, pady=3,
                                       cursor="hand2",
                                       relief="flat",
                                       activebackground="#229954",
                                       activeforeground="white")
-        self.start_button.grid(row=0, column=0, padx=10)
+        self.start_button.grid(row=0, column=1, padx=8)
 
         # Clear button
         clear_button = tk.Button(button_frame, text="🗑️ Clear All",
                                 command=self.clear_fields,
                                 bg="#e67e22", fg="white",
                                 font=('Segoe UI', 11, 'bold'),
-                                padx=30, pady=12,
+                                padx=24, pady=3,
                                 cursor="hand2",
                                 relief="flat",
                                 activebackground="#d35400",
                                 activeforeground="white")
-        clear_button.grid(row=0, column=1, padx=10)
+        clear_button.grid(row=0, column=2, padx=8)
+
+        # Configure button frame for centering
+        button_frame.columnconfigure(0, weight=1)
+        button_frame.columnconfigure(3, weight=1)
 
     def center_window(self):
         """Center the window on screen"""
@@ -352,8 +331,11 @@ class VMAutomationGUI:
         if iso_path == "Có thể để trống":
             iso_path = ""
 
+        goless_username = self.goless_username_entry.get().strip()
+        goless_password = self.goless_password_entry.get().strip()
+
         # Store info and close window (iso_path can be empty)
-        self.info = [name, sock, address, iso_path]
+        self.info = [name, sock, address, iso_path, goless_username, goless_password]
         self.root.quit()
         self.root.destroy()
 
@@ -379,6 +361,8 @@ class VMAutomationGUI:
         self.iso_entry.delete(0, tk.END)
         self.iso_entry.insert(0, "Có thể để trống")
         self.iso_entry.config(foreground='grey')
+        self.goless_username_entry.delete(0, tk.END)
+        self.goless_password_entry.delete(0, tk.END)
         self.hide_address_dropdown()
         self.status_label.config(text="🗑️ All fields cleared", foreground="#e67e22")
         self.root.after(2000, lambda: self.status_label.config(
@@ -398,5 +382,7 @@ if __name__ == "__main__":
         print(f"✓ Sock: {info[1]}")
         print(f"✓ Address: {info[2]}")
         print(f"✓ ISO Path: {info[3] if info[3] else '(auto-detect)'}")
+        print(f"✓ Goless Email: {info[4] if info[4] else '(not set)'}")
+        print(f"✓ Goless Password: {'*' * len(info[5]) if info[5] else '(not set)'}")
     else:
         print("✗ Cancelled")

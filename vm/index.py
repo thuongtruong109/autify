@@ -10,7 +10,7 @@ import pyperclip
 
 from watcher import ScreenWatcher
 
-DELAY = 0.5
+DELAY = 0.4
 
 def delay(sec=DELAY):
     time.sleep(sec)
@@ -78,7 +78,7 @@ def keyboard_vm(key):
             move_click(317, 875)
             return
         case _:
-            return "Invalid day"
+            return "Invalid keyboard"
 
 def click_sock():
     move_click(417, 995)
@@ -143,7 +143,8 @@ watchers = [
     ScreenWatcher("./templates/skip_location_vi.png", threshold=0.75),
     ScreenWatcher("./templates/skip_location_us.png", threshold=0.75),
     ScreenWatcher("./templates/skip_chrome_welcome1.png", threshold=0.65, callback=skip_chrome_location_callback),
-    ScreenWatcher("./templates/skip_chrome_welcome2.png", threshold=0.65, callback=skip_chrome_location_callback)
+    ScreenWatcher("./templates/skip_chrome_welcome2.png", threshold=0.65, callback=skip_chrome_location_callback),
+    ScreenWatcher("./templates/skip_AI_banner.png", threshold=0.65, callback=skip_chrome_location_callback)
 ]
 
 for w in watchers:
@@ -178,7 +179,6 @@ sock = info[1]
 address = info[2]
 iso_path = info[3] if len(info) > 3 else ""
 
-# Use custom ISO path if provided, otherwise use detected or default ISO
 iso = iso_path if iso_path else (result.stdout.strip() or default_iso)
 host, port, user, passwd = (sock.split(":") + [""] * 4)[:4]
 
@@ -194,10 +194,11 @@ press_key("enter")
 delay(1)
 hotkey('win', 'up')
 delay(1)
+
+# Create new VM
 hotkey('ctrl', 'n')
 delay(1)
 
-# Adjust create-modal location
 create_vm_location = pyautogui.locateCenterOnScreen('templates/create_vm.png', confidence=0.75)
 
 if create_vm_location:
@@ -402,6 +403,14 @@ click_sock()
 # search_vm("chrome://whats-new/")
 # keyboard_vm("enter")
 
+# Turn off flags
+search_vm("chrome://flags/")
+keyboard_vm("enter")
+delay(1)
+keyboard_vm("tab")
+keyboard_vm("enter")
+click_sock()
+
 # Turn off location
 search_vm("chrome://settings/content/location?search=pop")
 keyboard_vm("enter")
@@ -435,6 +444,7 @@ delay(10)
 keyboard_vm("left")
 keyboard_vm("enter")
 delay(24)
+click_sock()
 
 # Allow permission
 keyboard_vm("down")
