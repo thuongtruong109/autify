@@ -82,7 +82,7 @@ def keyboard_vm(key):
 
 def click_sock():
     move_click(417, 995)
-    move_click(1000, 500)
+    move_click(660, 260)
     keyboard_vm("enter")
     keyboard_vm("enter")
     keyboard_vm("enter")
@@ -91,9 +91,11 @@ def click_sock():
     move_click(417, 995)
 
 def minimize_keyboard_vm():
+    delay(1)
     move_click(1624, 561)
     delay(1)
-    move_click(514, 996)
+    move_click(565, 996)
+    delay(1)
 
 def search_vm(text):
     keyboard_vm("ctrl+l")
@@ -146,11 +148,11 @@ watchers = [
     ScreenWatcher("./templates/install_software.png"),
     ScreenWatcher("./templates/skip_location_vi.png", threshold=0.75),
     ScreenWatcher("./templates/skip_location_us.png", threshold=0.75),
-    ScreenWatcher("./templates/skip_location_us_2.png", threshold=0.75),
+    # ScreenWatcher("./templates/skip_location_us_2.png", threshold=0.75),
     ScreenWatcher("./templates/skip_chrome_welcome1.png", threshold=0.65, callback=skip_chrome_location_callback),
     ScreenWatcher("./templates/skip_chrome_welcome2.png", threshold=0.65, callback=skip_chrome_location_callback),
     ScreenWatcher("./templates/skip_AI_banner.png", threshold=0.65),
-    ScreenWatcher("./templates/skip_privacy.png", threshold=0.65)
+    ScreenWatcher("./templates/skip_privacy.png", threshold=0.75)
 ]
 
 for w in watchers:
@@ -284,7 +286,7 @@ press_key('enter')
 move_click(1270, 878)
 hotkey('ctrl', 's')
 
-setting_vm_location = pyautogui.locateCenterOnScreen('templates/setting_vm.png', confidence=0.75)
+setting_vm_location = pyautogui.locateCenterOnScreen('templates/setting_vm.png', confidence=0.65)
 
 if setting_vm_location:
     x, y = setting_vm_location
@@ -366,16 +368,18 @@ else:
 paste_into_vm(110, 1000, "chrome")
 keyboard_vm("enter")
 fullscreen_vm()
-delay(2)
+click_sock()
 minimize_keyboard_vm()
 
-# Turn off ads privacy
+Turn off ads privacy
 keyboard_vm("ctrl+l")
 search_vm("chrome://settings/adPrivacy")
 keyboard_vm("enter")
-delay(3)
 minimize_keyboard_vm()
 
+keyboard_vm("tab")
+keyboard_vm("tab")
+keyboard_vm("tab")
 keyboard_vm("tab")
 keyboard_vm("tab")
 keyboard_vm("enter")
@@ -407,17 +411,13 @@ keyboard_vm("enter")
 click_sock()
 minimize_keyboard_vm()
 
-# # test chrome
-# keyboard_vm("ctrl+l")
-# search_vm("chrome://whats-new/")
-# keyboard_vm("enter")
-
 # Turn off flags
 search_vm("chrome://flags/")
 keyboard_vm("enter")
 delay(1)
 keyboard_vm("tab")
 keyboard_vm("enter")
+delay(2)
 click_sock()
 minimize_keyboard_vm()
 
@@ -445,7 +445,7 @@ minimize_keyboard_vm()
 keyboard_vm("ctrl+l")
 search_vm("https://chromewebstore.google.com/detail/goless-browser-automation/ghlmiigebgipgagnhlanjmmniefbfihl")
 keyboard_vm("enter")
-delay(2)
+delay(22)
 keyboard_vm("tab")
 keyboard_vm("tab")
 keyboard_vm("tab")
@@ -463,6 +463,7 @@ keyboard_vm("down")
 move_click(733, 504)
 keyboard_vm("left")
 keyboard_vm("enter")
+delay(6)
 keyboard_vm("up")
 
 # Login Goless
@@ -473,9 +474,14 @@ paste_into_vm(990, 476, "Snow2511@")
 keyboard_vm("enter")
 delay(14)
 move_click(1528, 516)
-move_click(1807, 103)
-move_click(1738, 263)
-move_click(1771, 105)
+
+# # Turn off tab search
+# pyautogui.rightClick(1807, 105)
+# move_click(1670, 148)
+
+# Search workflows
+move_click(1752, 103)
+move_click(1560, 263)
 delay(6)
 move_click(1511, 210)
 paste_into_vm(1511, 210, "google")
