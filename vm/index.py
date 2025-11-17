@@ -74,6 +74,9 @@ def keyboard_vm(key):
         case "left":
             move_click(1228, 940)
             return
+        case "shift":
+            move_click(317, 875)
+            return
         case _:
             return "Invalid day"
 
@@ -103,6 +106,36 @@ def skip_chrome_location_callback(x, y):
     hotkey('ctrl', 'w')
     print("Clicked skip chrome welcome")
 
+# ---------------- Auto-close Chrome welcome ----------------
+def auto_close_chrome_tabs():
+    TARGET_TITLES = [
+        "có gì mới", "chrome có gì mới",
+        "what's new", "chrome what's new"
+    ]
+    print("🟢 Auto-close 'Có gì mới / What's New' thread started")
+    while True:
+        try:
+            for win in gw.getAllWindows():
+                title = win.title.lower().strip()
+                if any(t in title for t in TARGET_TITLES):
+                    print(f"⚡ Found Chrome welcome tab: {win.title}")
+                    try:
+                        win.activate()
+                        time.sleep(0.2)
+                        keyboard_vm("ctrl")
+                        move_click(470, 746)
+                        pyautogui.hotkey('ctrl', 'w')
+                        print("✅ Tab closed!")
+                    except Exception as e:
+                        print(f"❌ Error closing tab: {e}")
+            time.sleep(1)
+        except Exception as e:
+            print(f"❌ Error in auto-close thread: {e}")
+            time.sleep(1)
+
+threading.Thread(target=auto_close_chrome_tabs, daemon=True).start()
+# ------------------------------------------------------------
+
 watchers = [
     ScreenWatcher("./templates/cancel_capture.png", min_delay=180),
     ScreenWatcher("./templates/install_software.png"),
@@ -120,8 +153,7 @@ for w in watchers:
 command = 'dir D:\\*.iso /s /b'
 default_iso = r"D:\Soft\Windows_10_21H2_x64_Tiny.iso"
 result = subprocess.run(command, shell=True, capture_output=True, text=True)
-# #############################################################
-# Get info from GUI or use default values
+
 try:
     from launcher import get_vm_info
     print("🚀 Starting GUI...")
@@ -139,6 +171,8 @@ if len(info) < 3:
     print("⚠️ Lack of infomation: <name> <sock> <address>")
     sys.exit(1)
 
+# #############################################################
+
 name = info[0]
 sock = info[1]
 address = info[2]
@@ -148,12 +182,6 @@ iso_path = info[3] if len(info) > 3 else ""
 iso = iso_path if iso_path else (result.stdout.strip() or default_iso)
 host, port, user, passwd = (sock.split(":") + [""] * 4)[:4]
 
-print(f"✓ Configuration loaded:")
-print(f"  - Name: {name}")
-print(f"  - Sock: {sock}")
-print(f"  - Address: {address}")
-print(f"  - ISO: {iso}")
-print("="*50)
 # ##############################################################
 
 hotkey('win', 'd')
@@ -168,6 +196,18 @@ hotkey('win', 'up')
 delay(1)
 hotkey('ctrl', 'n')
 delay(1)
+
+# Adjust create-modal location
+keyboard_location = pyautogui.locateCenterOnScreen('templates/create_vm.png', confidence=0.75)
+
+if keyboard_location:
+    pyautogui.moveTo(keyboard_location, duration=0.3)
+    pyautogui.mouseDown()
+    pyautogui.moveTo(590, 130, duration=0.7)
+    pyautogui.mouseUp()
+    print("Clicked create new VM modal")
+else:
+    print("Image not found on screen.")
 
 # Name and Operating System
 move_click(737, 210)
@@ -344,6 +384,46 @@ paste_into_vm(110, 1000, "chrome")
 keyboard_vm("enter")
 fullscreen_vm()
 
+# Turn off ads privacy
+keyboard_vm("ctrl+l")
+search_vm("chrome://settings/adPrivacy")
+keyboard_vm("enter")
+delay(5)
+
+keyboard_vm("tab")
+keyboard_vm("tab")
+keyboard_vm("enter")
+keyboard_vm("tab")
+keyboard_vm("tab")
+keyboard_vm("enter")
+keyboard_vm("shift")
+keyboard_vm("tab")
+keyboard_vm("shift")
+keyboard_vm("tab")
+keyboard_vm("enter")
+
+keyboard_vm("tab")
+keyboard_vm("enter")
+keyboard_vm("tab")
+keyboard_vm("tab")
+keyboard_vm("enter")
+keyboard_vm("shift")
+keyboard_vm("tab")
+keyboard_vm("shift")
+keyboard_vm("tab")
+keyboard_vm("enter")
+
+keyboard_vm("tab")
+keyboard_vm("enter")
+keyboard_vm("tab")
+keyboard_vm("tab")
+keyboard_vm("enter")
+
+# # test chrome
+# keyboard_vm("ctrl+l")
+# search_vm("chrome://whats-new/")
+# keyboard_vm("enter")
+
 # Turn off location
 search_vm("chrome://settings/content/location?search=pop")
 keyboard_vm("enter")
@@ -366,14 +446,14 @@ click_sock()
 keyboard_vm("ctrl+l")
 search_vm("https://chromewebstore.google.com/detail/goless-browser-automation/ghlmiigebgipgagnhlanjmmniefbfihl")
 keyboard_vm("enter")
-delay(16)
+delay(18)
 keyboard_vm("tab")
 keyboard_vm("tab")
 keyboard_vm("tab")
 keyboard_vm("tab")
 keyboard_vm("tab")
 keyboard_vm("enter")
-delay(8)
+delay(10)
 keyboard_vm("left")
 keyboard_vm("enter")
 delay(24)
@@ -391,7 +471,7 @@ delay(6)
 paste_into_vm(1002, 383, "AngelineliewyeStiffler620@gmail.com")
 paste_into_vm(990, 476, "Snow2511@")
 keyboard_vm("enter")
-delay(10)
+delay(14)
 move_click(1528, 516)
 move_click(1718, 103)
 move_click(1648, 258)
@@ -405,6 +485,7 @@ click_sock()
 # Run Goless
 delay(10)
 click_sock()
+move_click()
 
 # Open new window and search
 move_click(341, 940)
