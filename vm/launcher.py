@@ -9,7 +9,7 @@ class VMAutomationGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Autify")
-        self.root.geometry("700x400")
+        self.root.geometry("560x420")
         self.root.resizable(False, False)
         self.root.configure(bg="#f5f5f5")
 
@@ -50,7 +50,7 @@ class VMAutomationGUI:
         status_frame.grid(row=1, column=0, columnspan=2, pady=(0, 20), sticky=(tk.W, tk.E))
 
         self.status_label = ttk.Label(status_frame,
-                                     text="❌ Notice: Tắt Unikey hoặc chuyển qua tiếng Anh trước khi chạy. Và không được di chuyển chuột khi tool đang chạy",
+                                     text="❌ Notice: Chuyển Unikey sang tiếng Anh trước khi chạy.\n Và không được di chuyển chuột khi tool đang chạy. Khi load ISO phải nhấn Enter thủ công",
                                      font=('Segoe UI', 10, 'italic'),
                                      foreground="white",
                                      background="red",
@@ -318,7 +318,6 @@ class VMAutomationGUI:
         return True
 
     def start_automation(self):
-        """Start the automation process"""
         if not self.validate_inputs():
             return
 
@@ -337,7 +336,6 @@ class VMAutomationGUI:
         self.root.destroy()
 
     def browse_iso(self):
-        """Open file dialog to browse for ISO file"""
         filename = filedialog.askopenfilename(
             title="Select ISO File",
             filetypes=[("ISO files", "*.iso"), ("All files", "*.*")]
@@ -351,7 +349,6 @@ class VMAutomationGUI:
                 text="💡 Note: Tắt Unikey hoặc chuyển qua tiếng Anh trước khi start", foreground="#7f8c8d"))
 
     def clear_fields(self):
-        """Clear all input fields"""
         self.name_entry.delete(0, tk.END)
         self.sock_entry.delete(0, tk.END)
         self.address_entry.delete(0, tk.END)
@@ -364,7 +361,6 @@ class VMAutomationGUI:
             text="💡 Note: Tắt Unikey hoặc chuyển qua tiếng Anh trước khi start", foreground="#7f8c8d"))
 
 def get_vm_info():
-    """Show GUI and get VM information"""
     root = tk.Tk()
     app = VMAutomationGUI(root)
     root.mainloop()
