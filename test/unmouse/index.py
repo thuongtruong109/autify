@@ -11,6 +11,7 @@ from virtual_mouse import move_mouse, click_mouse, mouse_down, mouse_up
 DELAY = 0.4
 
 pyautogui.FAILSAFE = True
+sys.dont_write_bytecode = True
 
 def delay(sec=DELAY):
     time.sleep(sec)
@@ -96,12 +97,13 @@ def click_sock():
     keyboard_vm("enter")
     keyboard_vm("enter")
     move_click(417, 995)
+    delay(1)
 
 def minimize_keyboard_vm():
     delay(1)
     move_click(1624, 561)
     delay(1)
-    move_click(565, 996)
+    move_click(512, 996)
     delay(1)
 
 def search_vm(text):
@@ -122,6 +124,7 @@ def skip_chrome_location_callback(x, y):
 
 def open_goless_popup():
     move_click(1752, 103)
+    delay(1)
     move_click(1560, 263)
 
 def stop_on_goless_success(x, y):
@@ -164,8 +167,8 @@ watchers = [
     ScreenWatcher("./templates/skip_location_vi.png"),
     ScreenWatcher("./templates/skip_location_us.png"),
     # ScreenWatcher("./templates/skip_location_us_2.png", threshold=0.75),
-    ScreenWatcher("./templates/skip_chrome_welcome1.png", threshold=0.65, callback=skip_chrome_location_callback),
-    ScreenWatcher("./templates/skip_chrome_welcome2.png", threshold=0.65, callback=skip_chrome_location_callback),
+    ScreenWatcher("./templates/skip_chrome_welcome.png", threshold=0.65, callback=skip_chrome_location_callback),
+     ScreenWatcher("./templates/skip_chrome_welcome2.png", threshold=0.65, callback=skip_chrome_location_callback),
     ScreenWatcher("./templates/skip_AI_banner.png"),
     ScreenWatcher("./templates/skip_privacy.png"),
     ScreenWatcher("./templates/goless_success.png", callback=stop_on_goless_success)
@@ -208,141 +211,143 @@ host, port, user, passwd = (sock.split(":") + [""] * 4)[:4]
 
 # ##############################################################
 
-# hotkey('win', 'd')
+hotkey('win', 'd')
 
-# hotkey('win', 's')
-# type_text("a5")
-# delay(1)
-# press_key("enter", 4)
-# press_key("enter")
-# delay(1)
-# hotkey('win', 'up')
-# delay(1)
+hotkey('win', 's')
+type_text("a5")
+delay(1)
+press_key("enter", 4)
+press_key("enter")
+delay(1)
+hotkey('win', 'up')
+delay(1)
 
-# # Create new VM
-# hotkey('ctrl', 'n')
-# delay(1)
+# Create new VM
+hotkey('ctrl', 'n')
+delay(1)
 
-# create_vm_location = pyautogui.locateCenterOnScreen('templates/create_vm.png', confidence=0.75)
+create_vm_location = pyautogui.locateCenterOnScreen('templates/create_vm.png', confidence=0.75)
 
-# if create_vm_location:
-#     pyautogui.moveTo(create_vm_location, duration=0.3)
-#     pyautogui.mouseDown()
-#     pyautogui.moveTo(590, 129, duration=0.7)
-#     pyautogui.mouseUp()
-#     print("Clicked create new VM modal")
-# else:
-#     print("Image not found on screen.")
+if create_vm_location:
+    pyautogui.moveTo(create_vm_location, duration=0.3)
+    pyautogui.mouseDown()
+    pyautogui.moveTo(590, 129, duration=0.7)
+    pyautogui.mouseUp()
+    print("Clicked create new VM modal")
+else:
+    print("Image not found on screen.")
 
-# # Name and Operating System
-# move_click(737, 210)
-# delay(1)
-# type_text(name)
+# Name and Operating System
+move_click(737, 210)
+delay(1)
+type_text(name)
 
-# move_click(800, 259)
-# hotkey('ctrl', 'a')
-# press_key("backspace")
-# type_text(iso)
+move_click(800, 259)
+hotkey('ctrl', 'a')
+press_key("backspace")
+type_text(iso)
 
-# # Harware
-# move_click(715, 457)
-# move_click(1360, 317)
-# press_key("backspace")
-# type_text("4")
+# Harware
+move_click(715, 457)
+move_click(1360, 317)
+press_key("backspace")
+type_text("4")
 
-# # Preset
-# move_click(726, 422)
-# move_click(672, 312)
-# move_click(1139, 370)
-# press_key("a")
-# hotkey('ctrl', 'enter')
+# Preset
+move_click(726, 422)
+move_click(672, 312)
+move_click(1139, 370)
+press_key("a")
+hotkey('ctrl', 'enter')
 
-# # Network
-# move_click(732, 483)
-# move_click(1008, 399, clicks=2)
-# move_click(1358, 399, clicks=2)
-# move_click(675, 489)
-# move_click(812, 540)
-# type_text(host)
-# move_click(1075, 538)
-# hotkey('ctrl', 'a')
-# press_key("backspace")
-# type_text(port)
-# move_click(1258, 537)
-# type_text("8.8.8.8")
-# move_click(836, 562)
-# type_text(user)
-# move_click(1057, 563)
-# type_text(passwd)
-# move_click(777, 622)
-# type_text(address)
-# press_key("down")
-# press_key("enter")
-# move_click(676, 714)
-# move_click(676, 767)
-# move_click(912, 688)
+# Network
+move_click(732, 483)
+move_click(1008, 399, clicks=2)
+move_click(1358, 399, clicks=2)
+move_click(675, 489)
+move_click(812, 540)
+type_text(host)
+move_click(1075, 538)
+hotkey('ctrl', 'a')
+press_key("backspace")
+type_text(port)
+move_click(1258, 537)
+type_text("8.8.8.8")
+move_click(836, 562)
+type_text(user)
+move_click(1057, 563)
+type_text(passwd)
+move_click(777, 622)
+type_text(address)
+press_key("down")
+press_key("enter")
+move_click(676, 714)
+move_click(676, 767)
+move_click(912, 688)
 
-# # AntiOS
-# move_click(707, 801)
-# move_click(676, 427)
-# move_click(676, 606)
+# AntiOS
+move_click(707, 801)
+move_click(676, 427)
+move_click(676, 606)
 
-# # Fingerprint
-# move_click(697, 830)
-# move_click(902, 433)
+# Fingerprint
+move_click(697, 830)
+move_click(902, 433)
 
-# for _ in range(random.randint(1, 7)):
-#     press_key('down', sec=0.2)
-#     hotkey('ctrl', 'enter', sec=0.2)
+for _ in range(random.randint(1, 7)):
+    press_key('down', sec=0.2)
+    hotkey('ctrl', 'enter', sec=0.2)
 
-# delay(1)
-# press_key('enter')
+delay(1)
+press_key('enter')
 
-# # Settings
-# move_click(1270, 878)
-# hotkey('ctrl', 's')
+# Settings
+move_click(1270, 878)
+hotkey('ctrl', 's')
 
-# setting_vm_location = pyautogui.locateCenterOnScreen('templates/setting_vm.png', confidence=0.65)
+setting_vm_location = pyautogui.locateCenterOnScreen('templates/setting_vm.png', confidence=0.65)
 
-# if setting_vm_location:
-#     x, y = setting_vm_location
-#     pyautogui.moveTo(x, y - 77, duration=0.3)
-#     pyautogui.mouseDown()
-#     pyautogui.moveTo(666, 273, duration=0.7)
-#     pyautogui.mouseUp()
-#     print("Clicked setting new VM modal")
-# else:
-#     print("Image not found on screen.")
+if setting_vm_location:
+    x, y = setting_vm_location
+    delay(0.5)
+    pyautogui.moveTo(x, y - 77, duration=0.3)
+    pyautogui.mouseDown()
+    pyautogui.moveTo(666, 273, duration=0.7)
+    pyautogui.mouseUp()
+    print("Clicked setting new VM modal")
+else:
+    print("Image not found on screen.")
 
-# move_click(648, 351)
-# move_click(880, 379)
-# move_click(945, 463)
-# type_text("bi")
-# hotkey('ctrl', 'enter')
-# move_click(650, 427)
-# delay(0.5)
-# move_click(920, 603)
-# move_click(650, 463)
-# delay(0.5)
-# move_click(1176, 479)
-# delay(0.5)
-# press_key('enter')
+move_click(648, 351)
+move_click(880, 379)
+move_click(945, 463)
+type_text("bi")
+hotkey('ctrl', 'enter')
+delay(0.8)
+move_click(650, 427)
+delay(0.8)
+move_click(920, 603)
+move_click(650, 463)
+delay(0.8)
+move_click(1176, 479)
+delay(0.5)
+press_key('enter')
 
-# # Start
-# pyautogui.rightClick(30, 1010, duration=DELAY)
-# delay()
-# move_click(75, 753)
-# move_click(320, 753)
+# Start
+pyautogui.rightClick(30, 1010, duration=DELAY)
+delay()
+move_click(75, 753)
+move_click(320, 753)
 
-# delay(50)
-# move_click(1000, 500)
-# move_click(1090, 530)
-# delay(380)
-# move_click(1100, 1060, clicks=2)
-# delay(2)
+delay(50)
+move_click(1000, 500)
+move_click(1090, 530)
+delay(370)
+move_click(1100, 1060, clicks=2)
+delay(2)
 
-# # Open fullsize VM window
-# move_click(1857, 89)
+# Open fullsize VM window
+move_click(1857, 89)
 
 # In the VM window
 move_click(550, 300)
@@ -398,6 +403,7 @@ minimize_keyboard_vm()
 keyboard_vm("ctrl+l")
 search_vm("chrome://settings/adPrivacy")
 keyboard_vm("enter")
+delay(1)
 
 keyboard_vm("tab")
 keyboard_vm("tab")
@@ -522,3 +528,8 @@ keyboard_vm("down")
 delay(1)
 keyboard_vm("win")
 keyboard_vm("down")
+
+for _ in range(35):
+    click_sock()
+    open_goless_popup()
+    delay(15)

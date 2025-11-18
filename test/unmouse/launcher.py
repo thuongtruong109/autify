@@ -9,7 +9,7 @@ class VMAutomationGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Autify")
-        self.root.geometry("560x420")
+        self.root.geometry("530x440")
         self.root.resizable(False, False)
         self.root.configure(bg="#f5f5f5")
 
@@ -50,8 +50,8 @@ class VMAutomationGUI:
         status_frame.grid(row=1, column=0, columnspan=2, pady=(0, 20), sticky=(tk.W, tk.E))
 
         self.status_label = ttk.Label(status_frame,
-                                     text="❌ Notice: Chuyển Unikey sang tiếng Anh trước khi chạy.\n Và không được di chuyển chuột khi tool đang chạy. Khi load ISO phải nhấn Enter thủ công",
-                                     font=('Segoe UI', 10, 'italic'),
+                                     text="❌ Chú ý: Chuyển Unikey sang tiếng Anh trước khi chạy.\n Và không được di chuyển chuột khi tool đang chạy.\n Khi load ISO phải nhấn Enter thủ công",
+                                     font=('Segoe UI', 10, 'bold'),
                                      foreground="white",
                                      background="red",
                                      padding=(10, 5))
