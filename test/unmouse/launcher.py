@@ -15,6 +15,7 @@ class VMAutomationGUI:
 
         # Variables to store info
         self.info = None
+        self.mode = "full"  # "full", "vm", "goless"
 
         # US States list
         self.us_states = US_STATES
@@ -107,7 +108,7 @@ class VMAutomationGUI:
         iso_frame.grid(row=3, column=1, pady=(0, 15), sticky=(tk.W, tk.E))
         self.iso_entry = ttk.Entry(iso_frame, width=38, font=('Segoe UI', 10), foreground='grey')
         self.iso_entry.grid(row=0, column=0, sticky=(tk.W, tk.E))
-        self.iso_entry.insert(0, "Có thể để trống")
+        self.iso_entry.insert(0, "")
         # Bind events for placeholder behavior
         self.iso_entry.bind('<FocusIn>', self.on_iso_focus_in)
         self.iso_entry.bind('<FocusOut>', self.on_iso_focus_out)
@@ -127,29 +128,41 @@ class VMAutomationGUI:
         button_frame = ttk.Frame(main_frame, style='Main.TFrame')
         button_frame.grid(row=6, column=0, columnspan=1, pady=10)
 
+        # Only VM button
+        self.only_vm_button = tk.Button(button_frame, text="💻 Only VM",
+                                        command=self.start_only_vm,
+                                        bg="#3498db", fg="white",
+                                        font=('Segoe UI', 10, 'bold'),
+                                        padx=16, pady=3,
+                                        cursor="hand2",
+                                        relief="flat",
+                                        activebackground="#2980b9",
+                                        activeforeground="white")
+        self.only_vm_button.grid(row=0, column=0, padx=4)
+
+        # Only Goless button
+        self.only_goless_button = tk.Button(button_frame, text="🤖 Only Goless",
+                                            command=self.start_only_goless,
+                                            bg="#9b59b6", fg="white",
+                                            font=('Segoe UI', 10, 'bold'),
+                                            padx=16, pady=3,
+                                            cursor="hand2",
+                                            relief="flat",
+                                            activebackground="#8e44ad",
+                                            activeforeground="white")
+        self.only_goless_button.grid(row=0, column=1, padx=4)
+
         # Start button
-        self.start_button = tk.Button(button_frame, text="▶ Start Automation",
+        self.start_button = tk.Button(button_frame, text="▶ Run all",
                                       command=self.start_automation,
                                       bg="#27ae60", fg="white",
                                       font=('Segoe UI', 11, 'bold'),
-                                      padx=24, pady=3,
+                                      padx=24, pady=1,
                                       cursor="hand2",
                                       relief="flat",
                                       activebackground="#229954",
                                       activeforeground="white")
-        self.start_button.grid(row=0, column=1, padx=8)
-
-        # Clear button
-        clear_button = tk.Button(button_frame, text="🗑️ Clear All",
-                                command=self.clear_fields,
-                                bg="#e67e22", fg="white",
-                                font=('Segoe UI', 11, 'bold'),
-                                padx=24, pady=3,
-                                cursor="hand2",
-                                relief="flat",
-                                activebackground="#d35400",
-                                activeforeground="white")
-        clear_button.grid(row=0, column=2, padx=8)
+        self.start_button.grid(row=0, column=2, padx=4)
 
         # Configure button frame for centering
         button_frame.columnconfigure(0, weight=1)
@@ -281,14 +294,14 @@ class VMAutomationGUI:
 
     def on_iso_focus_in(self, event):
         """Remove placeholder text when ISO entry is focused"""
-        if self.iso_entry.get() == "Có thể để trống":
+        if self.iso_entry.get() == "":
             self.iso_entry.delete(0, tk.END)
             self.iso_entry.config(foreground='black')
 
     def on_iso_focus_out(self, event):
         """Restore placeholder text if ISO entry is empty"""
         if self.iso_entry.get() == "":
-            self.iso_entry.insert(0, "Có thể để trống")
+            self.iso_entry.insert(0, "")
             self.iso_entry.config(foreground='grey')
 
     def validate_inputs(self):
@@ -318,6 +331,18 @@ class VMAutomationGUI:
         return True
 
     def start_automation(self):
+        self.mode = "full"
+        self._start_process()
+
+    def start_only_vm(self):
+        self.mode = "vm"
+        self._start_process()
+
+    def start_only_goless(self):
+        self.mode = "goless"
+        self._start_process()
+
+    def _start_process(self):
         if not self.validate_inputs():
             return
 
@@ -327,11 +352,11 @@ class VMAutomationGUI:
         iso_path = self.iso_entry.get().strip()
 
         # Check if iso_path is placeholder text, treat as empty
-        if iso_path == "Có thể để trống":
+        if iso_path == "":
             iso_path = ""
 
         # Store info and close window (iso_path can be empty)
-        self.info = [name, sock, address, iso_path]
+        self.info = [name, sock, address, iso_path, self.mode]
         self.root.quit()
         self.root.destroy()
 
@@ -347,18 +372,6 @@ class VMAutomationGUI:
             self.status_label.config(text="✅ ISO file selected successfully", foreground="#27ae60")
             self.root.after(2000, lambda: self.status_label.config(
                 text="💡 Note: Tắt Unikey hoặc chuyển qua tiếng Anh trước khi start", foreground="#7f8c8d"))
-
-    def clear_fields(self):
-        self.name_entry.delete(0, tk.END)
-        self.sock_entry.delete(0, tk.END)
-        self.address_entry.delete(0, tk.END)
-        self.iso_entry.delete(0, tk.END)
-        self.iso_entry.insert(0, "Có thể để trống")
-        self.iso_entry.config(foreground='grey')
-        self.hide_address_dropdown()
-        self.status_label.config(text="🗑️ All fields cleared", foreground="#e67e22")
-        self.root.after(2000, lambda: self.status_label.config(
-            text="💡 Note: Tắt Unikey hoặc chuyển qua tiếng Anh trước khi start", foreground="#7f8c8d"))
 
 def get_vm_info():
     root = tk.Tk()
