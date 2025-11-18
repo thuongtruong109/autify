@@ -13,6 +13,9 @@ on:
       - "vm/**"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-vm:
     runs-on: windows-latest
@@ -46,26 +49,31 @@ jobs:
 
       - name: Verify build
         working-directory: ./vm
+        shell: pwsh
         run: |
-          if (Test-Path "dist\autify_vm.exe") {
-            Write-Host "✅ Build successful! Executable created at dist\autify_vm.exe"
-            Write-Host "File size: $((Get-Item dist\autify_vm.exe).Length / 1MB) MB"
+          $exe = Get-ChildItem dist -Filter *.exe | Select-Object -First 1
+          if ($exe) {
+            Write-Host "✅ Build successful! Found EXE: $($exe.Name)"
+            Write-Host "File size: $([math]::Round(($exe.Length / 1MB),2)) MB"
           } else {
-            Write-Host "❌ Build failed! Executable not found"
+            Write-Host "❌ Build failed! No .exe found in dist/"
             exit 1
           }
-        shell: pwsh
 
-      - name: Create dist archive
+      - name: Create dist archive (auto name from exe)
         working-directory: ./vm
-        run: |
-          $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-          $archiveName = "autify_vm_$timestamp.zip"
-          Compress-Archive -Path dist\* -DestinationPath $archiveName
-          Write-Host "📦 Created archive: $archiveName"
-          Write-Host "Archive size: $((Get-Item $archiveName).Length / 1MB) MB"
-          echo "ARCHIVE_NAME=$archiveName" >> $env:GITHUB_ENV
         shell: pwsh
+        run: |
+          # Detect exe
+          $exe = Get-ChildItem dist -Filter *.exe | Select-Object -First 1
+          $base = $exe.BaseName  # example: autify_vm
+          $archiveName = "$base.zip"
+
+          # Create zip with auto name
+          Compress-Archive -Path dist\* -DestinationPath $archiveName -Force
+
+          echo "ARCHIVE_NAME=$archiveName" >> $env:GITHUB_ENV
+          Write-Host "📦 Created archive: $archiveName"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -75,17 +83,29 @@ jobs:
           retention-days: 30
           compression-level: 0
 
-      - name: Generate build summary
+      - name: Deploy artifact to GitHub Pages
+        shell: bash
         run: |
-          echo "## 🚀 Build Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Build Information" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status:** ✅ Success" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Build Number:** ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Artifact Name:** autify-vm-build-${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📥 Download" >> $GITHUB_STEP_SUMMARY
-          echo "The build artifact is available in the **Artifacts** section of this workflow run." >> $GITHUB_STEP_SUMMARY
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          # Checkout gh-pages
+          git fetch origin gh-pages || echo "No gh-pages branch yet"
+          git checkout -B gh-pages
+
+          mkdir -p downloads
+          cp vm/$ARCHIVE_NAME downloads/
+
+          git add downloads
+          git commit -m "Update artifact $ARCHIVE_NAME" || echo "No changes"
+          git push origin gh-pages
+
+      - name: Generate build summary
         shell: pwsh
+        run: |
+          $url = "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/downloads/$env:ARCHIVE_NAME"
+
+          echo "## 🚀 Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "### Build Information" >> $GITHUB_STEP_SUMMARY
+          echo "- **Executable:** $env:ARCHIVE_NAME" >> $GITHUB_STEP_SUMMARY
+          echo "- **Download:** [$env:ARCHIVE_NAME]($url)" >> $GITHUB_STEP_SUMMARY
