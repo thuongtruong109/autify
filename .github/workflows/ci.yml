@@ -1,0 +1,91 @@
+name: Build VM
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "vm/**"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "vm/**"
+  workflow_dispatch:
+
+jobs:
+  build-vm:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        working-directory: ./vm
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build executable with PyInstaller
+        working-directory: ./vm
+        run: |
+          pyinstaller build.spec --clean
+
+      - name: Copy templates folder to dist
+        working-directory: ./vm
+        run: |
+          xcopy /E /I /Y templates dist\templates
+
+      - name: Verify build
+        working-directory: ./vm
+        run: |
+          if (Test-Path "dist\autify_vm.exe") {
+            Write-Host "✅ Build successful! Executable created at dist\autify_vm.exe"
+            Write-Host "File size: $((Get-Item dist\autify_vm.exe).Length / 1MB) MB"
+          } else {
+            Write-Host "❌ Build failed! Executable not found"
+            exit 1
+          }
+        shell: pwsh
+
+      - name: Create dist archive
+        working-directory: ./vm
+        run: |
+          $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+          $archiveName = "autify_vm_$timestamp.zip"
+          Compress-Archive -Path dist\* -DestinationPath $archiveName
+          Write-Host "📦 Created archive: $archiveName"
+          Write-Host "Archive size: $((Get-Item $archiveName).Length / 1MB) MB"
+          echo "ARCHIVE_NAME=$archiveName" >> $env:GITHUB_ENV
+        shell: pwsh
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: autify-vm-build-${{ github.run_number }}
+          path: vm/*.zip
+          retention-days: 30
+          compression-level: 0
+
+      - name: Generate build summary
+        run: |
+          echo "## 🚀 Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Build Information" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** ✅ Success" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build Number:** ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Artifact Name:** autify-vm-build-${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📥 Download" >> $GITHUB_STEP_SUMMARY
+          echo "The build artifact is available in the **Artifacts** section of this workflow run." >> $GITHUB_STEP_SUMMARY
+        shell: pwsh
