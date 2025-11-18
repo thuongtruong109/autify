@@ -1,10 +1,7 @@
-import sys
-import pyautogui, subprocess, time, random
+import sys, os, time, subprocess, time, random, threading
 import cv2
 import numpy as np
 import pyautogui
-import threading
-import time
 import pygetwindow as gw
 import pyperclip
 
@@ -123,6 +120,14 @@ def skip_chrome_location_callback(x, y):
     hotkey('ctrl', 'w')
     print("Clicked skip chrome welcome")
 
+def open_goless_popup():
+    move_click(1752, 103)
+    move_click(1560, 263)
+
+def stop_on_goless_success(x, y):
+    print(f"🟢 Goless success, stopping script!")
+    os._exit(0)
+
 # ---------------- Auto-close Chrome welcome ----------------
 def auto_close_chrome_tabs():
     TARGET_TITLES = [
@@ -162,7 +167,8 @@ watchers = [
     ScreenWatcher("./templates/skip_chrome_welcome1.png", threshold=0.65, callback=skip_chrome_location_callback),
     ScreenWatcher("./templates/skip_chrome_welcome2.png", threshold=0.65, callback=skip_chrome_location_callback),
     ScreenWatcher("./templates/skip_AI_banner.png"),
-    ScreenWatcher("./templates/skip_privacy.png")
+    ScreenWatcher("./templates/skip_privacy.png"),
+    ScreenWatcher("./templates/goless_success.png", callback=stop_on_goless_success)
 ]
 
 for w in watchers:
@@ -313,11 +319,13 @@ host, port, user, passwd = (sock.split(":") + [""] * 4)[:4]
 # move_click(945, 463)
 # type_text("bi")
 # hotkey('ctrl', 'enter')
-
 # move_click(650, 427)
+# delay(0.5)
 # move_click(920, 603)
 # move_click(650, 463)
+# delay(0.5)
 # move_click(1176, 479)
+# delay(0.5)
 # press_key('enter')
 
 # # Start
@@ -339,159 +347,158 @@ host, port, user, passwd = (sock.split(":") + [""] * 4)[:4]
 # In the VM window
 move_click(550, 300)
 
-# # Open settings
-# move_click(30, 1003)
-# move_click(23, 903)
-# delay(1)
+# Open settings
+move_click(30, 1003)
+move_click(23, 903)
+delay(1)
 
-# setting_location = pyautogui.locateCenterOnScreen('templates/window_settings.png', confidence=0.75)
+setting_location = pyautogui.locateCenterOnScreen('templates/window_settings.png', confidence=0.75)
 
-# if setting_location:
-#     x, y = setting_location
-#     move_mouse(x, y - 60)
-#     time.sleep(0.3)
-#     click_mouse(x, y - 60)
-#     click_mouse(x, y - 60)
-#     print("Clicked window setting full size modal")
-# else:
-#     print("Image not found on screen.")
+if setting_location:
+    x, y = setting_location
+    move_mouse(x, y - 60)
+    time.sleep(0.3)
+    click_mouse(x, y - 60)
+    click_mouse(x, y - 60)
+    print("Clicked window setting full size modal")
+else:
+    print("Image not found on screen.")
 
-# # Turn on virtual keyboard
-# move_click(1220, 394)
-# move_click(30, 843)
-# move_click(365, 300)
-# delay(1)
+# Turn on virtual keyboard
+move_click(1220, 394)
+move_click(30, 843)
+move_click(365, 300)
+delay(1)
 
-# keyboard_location = pyautogui.locateCenterOnScreen('templates/keyboard.png', confidence=0.75)
+keyboard_location = pyautogui.locateCenterOnScreen('templates/keyboard.png', confidence=0.75)
 
-# if keyboard_location:
-#     move_mouse(keyboard_location[0], keyboard_location[1])
-#     time.sleep(0.3)
-#     click_mouse(keyboard_location[0], keyboard_location[1])
-#     click_mouse(keyboard_location[0], keyboard_location[1])
-#     mouse_down()
-#     move_mouse(306, 562)
-#     time.sleep(0.7)
-#     mouse_up()
-#     print("Clicked keyboard modal")
-# else:
-#     print("Image not found on screen.")
+if keyboard_location:
+    move_mouse(keyboard_location[0], keyboard_location[1])
+    time.sleep(0.3)
+    click_mouse(keyboard_location[0], keyboard_location[1])
+    click_mouse(keyboard_location[0], keyboard_location[1])
+    mouse_down()
+    move_mouse(306, 562)
+    time.sleep(0.7)
+    mouse_up()
+    print("Clicked keyboard modal")
+else:
+    print("Image not found on screen.")
 
-# # Open Chrome
-# paste_into_vm(110, 1000, "chrome")
-# keyboard_vm("enter")
-# fullscreen_vm()
-# click_sock()
+# Open Chrome
+paste_into_vm(110, 1000, "chrome")
+keyboard_vm("enter")
+fullscreen_vm()
+click_sock()
 
-# # Turn off ads privacy
-# keyboard_vm("ctrl")
-# keyboard_vm("t")
-# minimize_keyboard_vm()
-# keyboard_vm("ctrl+l")
-# search_vm("chrome://settings/adPrivacy")
-# keyboard_vm("enter")
+# Turn off ads privacy
+keyboard_vm("ctrl")
+keyboard_vm("t")
+minimize_keyboard_vm()
+keyboard_vm("ctrl+l")
+search_vm("chrome://settings/adPrivacy")
+keyboard_vm("enter")
 
-# keyboard_vm("tab")
-# keyboard_vm("tab")
-# keyboard_vm("enter")
-# keyboard_vm("tab")
-# keyboard_vm("tab")
-# keyboard_vm("enter")
-# keyboard_vm("shift")
-# keyboard_vm("tab")
-# keyboard_vm("shift")
-# keyboard_vm("tab")
-# keyboard_vm("enter")
+keyboard_vm("tab")
+keyboard_vm("tab")
+keyboard_vm("enter")
+keyboard_vm("tab")
+keyboard_vm("tab")
+keyboard_vm("enter")
+keyboard_vm("shift")
+keyboard_vm("tab")
+keyboard_vm("shift")
+keyboard_vm("tab")
+keyboard_vm("enter")
 
-# keyboard_vm("tab")
-# keyboard_vm("enter")
-# keyboard_vm("tab")
-# keyboard_vm("tab")
-# keyboard_vm("enter")
-# keyboard_vm("shift")
-# keyboard_vm("tab")
-# keyboard_vm("shift")
-# keyboard_vm("tab")
-# keyboard_vm("enter")
+keyboard_vm("tab")
+keyboard_vm("enter")
+keyboard_vm("tab")
+keyboard_vm("tab")
+keyboard_vm("enter")
+keyboard_vm("shift")
+keyboard_vm("tab")
+keyboard_vm("shift")
+keyboard_vm("tab")
+keyboard_vm("enter")
 
-# keyboard_vm("tab")
-# keyboard_vm("enter")
-# keyboard_vm("tab")
-# keyboard_vm("tab")
-# keyboard_vm("enter")
-# click_sock()
-# minimize_keyboard_vm()
+keyboard_vm("tab")
+keyboard_vm("enter")
+keyboard_vm("tab")
+keyboard_vm("tab")
+keyboard_vm("enter")
+click_sock()
+minimize_keyboard_vm()
 
-# # Turn off flags
-# search_vm("chrome://flags/")
-# keyboard_vm("enter")
-# delay(1)
-# keyboard_vm("tab")
-# keyboard_vm("enter")
-# delay(2)
-# click_sock()
-# minimize_keyboard_vm()
+# Turn off flags
+search_vm("chrome://flags/")
+keyboard_vm("enter")
+delay(1)
+keyboard_vm("tab")
+keyboard_vm("enter")
+delay(2)
+click_sock()
+minimize_keyboard_vm()
 
-# # Turn off location
-# search_vm("chrome://settings/content/location?search=pop")
-# keyboard_vm("enter")
-# delay(1)
-# keyboard_vm("tab")
-# keyboard_vm("tab")
-# keyboard_vm("down")
-# minimize_keyboard_vm()
+# Turn off location
+search_vm("chrome://settings/content/location?search=pop")
+keyboard_vm("enter")
+delay(1)
+keyboard_vm("tab")
+keyboard_vm("tab")
+keyboard_vm("down")
+minimize_keyboard_vm()
 
-# # Turn on popup
-# keyboard_vm("ctrl+l")
-# search_vm("chrome://settings/content/popups?search=pop")
-# keyboard_vm("enter")
-# delay(1)
-# keyboard_vm("tab")
-# keyboard_vm("tab")
-# keyboard_vm("up")
-# click_sock()
-# minimize_keyboard_vm()
+# Turn on popup
+keyboard_vm("ctrl+l")
+search_vm("chrome://settings/content/popups?search=pop")
+keyboard_vm("enter")
+delay(1)
+keyboard_vm("tab")
+keyboard_vm("tab")
+keyboard_vm("up")
+click_sock()
+minimize_keyboard_vm()
 
-# # Install GoLess
-# keyboard_vm("ctrl+l")
-# search_vm("https://chromewebstore.google.com/detail/goless-browser-automation/ghlmiigebgipgagnhlanjmmniefbfihl")
-# keyboard_vm("enter")
-# delay(24)
-# keyboard_vm("tab")
-# keyboard_vm("tab")
-# keyboard_vm("tab")
-# keyboard_vm("tab")
-# keyboard_vm("tab")
-# keyboard_vm("enter")
-# delay(12)
-# keyboard_vm("left")
-# keyboard_vm("enter")
-# delay(24)
-# click_sock()
+# Install GoLess
+keyboard_vm("ctrl+l")
+search_vm("https://chromewebstore.google.com/detail/goless-browser-automation/ghlmiigebgipgagnhlanjmmniefbfihl")
+keyboard_vm("enter")
+delay(24)
+keyboard_vm("tab")
+keyboard_vm("tab")
+keyboard_vm("tab")
+keyboard_vm("tab")
+keyboard_vm("tab")
+keyboard_vm("enter")
+delay(12)
+keyboard_vm("left")
+keyboard_vm("enter")
+delay(24)
+click_sock()
 
-# # Allow permission
-# keyboard_vm("down")
-# move_click(733, 504)
-# delay(1)
-# keyboard_vm("left")
-# keyboard_vm("enter")
-# delay(8)
-# keyboard_vm("up")
+# Allow permission
+keyboard_vm("down")
+move_click(733, 504)
+delay(1)
+keyboard_vm("left")
+keyboard_vm("enter")
+delay(5)
+keyboard_vm("up")
 
-# # Login Goless
-# move_click(1350, 177)
-# delay(6)
-# paste_into_vm(1002, 383, "AngelineliewyeStiffler620@gmail.com")
-# paste_into_vm(990, 476, "Snow2511@")
-# keyboard_vm("enter")
-# delay(14)
-# move_click(1528, 516)
-# delay(1)
-# move_click(1694, 154)
+# Login Goless
+move_click(1350, 177)
+delay(6)
+paste_into_vm(1002, 383, "AngelineliewyeStiffler620@gmail.com")
+paste_into_vm(990, 476, "Snow2511@")
+keyboard_vm("enter")
+delay(14)
+move_click(1528, 516)
+delay(1)
+move_click(1694, 154)
 
 # Search workflows
-move_click(1752, 103)
-move_click(1560, 263)
+open_goless_popup()
 delay(6)
 move_click(1511, 210)
 paste_into_vm(1511, 210, "google")
@@ -515,7 +522,3 @@ keyboard_vm("down")
 delay(1)
 keyboard_vm("win")
 keyboard_vm("down")
-
-for _ in range(35):
-    click_sock()
-    delay(16)
