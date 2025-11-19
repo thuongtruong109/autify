@@ -98,7 +98,7 @@ jobs:
 
           git add downloads
           git commit -m "Update artifact $ARCHIVE_NAME" || echo "No changes"
-          git push origin gh-pages
+          git push origin gh-pages --force
 
       - name: Generate build summary
         shell: pwsh

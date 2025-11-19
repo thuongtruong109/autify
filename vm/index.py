@@ -98,14 +98,17 @@ def keyboard_vm(key):
 
 def click_sock():
     move_click(417, 995)
+    delay(0.5)
     move_click(660, 260)
     keyboard_vm("enter")
     keyboard_vm("enter")
     keyboard_vm("enter")
     keyboard_vm("enter")
     keyboard_vm("enter")
+    delay(0.5)
     move_click(417, 995)
-    delay(1)
+    delay(1.5)
+    move_click(1883, 632)
 
 def minimize_keyboard_vm():
     delay(1)
@@ -120,7 +123,7 @@ def search_vm(text):
     time.sleep(0.1)
     keyboard_vm("ctrl+v")
 
-def skip_chrome_location_callback(x, y):
+def skip_chrome_welcome_callback(x, y):
     click_mouse(x, y)
     click_mouse(x, y)
     print("Found chrome welcome: ", x, y)
@@ -167,6 +170,8 @@ def auto_close_chrome_tabs():
             time.sleep(1)
 
 threading.Thread(target=auto_close_chrome_tabs, daemon=True).start()
+
+
 # ------------------------------------------------------------
 
 watchers = [
@@ -175,8 +180,8 @@ watchers = [
     ScreenWatcher("./templates/skip_location_vi.png"),
     ScreenWatcher("./templates/skip_location_us.png"),
     # ScreenWatcher("./templates/skip_location_us_2.png", threshold=0.75),
-    ScreenWatcher("./templates/skip_chrome_welcome.png", threshold=0.65, callback=skip_chrome_location_callback),
-    ScreenWatcher("./templates/skip_chrome_welcome2.png", threshold=0.65, callback=skip_chrome_location_callback),
+    ScreenWatcher("./templates/skip_chrome_welcome.png", threshold=0.65, callback=skip_chrome_welcome_callback),
+    ScreenWatcher("./templates/skip_chrome_welcome2.png", threshold=0.65, callback=skip_chrome_welcome_callback),
     ScreenWatcher("./templates/skip_AI_banner.png"),
     ScreenWatcher("./templates/skip_privacy.png"),
     ScreenWatcher("./templates/goless_success.png", callback=stop_on_goless_success)
@@ -329,8 +334,10 @@ def vm_setup():
     move_click(880, 379)
     move_click(945, 463)
     type_text("bi")
+    delay(0.5)
     hotkey('ctrl', 'enter')
     delay(1)
+    move_click(650, 427)
     move_click(650, 427)
     delay(0.8)
     move_click(920, 603)
@@ -350,16 +357,25 @@ def vm_setup():
     delay(50)
     move_click(1000, 500)
     move_click(1090, 530)
-    delay(330)
-    move_click(1100, 1060, clicks=2)
-    delay(2)
+    delay(230)
 
     # Open fullsize VM window
     move_click(1857, 89)
+    move_click(1100, 1060)
+
+    delay(100)
+    move_click(1100, 1060, clicks=2)
+    delay(2)
 
 def goless_setup():
      # In the VM window
     move_click(550, 300)
+
+    # Unpin chrome
+    pyautogui.rightClick(466, 996)
+    delay(1)
+    move_click(375, 951)
+    delay(1)
 
     # Open settings
     move_click(30, 1003)
@@ -405,8 +421,15 @@ def goless_setup():
     # Open Chrome
     paste_into_vm(110, 1000, "chrome")
     keyboard_vm("enter")
+    delay(1)
+    minimize_keyboard_vm()
+    delay(1)
     fullscreen_vm()
+    delay(1)
+    minimize_keyboard_vm()
+    delay(1)
     click_sock()
+    delay(1)
 
     # Turn off ads privacy
     keyboard_vm("ctrl")
@@ -498,23 +521,13 @@ def goless_setup():
     move_click(1845, 600)
     keyboard_vm("down")
     move_click(733, 504)
-    delay(1)
-    keyboard_vm("left")
-    delay(1)
-    keyboard_vm("enter")
-    delay(3)
-    move_click(1845, 600)
-    keyboard_vm("left")
-    delay(1)
-    keyboard_vm("enter")
+    delay(1.2)
+    move_click(1054, 352)
     delay(1)
     move_click(1845, 600)
-    keyboard_vm("left")
-    delay(1)
-    keyboard_vm("enter")
     delay(1)
     keyboard_vm("up")
-    delay(0.5)
+    delay(1)
 
     # Login Goless
     move_click(1350, 177)
@@ -526,6 +539,8 @@ def goless_setup():
     move_click(1528, 516)
     delay(1)
     move_click(1694, 154)
+    move_click(1748, 154)
+    delay(0.5)
 
     # Search workflows
     open_goless_popup()
