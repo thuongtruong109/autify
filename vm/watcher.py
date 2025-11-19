@@ -45,7 +45,8 @@ class ScreenWatcher:
                         y = loc[0][0] + self.h // 2
 
                         if self.callback:
-                            pyautogui.moveTo(x, y)
+                            from virtual_mouse import move_mouse
+                            move_mouse(x, y)
                             self.callback(x, y)
                         else:
                             pyautogui.click(x, y)
