@@ -179,6 +179,7 @@ watchers = [
     ScreenWatcher("./templates/install_software.png"),
     ScreenWatcher("./templates/skip_location_vi.png"),
     ScreenWatcher("./templates/skip_location_us.png"),
+    ScreenWatcher("./templates/restart_vm.png"),
     # ScreenWatcher("./templates/skip_location_us_2.png", threshold=0.75),
     ScreenWatcher("./templates/skip_chrome_welcome.png", threshold=0.65, callback=skip_chrome_welcome_callback),
     ScreenWatcher("./templates/skip_chrome_welcome2.png", threshold=0.65, callback=skip_chrome_welcome_callback),
@@ -354,21 +355,31 @@ def vm_setup():
     move_click(75, 753)
     move_click(320, 753)
 
+    delay(6)
+
+    # Load iso to new VM
+    for _ in range(3):
+        move_click(797, 249)
+        move_click(797, 274)
+        move_click(1005, 374)
+        delay(0.2)
+
     delay(50)
     move_click(1000, 500)
     move_click(1090, 530)
-    delay(230)
+
+    delay(100)
 
     # Open fullsize VM window
     move_click(1857, 89)
     move_click(1100, 1060)
 
-    delay(100)
-    move_click(1100, 1060, clicks=2)
-    delay(2)
-
 def goless_setup():
-     # In the VM window
+    # Open fullsize VM window
+    move_click(1857, 89)
+    move_click(1100, 1060)
+
+    # In the VM window
     move_click(550, 300)
 
     # Unpin chrome
@@ -379,6 +390,7 @@ def goless_setup():
 
     # Open settings
     move_click(30, 1003)
+    delay(0.8)
     move_click(23, 903)
     delay(1)
 
@@ -572,6 +584,7 @@ def goless_setup():
     delay(1)
     move_click(1845, 600)
     pyautogui.scroll(-600)
+    delay(0.6)
     keyboard_vm("win")
     keyboard_vm("down")
     delay(1)
@@ -581,12 +594,36 @@ def goless_setup():
     for _ in range(35):
         click_sock()
         open_goless_popup()
+        minimize_keyboard_vm()
         delay(15)
 
+def test_load_iso():
+     # Start
+    pyautogui.rightClick(30, 1010, duration=DELAY)
+    delay()
+    move_click(75, 753)
+    move_click(320, 753)
+
+    delay(6)
+
+    # Load iso to new VM
+    for _ in range(3):
+        move_click(797, 249)
+        move_click(797, 274)
+        move_click(1005, 374)
+        delay(0.2)
+
 if mode == "vm":
-    vm_setup()
+    # vm_setup()
+    test_load_iso()
 elif mode == "goless":
     goless_setup()
 else:
     vm_setup()
+
+    # Wait install chrome
+    delay(270)
+    move_click(1100, 1060, clicks=2)
+    delay(2)
+
     goless_setup()
