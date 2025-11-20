@@ -390,6 +390,9 @@ def goless_setup():
         delay(0.3)
         click_mouse(x, y - 60)
         click_mouse(x, y - 60)
+        delay(0.5)
+        click_mouse(1002, 92)
+
         print("Clicked window setting full size modal")
     else:
         print("Image not found on screen.")
@@ -541,6 +544,12 @@ def goless_setup():
     move_click(1694, 154)
     move_click(1748, 154)
     delay(0.5)
+
+    # Unpin Tab search
+    pyautogui.rightClick(1805, 105)
+    delay(0.8)
+    move_click(1669, 144)
+    delay(1)
 
     # Search workflows
     open_goless_popup()
