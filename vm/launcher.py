@@ -5,13 +5,13 @@ import os
 
 from states import US_STATES
 
-NOTE = "❌ Chú ý: Không được di chuyển chuột khi tool đang chạy.\n Ở bước load máy ảo phải nhấn Enter thủ công"
+NOTE = "❌ Chú ý: Không được di chuyển chuột khi tool đang chạy."
 
 class VMAutomationGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Autify")
-        self.root.geometry("530x440")
+        self.root.geometry("530x430")
         self.root.resizable(False, False)
         self.root.configure(bg="#f5f5f5")
 

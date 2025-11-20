@@ -358,27 +358,30 @@ def vm_setup():
     delay(6)
 
     # Load iso to new VM
-    for _ in range(3):
+    for _ in range(6):
+        move_click(1104, 770)
         move_click(797, 249)
         move_click(797, 274)
+        delay(0.1)
         move_click(1005, 374)
-        delay(0.2)
+        delay(0.1)
 
     delay(50)
     move_click(1000, 500)
     move_click(1090, 530)
 
-    delay(100)
+    delay(300)
 
     # Open fullsize VM window
-    move_click(1857, 89)
     move_click(1100, 1060)
+    move_click(1857, 89)
+
+    # Wait install chrome
+    delay(80)
+    move_click(1100, 1060, clicks=2)
+    delay(2)
 
 def goless_setup():
-    # Open fullsize VM window
-    move_click(1857, 89)
-    move_click(1100, 1060)
-
     # In the VM window
     move_click(550, 300)
 
@@ -597,33 +600,11 @@ def goless_setup():
         minimize_keyboard_vm()
         delay(15)
 
-def test_load_iso():
-     # Start
-    pyautogui.rightClick(30, 1010, duration=DELAY)
-    delay()
-    move_click(75, 753)
-    move_click(320, 753)
-
-    delay(6)
-
-    # Load iso to new VM
-    for _ in range(3):
-        move_click(797, 249)
-        move_click(797, 274)
-        move_click(1005, 374)
-        delay(0.2)
-
 if mode == "vm":
-    # vm_setup()
-    test_load_iso()
+    vm_setup()
 elif mode == "goless":
     goless_setup()
 else:
     vm_setup()
-
-    # Wait install chrome
-    delay(270)
-    move_click(1100, 1060, clicks=2)
-    delay(2)
 
     goless_setup()
