@@ -64,12 +64,10 @@ jobs:
         working-directory: ./vm
         shell: pwsh
         run: |
-          # Detect exe
           $exe = Get-ChildItem dist -Filter *.exe | Select-Object -First 1
           $base = $exe.BaseName  # example: autify_vm
           $archiveName = "$base.zip"
 
-          # Create zip with auto name
           Compress-Archive -Path dist\* -DestinationPath $archiveName -Force
 
           echo "ARCHIVE_NAME=$archiveName" >> $env:GITHUB_ENV
@@ -89,14 +87,16 @@ jobs:
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
 
-          # Checkout gh-pages
-          git fetch origin gh-pages || echo "No gh-pages branch yet"
+          git fetch origin gh-pages || true
           git checkout -B gh-pages
+
+          git rm -rf . || true
+          rm -rf *
 
           mkdir -p downloads
           cp vm/$ARCHIVE_NAME downloads/
 
-          git add downloads
+          git add .
           git commit -m "Update artifact $ARCHIVE_NAME" || echo "No changes"
           git push origin gh-pages --force
 
