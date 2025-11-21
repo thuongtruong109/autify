@@ -11,13 +11,19 @@ class VMAutomationGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Autify")
-        self.root.geometry("530x430")
+        self.root.geometry("680x400")
         self.root.resizable(False, False)
         self.root.configure(bg="#f5f5f5")
 
         # Variables to store info
         self.info = None
         self.mode = "full"
+
+        # Table rows data
+        self.table_rows = []
+
+        # Row count label
+        self.row_count_label = None
 
         # US States list
         self.us_states = US_STATES
@@ -43,14 +49,9 @@ class VMAutomationGUI:
         main_frame = ttk.Frame(root, padding="10", style='Main.TFrame')
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
-        # Title with icon
-        # title_label = ttk.Label(main_frame, text="🖥️ Virtual Machine Automation",
-        #                         style='Title.TLabel')
-        # title_label.grid(row=0, column=0, columnspan=2, pady=(0, 10))
-
-        # Status label with better styling - right under header
+        # Status label with better styling
         status_frame = ttk.Frame(main_frame, style='Card.TFrame', relief="solid", borderwidth=1)
-        status_frame.grid(row=1, column=0, columnspan=2, pady=(0, 20), sticky=(tk.W, tk.E))
+        status_frame.grid(row=0, column=0, columnspan=2, pady=(0, 15), sticky=(tk.W, tk.E))
 
         self.status_label = ttk.Label(status_frame,
                                      text=NOTE,
@@ -60,75 +61,37 @@ class VMAutomationGUI:
                                      padding=(10, 5))
         self.status_label.pack(fill=tk.X)
 
-        # Card frame for inputs
-        card_frame = ttk.Frame(main_frame, padding="25", style='Card.TFrame',
-                              relief="solid", borderwidth=1)
-        card_frame.grid(row=2, column=0, columnspan=2, pady=(0, 20), sticky=(tk.W, tk.E))
-
-        # Name section
-        name_label = ttk.Label(card_frame, text="Name:", style='Field.TLabel')
-        name_label.grid(row=0, column=0, padx=(0, 10), pady=(0, 15), sticky=tk.W)
-        self.name_entry = ttk.Entry(card_frame, width=50, font=('Segoe UI', 10))
-        self.name_entry.grid(row=0, column=1, pady=(0, 15), sticky=(tk.W, tk.E))
-        self.name_entry.insert(0, "2022-example.com")
-
-        # Sock section
-        sock_label = ttk.Label(card_frame, text="Sock:", style='Field.TLabel')
-        sock_label.grid(row=1, column=0, padx=(0, 10), pady=(0, 15), sticky=tk.W)
-        self.sock_entry = ttk.Entry(card_frame, width=50, font=('Segoe UI', 10))
-        self.sock_entry.grid(row=1, column=1, pady=(0, 15), sticky=(tk.W, tk.E))
-        self.sock_entry.insert(0, "185.253.122.152:5961:lkqbgbdk:klwsil8ci4hw")
-
-        # Address section
-        address_label = ttk.Label(card_frame, text="Address:", style='Field.TLabel')
-        address_label.grid(row=2, column=0, padx=(0, 10), pady=(0, 15), sticky=tk.W)
-        address_frame = ttk.Frame(card_frame)
-        address_frame.grid(row=2, column=1, pady=(0, 15), sticky=(tk.W, tk.E))
-        self.address_entry = ttk.Entry(address_frame, width=38, font=('Segoe UI', 10))
-        self.address_entry.grid(row=0, column=0, sticky=(tk.W, tk.E))
-        self.address_entry.insert(0, "Baton Rouge, Louisiana")
-        self.address_dropdown_btn = tk.Button(address_frame, text="▼", width=2,
-                                             command=self.toggle_address_dropdown,
-                                             bg="#f0f0f0", fg="black", font=('Segoe UI', 8),
-                                             relief="flat", cursor="hand2")
-        self.address_dropdown_btn.grid(row=0, column=1, padx=(10, 10))
-        address_frame.columnconfigure(0, weight=1)
-
-        # Custom dropdown variables
-        self.address_dropdown = None
-        self.address_listbox = None
-
-        # Add autocomplete functionality
-        self.address_entry.bind('<KeyRelease>', self.on_address_keyrelease)
-        self.address_entry.bind('<FocusOut>', self.on_address_focus_out)
-        self.address_entry.bind('<Escape>', self.hide_address_dropdown)
-
         # ISO Path section
-        iso_label = ttk.Label(card_frame, text="ISO Path:", style='Field.TLabel')
-        iso_label.grid(row=3, column=0, padx=(0, 10), pady=(0, 15), sticky=tk.W)
-        iso_frame = ttk.Frame(card_frame)
-        iso_frame.grid(row=3, column=1, pady=(0, 15), sticky=(tk.W, tk.E))
-        self.iso_entry = ttk.Entry(iso_frame, width=38, font=('Segoe UI', 10), foreground='grey')
+        iso_card_frame = ttk.Frame(main_frame, style='Card.TFrame')
+        iso_card_frame.grid(row=1, column=0, columnspan=2, pady=(0, 12), sticky=(tk.W, tk.E))
+
+        iso_frame = ttk.Frame(iso_card_frame)
+        iso_frame.grid(row=0, column=0, sticky=(tk.W, tk.E))
+        self.iso_entry = ttk.Entry(iso_frame, font=('Segoe UI', 10), foreground='grey')
         self.iso_entry.grid(row=0, column=0, sticky=(tk.W, tk.E))
-        self.iso_entry.insert(0, "")
+        self.iso_entry.insert(0, "Select ISO file path...")
         # Bind events for placeholder behavior
         self.iso_entry.bind('<FocusIn>', self.on_iso_focus_in)
         self.iso_entry.bind('<FocusOut>', self.on_iso_focus_out)
-        browse_button = tk.Button(iso_frame, text="📁 Browse",
+        browse_button = tk.Button(iso_frame, text="� Browse",
                                  command=self.browse_iso,
                                  bg="#3498db", fg="white",
                                  font=('Segoe UI', 9, 'bold'),
                                  width=10,
                                  cursor="hand2",
-                                 relief="flat",
-                                 )
-        browse_button.grid(row=0, column=1, padx=(10, 10))
+                                 relief="flat")
+        browse_button.grid(row=0, column=1, padx=(10, 0))
         iso_frame.columnconfigure(0, weight=1)
+        iso_card_frame.columnconfigure(0, weight=1)
 
-        # Configure grid weights for responsive layout
-        card_frame.columnconfigure(1, weight=1)
+        # Table section
+        table_card_frame = ttk.Frame(main_frame, padding="8", style='Card.TFrame',
+                                     relief="solid", borderwidth=1)
+        table_card_frame.grid(row=2, column=0, columnspan=2, pady=(0, 15), sticky=(tk.W, tk.E, tk.N, tk.S))
+
+        # Buttons section (moved to bottom)
         button_frame = ttk.Frame(main_frame, style='Main.TFrame')
-        button_frame.grid(row=6, column=0, columnspan=1, pady=10)
+        button_frame.grid(row=3, column=0, columnspan=2, pady=(0, 10))
 
         # Only VM button
         self.only_vm_button = tk.Button(button_frame, text="💻 Only VM",
@@ -166,9 +129,71 @@ class VMAutomationGUI:
                                       activeforeground="white")
         self.start_button.grid(row=0, column=2, padx=4)
 
-        # Configure button frame for centering
-        button_frame.columnconfigure(0, weight=1)
-        button_frame.columnconfigure(3, weight=1)
+        # Table header
+        header_frame = ttk.Frame(table_card_frame, style='Card.TFrame')
+        header_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
+
+        ttk.Label(header_frame, text="Name", style='Field.TLabel', width=22).grid(row=0, column=0, padx=2)
+        ttk.Label(header_frame, text="Sock", style='Field.TLabel', width=35).grid(row=0, column=1, padx=2)
+        ttk.Label(header_frame, text="Address", style='Field.TLabel', width=25).grid(row=0, column=2, padx=2)
+        self.row_count_label = ttk.Label(header_frame, text="0", width=6, font=('Segoe UI', 9, 'bold'),)
+        self.row_count_label.grid(row=0, column=3, padx=2)
+
+        # Table rows container with scrollbar
+        table_container = ttk.Frame(table_card_frame, style='Card.TFrame')
+        table_container.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+
+        # Canvas and scrollbar for table
+        self.table_canvas = tk.Canvas(table_container, height=150, bg="white", highlightthickness=0)
+        self.table_scrollbar = ttk.Scrollbar(table_container, orient="vertical", command=self.table_canvas.yview)
+        self.table_frame = ttk.Frame(self.table_canvas, style='Card.TFrame')
+
+        self.table_canvas.create_window((0, 0), window=self.table_frame, anchor="nw")
+        self.table_canvas.configure(yscrollcommand=self.on_canvas_scroll)
+
+        self.table_canvas.pack(side="left", fill="both", expand=True, padx=(0, 5))
+
+        # Update scroll region when frame changes
+        self.table_frame.bind("<Configure>", self.update_scrollbar)
+
+        # Add more button
+        add_button_frame = ttk.Frame(table_card_frame, style='Card.TFrame')
+        add_button_frame.grid(row=2, column=0, pady=(10, 0))
+
+        add_more_button = tk.Button(add_button_frame, text="➕ Add more",
+                                    command=self.add_table_row,
+                                    bg="#16a085", fg="white",
+                                    font=('Segoe UI', 9, 'bold'),
+                                    padx=12, pady=2,
+                                    cursor="hand2",
+                                    relief="flat",
+                                    activebackground="#138D75",
+                                    activeforeground="white")
+        add_more_button.pack()
+
+        # Configure table card frame weights
+        table_card_frame.columnconfigure(0, weight=1)
+        table_card_frame.rowconfigure(1, weight=1)
+
+        # Custom dropdown variables
+        self.address_dropdown = None
+        self.address_listbox = None
+
+        # Add initial row
+        self.add_table_row()
+
+        # Update initial row count
+        self.update_row_count()
+
+        # Bind mouse wheel events for scrolling to the entire table area
+        table_container.bind("<MouseWheel>", self.on_mouse_wheel)
+        table_container.bind("<Button-4>", self.on_mouse_wheel)
+        table_container.bind("<Button-5>", self.on_mouse_wheel)
+
+        # Also bind to table frame for complete coverage
+        self.table_frame.bind("<MouseWheel>", self.on_mouse_wheel)
+        self.table_frame.bind("<Button-4>", self.on_mouse_wheel)
+        self.table_frame.bind("<Button-5>", self.on_mouse_wheel)
 
     def center_window(self):
         """Center the window on screen"""
@@ -179,25 +204,193 @@ class VMAutomationGUI:
         y = (self.root.winfo_screenheight() // 2) - (height // 2)
         self.root.geometry(f'{width}x{height}+{x}+{y}')
 
-    def on_address_keyrelease(self, event):
-        """Filter address dropdown based on user input and show custom dropdown"""
+    def update_scrollbar(self, event=None):
+        """Update scroll region and show/hide scrollbar based on content size"""
+        self.table_canvas.configure(scrollregion=self.table_canvas.bbox("all"))
+
+        # Check if content is larger than canvas
+        bbox = self.table_canvas.bbox("all")
+        if bbox:
+            content_height = bbox[3] - bbox[1]
+            canvas_height = self.table_canvas.winfo_height()
+
+            if content_height > canvas_height:
+                # Content is larger, show scrollbar
+                self.table_scrollbar.pack(side="right", fill="y")
+            else:
+                # Content fits, hide scrollbar
+                self.table_scrollbar.pack_forget()
+
+    def update_row_count(self):
+        """Update the row count label"""
+        if self.row_count_label:
+            self.row_count_label.config(text=str(len(self.table_rows)))
+
+    def on_canvas_scroll(self, *args):
+        """Handle canvas scroll and update scrollbar"""
+        self.table_scrollbar.set(*args)
+        # Update scrollbar visibility when scrolling
+        self.root.after(10, self.update_scrollbar)
+
+    def on_mouse_wheel(self, event):
+        """Handle mouse wheel scrolling for the table canvas"""
+        # For Windows
+        if event.delta:
+            self.table_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        # For Linux/Mac
+        elif event.num == 4:
+            self.table_canvas.yview_scroll(-1, "units")
+        elif event.num == 5:
+            self.table_canvas.yview_scroll(1, "units")
+
+    def add_table_row(self, name="", sock="", address=""):
+        """Add a new row to the table"""
+        row_index = len(self.table_rows)
+
+        row_frame = ttk.Frame(self.table_frame, style='Card.TFrame')
+        row_frame.grid(row=row_index, column=0, sticky=(tk.W, tk.E), pady=2)
+
+        # Name entry
+        name_entry = ttk.Entry(row_frame, width=22, font=('Segoe UI', 9))
+        name_entry.grid(row=0, column=0, padx=2)
+        if not name and row_index == 0:
+            name = "2022-example.com"
+        name_entry.insert(0, name)
+
+        # Sock entry
+        sock_entry = ttk.Entry(row_frame, width=35, font=('Segoe UI', 9))
+        sock_entry.grid(row=0, column=1, padx=2)
+        if not sock and row_index == 0:
+            sock = "185.253.122.152:5961:lkqbgbdk:klwsil8ci4hw"
+        sock_entry.insert(0, sock)
+
+        # Address frame with entry and dropdown
+        address_container = ttk.Frame(row_frame, style='Card.TFrame')
+        address_container.grid(row=0, column=2, padx=2)
+
+        address_entry = ttk.Entry(address_container, width=23, font=('Segoe UI', 9))
+        address_entry.grid(row=0, column=0)
+        if not address and row_index == 0:
+            address = "Baton Rouge, Louisiana"
+        address_entry.insert(0, address)
+
+        address_dropdown_btn = tk.Button(address_container, text="▼", width=1,
+                                        command=lambda e=address_entry: self.toggle_row_address_dropdown(e),
+                                        bg="#f0f0f0", fg="black", font=('Segoe UI', 7),
+                                        relief="flat", cursor="hand2")
+        address_dropdown_btn.grid(row=0, column=1, padx=(2, 0))
+
+        # Bind mouse wheel to address dropdown button
+        address_dropdown_btn.bind('<MouseWheel>', self.on_mouse_wheel)
+        address_dropdown_btn.bind('<Button-4>', self.on_mouse_wheel)
+        address_dropdown_btn.bind('<Button-5>', self.on_mouse_wheel)
+
+        # Bind autocomplete functionality
+        address_entry.bind('<KeyRelease>', lambda event, e=address_entry: self.on_row_address_keyrelease(event, e))
+        address_entry.bind('<FocusOut>', self.on_address_focus_out)
+        address_entry.bind('<Escape>', self.hide_address_dropdown)
+
+        # Bind mouse wheel to all row widgets for scrolling
+        name_entry.bind('<MouseWheel>', self.on_mouse_wheel)
+        name_entry.bind('<Button-4>', self.on_mouse_wheel)
+        name_entry.bind('<Button-5>', self.on_mouse_wheel)
+
+        sock_entry.bind('<MouseWheel>', self.on_mouse_wheel)
+        sock_entry.bind('<Button-4>', self.on_mouse_wheel)
+        sock_entry.bind('<Button-5>', self.on_mouse_wheel)
+
+        address_entry.bind('<MouseWheel>', self.on_mouse_wheel)
+        address_entry.bind('<Button-4>', self.on_mouse_wheel)
+        address_entry.bind('<Button-5>', self.on_mouse_wheel)
+
+        # Delete button
+        delete_button = tk.Button(row_frame, text="🗑️",
+                                 command=lambda: self.delete_table_row(row_frame, row_data),
+                                 bg="white", fg="#e74c3c",
+                                 font=('Segoe UI', 12),
+                                 cursor="hand2",
+                                 relief="flat",
+                                 borderwidth=0,
+                                 activebackground="white",
+                                 activeforeground="#c0392b")
+        delete_button.grid(row=0, column=3, padx=(15, 2))
+
+        # Bind mouse wheel to delete button
+        delete_button.bind('<MouseWheel>', self.on_mouse_wheel)
+        delete_button.bind('<Button-4>', self.on_mouse_wheel)
+        delete_button.bind('<Button-5>', self.on_mouse_wheel)
+
+        # Store row data
+        row_data = {
+            'frame': row_frame,
+            'name_entry': name_entry,
+            'sock_entry': sock_entry,
+            'address_entry': address_entry
+        }
+        self.table_rows.append(row_data)
+
+        # Update scrollbar visibility after adding
+        self.root.after(50, self.update_scrollbar)
+
+        # Update row count
+        self.update_row_count()
+
+        return row_data
+
+    def delete_table_row(self, frame, row_data):
+        """Delete a row from the table"""
+        if len(self.table_rows) <= 1:
+            messagebox.showwarning("Warning", "You must have at least one row!")
+            return
+
+        # Remove from list
+        if row_data in self.table_rows:
+            self.table_rows.remove(row_data)
+
+        # Destroy the frame
+        frame.destroy()
+
+        # Reindex remaining rows
+        for idx, row in enumerate(self.table_rows):
+            row['frame'].grid(row=idx, column=0, sticky=(tk.W, tk.E), pady=2)
+
+        # Update scrollbar visibility after deletion
+        self.root.after(50, self.update_scrollbar)
+
+        # Update row count
+        self.update_row_count()
+
+    def toggle_row_address_dropdown(self, entry_widget):
+        """Toggle dropdown visibility for a specific row address entry"""
+        if self.address_dropdown:
+            self.hide_address_dropdown()
+        else:
+            value = entry_widget.get()
+            if value == '':
+                filtered_states = self.us_states
+            else:
+                filtered_states = [state for state in self.us_states if value.lower() in state.lower()]
+            self.show_row_address_dropdown(entry_widget, filtered_states)
+
+    def on_row_address_keyrelease(self, event, entry_widget):
+        """Filter address dropdown based on user input for row entry"""
         # Ignore modifier keys
         if event.keysym in ('Shift_L', 'Shift_R', 'Control_L', 'Control_R', 'Alt_L', 'Alt_R',
                             'Caps_Lock', 'Num_Lock', 'Scroll_Lock'):
             return
 
         # Filter the values based on input
-        value = event.widget.get()
+        value = entry_widget.get()
         if value == '':
             filtered_states = self.us_states
         else:
             filtered_states = [state for state in self.us_states if value.lower() in state.lower()]
 
         # Show dropdown with filtered results
-        self.show_address_dropdown(filtered_states)
+        self.show_row_address_dropdown(entry_widget, filtered_states)
 
-    def show_address_dropdown(self, states):
-        """Show custom dropdown with filtered states"""
+    def show_row_address_dropdown(self, entry_widget, states):
+        """Show custom dropdown with filtered states for row entry"""
         # Hide existing dropdown
         self.hide_address_dropdown()
 
@@ -205,14 +398,14 @@ class VMAutomationGUI:
             return
 
         # Get entry position
-        x = self.address_entry.winfo_rootx()
-        y = self.address_entry.winfo_rooty() + self.address_entry.winfo_height()
+        x = entry_widget.winfo_rootx()
+        y = entry_widget.winfo_rooty() + entry_widget.winfo_height()
 
         # Create dropdown window
         self.address_dropdown = tk.Toplevel(self.root)
         self.address_dropdown.geometry(f"250x150+{x}+{y}")
-        self.address_dropdown.overrideredirect(True)  # Remove window decorations
-        self.address_dropdown.attributes("-topmost", True)  # Stay on top
+        self.address_dropdown.overrideredirect(True)
+        self.address_dropdown.attributes("-topmost", True)
 
         # Create listbox
         self.address_listbox = tk.Listbox(self.address_dropdown, height=6, width=30,
@@ -223,9 +416,9 @@ class VMAutomationGUI:
         for state in states:
             self.address_listbox.insert(tk.END, state)
 
-        # Bind events
-        self.address_listbox.bind('<ButtonRelease-1>', self.on_address_select)
-        self.address_listbox.bind('<Return>', self.on_address_select)
+        # Bind events - pass the entry widget
+        self.address_listbox.bind('<ButtonRelease-1>', lambda e, widget=entry_widget: self.on_row_address_select(e, widget))
+        self.address_listbox.bind('<Return>', lambda e, widget=entry_widget: self.on_row_address_select(e, widget))
         self.address_listbox.bind('<Escape>', self.hide_address_dropdown)
 
         # Select first item
@@ -234,6 +427,20 @@ class VMAutomationGUI:
 
         # Bind click outside to close dropdown
         self.root.bind('<Button-1>', self.on_click_outside_dropdown)
+
+        # Store the current entry widget
+        self.current_address_entry = entry_widget
+
+    def on_row_address_select(self, event, entry_widget):
+        """Handle state selection from dropdown for row entry"""
+        if self.address_listbox and self.address_listbox.curselection():
+            selected_index = self.address_listbox.curselection()[0]
+            selected_state = self.address_listbox.get(selected_index)
+            entry_widget.delete(0, tk.END)
+            entry_widget.insert(0, selected_state)
+        self.hide_address_dropdown()
+
+
 
     def hide_address_dropdown(self, event=None):
         """Hide the custom dropdown"""
@@ -262,26 +469,7 @@ class VMAutomationGUI:
                     dropdown_y <= click_y <= dropdown_y + dropdown_height):
                 self.hide_address_dropdown()
 
-    def toggle_address_dropdown(self):
-        """Toggle dropdown visibility"""
-        if self.address_dropdown:
-            self.hide_address_dropdown()
-        else:
-            value = self.address_entry.get()
-            if value == '':
-                filtered_states = self.us_states
-            else:
-                filtered_states = [state for state in self.us_states if value.lower() in state.lower()]
-            self.show_address_dropdown(filtered_states)
 
-    def on_address_select(self, event=None):
-        """Handle state selection from dropdown"""
-        if self.address_listbox and self.address_listbox.curselection():
-            selected_index = self.address_listbox.curselection()[0]
-            selected_state = self.address_listbox.get(selected_index)
-            self.address_entry.delete(0, tk.END)
-            self.address_entry.insert(0, selected_state)
-        self.hide_address_dropdown()
 
     def check_hide_dropdown(self):
         """Check if dropdown should be hidden after focus loss"""
@@ -296,39 +484,44 @@ class VMAutomationGUI:
 
     def on_iso_focus_in(self, event):
         """Remove placeholder text when ISO entry is focused"""
-        if self.iso_entry.get() == "":
+        if self.iso_entry.get() == "Select ISO file path...":
             self.iso_entry.delete(0, tk.END)
             self.iso_entry.config(foreground='black')
 
     def on_iso_focus_out(self, event):
         """Restore placeholder text if ISO entry is empty"""
         if self.iso_entry.get() == "":
-            self.iso_entry.insert(0, "")
+            self.iso_entry.insert(0, "Select ISO file path...")
             self.iso_entry.config(foreground='grey')
 
     def validate_inputs(self):
         """Validate input fields"""
-        name = self.name_entry.get().strip()
-        sock = self.sock_entry.get().strip()
-        address = self.address_entry.get().strip()
-
-        if not name:
-            messagebox.showerror("Error", "Please enter a Name!")
+        if not self.table_rows:
+            messagebox.showerror("Error", "Please add at least one row!")
             return False
 
-        if not sock:
-            messagebox.showerror("Error", "Please enter Sock information!")
-            return False
+        for idx, row in enumerate(self.table_rows):
+            name = row['name_entry'].get().strip()
+            sock = row['sock_entry'].get().strip()
+            address = row['address_entry'].get().strip()
 
-        if not address:
-            messagebox.showerror("Error", "Please select an Address!")
-            return False
+            if not name:
+                messagebox.showerror("Error", f"Please enter a Name for row {idx + 1}!")
+                return False
 
-        # Validate sock format (host:port:user:passwd)
-        sock_parts = sock.split(":")
-        if len(sock_parts) != 4:
-            messagebox.showerror("Error", "Sock format should be: host:port:user:passwd")
-            return False
+            if not sock:
+                messagebox.showerror("Error", f"Please enter Sock information for row {idx + 1}!")
+                return False
+
+            if not address:
+                messagebox.showerror("Error", f"Please select an Address for row {idx + 1}!")
+                return False
+
+            # Validate sock format (host:port:user:passwd)
+            sock_parts = sock.split(":")
+            if len(sock_parts) != 4:
+                messagebox.showerror("Error", f"Sock format should be: host:port:user:passwd for row {idx + 1}")
+                return False
 
         return True
 
@@ -348,17 +541,23 @@ class VMAutomationGUI:
         if not self.validate_inputs():
             return
 
-        name = self.name_entry.get().strip()
-        sock = self.sock_entry.get().strip()
-        address = self.address_entry.get().strip()
         iso_path = self.iso_entry.get().strip()
 
         # Check if iso_path is placeholder text, treat as empty
-        if iso_path == "":
+        if iso_path == "Select ISO file path..." or iso_path == "":
             iso_path = ""
 
+        # Collect all rows data
+        rows_data = []
+        for row in self.table_rows:
+            name = row['name_entry'].get().strip()
+            sock = row['sock_entry'].get().strip()
+            address = row['address_entry'].get().strip()
+            rows_data.append([name, sock, address])
+
         # Store info and close window (iso_path can be empty)
-        self.info = [name, sock, address, iso_path, self.mode]
+        # Format: [rows_data, iso_path, mode]
+        self.info = [rows_data, iso_path, self.mode]
         self.root.quit()
         self.root.destroy()
 
@@ -371,8 +570,8 @@ class VMAutomationGUI:
             self.iso_entry.delete(0, tk.END)
             self.iso_entry.insert(0, filename)
             self.iso_entry.config(foreground='black')
-            self.status_label.config(text="✅ ISO file selected successfully")
-            self.root.after(1000, lambda: self.status_label.config(text=NOTE))
+            self.status_label.config(text="✅ ISO file selected successfully", background="green")
+            self.root.after(1000, lambda: self.status_label.config(text=NOTE, background="red"))
 
 def get_vm_info():
     root = tk.Tk()
@@ -383,9 +582,14 @@ def get_vm_info():
 if __name__ == "__main__":
     info = get_vm_info()
     if info:
-        print(f"✓ Name: {info[0]}")
-        print(f"✓ Sock: {info[1]}")
-        print(f"✓ Address: {info[2]}")
-        print(f"✓ ISO Path: {info[3] if info[3] else '(auto-detect)'}")
+        rows_data, iso_path, mode = info
+        print(f"✓ Mode: {mode}")
+        print(f"✓ ISO Path: {iso_path if iso_path else '(auto-detect)'}")
+        print(f"✓ Total rows: {len(rows_data)}")
+        for idx, row in enumerate(rows_data):
+            print(f"\n  Row {idx + 1}:")
+            print(f"    Name: {row[0]}")
+            print(f"    Sock: {row[1]}")
+            print(f"    Address: {row[2]}")
     else:
         print("✗ Cancelled")

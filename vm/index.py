@@ -193,7 +193,7 @@ for w in watchers:
 
 # #############################################################
 command = 'dir D:\\*.iso /s /b'
-default_iso = r"D:\Soft\Windows_10_21H2_x64_Tiny.iso"
+default_iso = r"D:\Windows_10_21H2_x64_Tiny.iso"
 result = subprocess.run(command, shell=True, capture_output=True, text=True)
 
 try:
