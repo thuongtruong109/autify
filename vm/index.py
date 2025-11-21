@@ -267,7 +267,7 @@ def vm_setup(name, sock, address):
         print("Image not found on screen.")
 
     # Name and Operating System
-    move_click(737, 209)
+    move_click(737, 208)
     paste(name)
 
     move_click(800, 259)

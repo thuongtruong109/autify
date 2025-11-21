@@ -2,10 +2,20 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import sys
 import os
+import random
 
 from states import US_STATES
 
 NOTE = "❌ Chú ý: Không được di chuyển chuột khi tool đang chạy."
+
+DEFAULT_ADDRESSES = [
+    "New Orleans, Louisiana",
+    "Baton Rouge, Louisiana",
+    "Shreveport, Louisiana",
+    "Lafayette, Louisiana",
+    "Lake Charles, Louisiana",
+    "Monroe, Louisiana",
+]
 
 class VMAutomationGUI:
     def __init__(self, root):
@@ -270,8 +280,8 @@ class VMAutomationGUI:
 
         address_entry = ttk.Entry(address_container, width=23, font=('Segoe UI', 9))
         address_entry.grid(row=0, column=0)
-        if not address and row_index == 0:
-            address = "Baton Rouge, Louisiana"
+        if not address:
+            address = random.choice(DEFAULT_ADDRESSES)
         address_entry.insert(0, address)
 
         address_dropdown_btn = tk.Button(address_container, text="▼", width=1,
