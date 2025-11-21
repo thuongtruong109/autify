@@ -21,6 +21,10 @@ class ScreenWatcher:
 
         self.thread = threading.Thread(target=self._watch_screen, daemon=True)
 
+    def reset(self):
+        self.detect_start_time = None
+        self.already_clicked = False
+
     def start(self):
         self.thread.start()
 

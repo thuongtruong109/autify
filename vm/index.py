@@ -196,7 +196,7 @@ threading.Thread(target=auto_close_chrome_tabs, daemon=True).start()
 # ------------------------------------------------------------
 
 watchers = [
-    # ScreenWatcher("./templates/cancel_capture.png", min_delay=180),
+    ScreenWatcher("./templates/cancel_capture.png", min_delay=180),
     ScreenWatcher("./templates/install_software.png"),
     ScreenWatcher("./templates/skip_location_vi.png"),
     ScreenWatcher("./templates/skip_location_us.png"),
@@ -627,6 +627,9 @@ if mode == "vm":
     delay(0.5)
 
     for idx, (name, sock, address) in enumerate(rows_data):
+        for w in watchers:
+            w.reset()
+
         vm_setup(name, sock, address)
         shutdown_vm()
         delay(5)
@@ -641,6 +644,9 @@ else:
     delay(0.5)
 
     for idx, (name, sock, address) in enumerate(rows_data):
+        for w in watchers:
+            w.reset()
+
         vm_setup(name, sock, address)
         goless_setup()
         shutdown_vm()
