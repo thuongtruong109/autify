@@ -8,10 +8,11 @@ import pyperclip
 from watcher import ScreenWatcher
 from virtual_mouse import move_mouse, click_mouse, mouse_down, mouse_up
 
-DELAY = 0.4
-
 pyautogui.FAILSAFE = True
 sys.dont_write_bytecode = True
+
+DELAY = 0.4
+GOLESS_SUCCESS_FLAG = False
 
 def delay(sec=DELAY):
     time.sleep(sec)
@@ -123,6 +124,19 @@ def search_vm(text):
     time.sleep(0.1)
     keyboard_vm("ctrl+v")
 
+def start_vm():
+    pyautogui.rightClick(30, 1010, duration=DELAY)
+    delay()
+    move_click(75, 753)
+    move_click(320, 753)
+
+def shutdown_vm():
+    move_click(30, 1003)
+    delay(0.8)
+    move_click(30, 953)
+    delay(0.8)
+    move_click(30, 868)
+
 def skip_chrome_welcome_callback(x, y):
     click_mouse(x, y)
     click_mouse(x, y)
@@ -139,8 +153,9 @@ def open_goless_popup():
     move_click(1560, 263)
 
 def stop_on_goless_success(x, y):
-    print(f"🟢 Goless success, stopping script!")
-    os._exit(0)
+    global GOLESS_SUCCESS_FLAG
+    print("🟢 Goless success detected. Stopping script!")
+    GOLESS_SUCCESS_FLAG = True
 
 # ---------------- Auto-close Chrome welcome ----------------
 def auto_close_chrome_tabs():
@@ -171,11 +186,10 @@ def auto_close_chrome_tabs():
 
 threading.Thread(target=auto_close_chrome_tabs, daemon=True).start()
 
-
 # ------------------------------------------------------------
 
 watchers = [
-    ScreenWatcher("./templates/cancel_capture.png", min_delay=180),
+    # ScreenWatcher("./templates/cancel_capture.png", min_delay=180),
     ScreenWatcher("./templates/install_software.png"),
     ScreenWatcher("./templates/skip_location_vi.png"),
     ScreenWatcher("./templates/skip_location_us.png"),
@@ -191,7 +205,7 @@ watchers = [
 for w in watchers:
     w.start()
 
-# #############################################################
+# ------------------ Load configurations -----------------
 command = 'dir D:\\*.iso /s /b'
 default_iso = r"D:\Windows_10_21H2_x64_Tiny.iso"
 result = subprocess.run(command, shell=True, capture_output=True, text=True)
@@ -205,29 +219,24 @@ try:
         print("✗ Cancelled by user")
         sys.exit(0)
 
+    # info = (rows_data, iso_path, mode)
+    rows_data = info[0]
+    iso_path = info[1]
+    mode = info[2]
+
 except Exception as e:
     print(f"⚠️ GUI not available, using default values: {e}")
-    info = ["2022-example.com", "193.160.82.111:6083:lkqbgbdk:klwsil8ci4hw", "Louisiana", ""]
+    rows_data = [("2022-example.com", "193.160.82.111:6083:lkqbgbdk:klwsil8ci4hw", "Louisiana")]
+    iso_path = ""
+    mode = "full"
 
-if len(info) < 3:
-    print("⚠️ Lack of infomation: <name> <sock> <address>")
+if not rows_data:
+    print("⚠️ No rows data")
     sys.exit(1)
 
 # #############################################################
 
-name = info[0]
-sock = info[1]
-address = info[2]
-iso_path = info[3] if len(info) > 3 else ""
-
-iso = iso_path if iso_path else (result.stdout.strip() or default_iso)
-host, port, user, passwd = (sock.split(":") + [""] * 4)[:4]
-
-mode = info[4] if len(info) > 4 else "full"
-
-# ##############################################################
-
-def vm_setup():
+def open_vm_app():
     hotkey('win', 'd')
 
     hotkey('win', 's')
@@ -237,7 +246,10 @@ def vm_setup():
     press_key("enter")
     delay(0.7)
     hotkey('win', 'up')
-    delay(0.5)
+
+def vm_setup(name, sock, address):
+    iso = iso_path if iso_path else (result.stdout.strip() or default_iso)
+    host, port, user, passwd = (sock.split(":") + [""] * 4)[:4]
 
     # Create new VM
     hotkey('ctrl', 'n')
@@ -350,10 +362,7 @@ def vm_setup():
     press_key('enter')
 
     # Start
-    pyautogui.rightClick(30, 1010, duration=DELAY)
-    delay()
-    move_click(75, 753)
-    move_click(320, 753)
+    start_vm()
 
     delay(6)
 
@@ -594,17 +603,44 @@ def goless_setup():
     keyboard_vm("win")
     keyboard_vm("down")
 
+    global GOLESS_SUCCESS_FLAG
+
     for _ in range(35):
+        if GOLESS_SUCCESS_FLAG:
+            break
+
         click_sock()
         open_goless_popup()
         minimize_keyboard_vm()
         delay(15)
 
 if mode == "vm":
-    vm_setup()
+    open_vm_app()
+    delay(0.5)
+
+    for idx, (name, sock, address) in enumerate(rows_data):
+        vm_setup(name, sock, address)
+        shutdown_vm()
+
+        if idx < len(rows_data) - 1:
+            print(f"\n⏳ Waiting before processing next item...")
+            delay(5)
+
+    print(f"\n✅ Completed all {len(rows_data)} items!")
+    os._exit(0)
 elif mode == "goless":
     goless_setup()
+    sys.exit(0)
 else:
-    vm_setup()
+    open_vm_app()
+    delay(0.5)
 
-    goless_setup()
+    for idx, (name, sock, address) in enumerate(rows_data):
+        vm_setup(name, sock, address)
+        goless_setup()
+        shutdown_vm()
+        if idx < len(rows_data) - 1:
+            delay(5)
+
+    print(f"\n✅ Completed all {len(rows_data)} items!")
+    os._exit(0)

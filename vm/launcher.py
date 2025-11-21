@@ -94,7 +94,7 @@ class VMAutomationGUI:
         button_frame.grid(row=3, column=0, columnspan=2, pady=(0, 10))
 
         # Only VM button
-        self.only_vm_button = tk.Button(button_frame, text="💻 Only VM",
+        self.only_vm_button = tk.Button(button_frame, text="💻 Run only VM",
                                         command=self.start_only_vm,
                                         bg="#3498db", fg="white",
                                         font=('Segoe UI', 10, 'bold'),
@@ -106,16 +106,16 @@ class VMAutomationGUI:
         self.only_vm_button.grid(row=0, column=0, padx=4)
 
         # Only Goless button
-        self.only_goless_button = tk.Button(button_frame, text="🤖 Only Goless",
-                                            command=self.start_only_goless,
-                                            bg="#9b59b6", fg="white",
-                                            font=('Segoe UI', 10, 'bold'),
-                                            padx=16, pady=3,
-                                            cursor="hand2",
-                                            relief="flat",
-                                            activebackground="#8e44ad",
-                                            activeforeground="white")
-        self.only_goless_button.grid(row=0, column=1, padx=4)
+        # self.only_goless_button = tk.Button(button_frame, text="🤖 Only Goless",
+        #                                     command=self.start_only_goless,
+        #                                     bg="#9b59b6", fg="white",
+        #                                     font=('Segoe UI', 10, 'bold'),
+        #                                     padx=16, pady=3,
+        #                                     cursor="hand2",
+        #                                     relief="flat",
+        #                                     activebackground="#8e44ad",
+        #                                     activeforeground="white")
+        # self.only_goless_button.grid(row=0, column=1, padx=4)
 
         # Start button
         self.start_button = tk.Button(button_frame, text="▶ Run all",
