@@ -14,6 +14,13 @@ sys.dont_write_bytecode = True
 DELAY = 0.4
 GOLESS_SUCCESS_FLAG = False
 
+def safe_exit(code=0):
+    print("✅ Exit the program safely...")
+    sys.stdout.flush()
+    sys.stderr.flush()
+    sys.exit(code)
+    os._exit(0)
+
 def delay(sec=DELAY):
     time.sleep(sec)
 
@@ -252,6 +259,7 @@ def vm_setup(name, sock, address):
     host, port, user, passwd = (sock.split(":") + [""] * 4)[:4]
 
     # Create new VM
+    move_click(1415, 707)
     hotkey('ctrl', 'n')
     delay(1)
 
@@ -621,16 +629,13 @@ if mode == "vm":
     for idx, (name, sock, address) in enumerate(rows_data):
         vm_setup(name, sock, address)
         shutdown_vm()
-
-        if idx < len(rows_data) - 1:
-            print(f"\n⏳ Waiting before processing next item...")
-            delay(5)
+        delay(5)
 
     print(f"\n✅ Completed all {len(rows_data)} items!")
-    os._exit(0)
+    safe_exit(0)
 elif mode == "goless":
     goless_setup()
-    sys.exit(0)
+    safe_exit(0)
 else:
     open_vm_app()
     delay(0.5)
@@ -639,8 +644,9 @@ else:
         vm_setup(name, sock, address)
         goless_setup()
         shutdown_vm()
-        if idx < len(rows_data) - 1:
-            delay(5)
+
+        GOLESS_SUCCESS_FLAG = False
+        delay(5)
 
     print(f"\n✅ Completed all {len(rows_data)} items!")
-    os._exit(0)
+    safe_exit(0)
