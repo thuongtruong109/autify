@@ -29,6 +29,8 @@ class ScreenWatcher:
         self.thread.start()
 
     def _watch_screen(self):
+        template_visible = False  # flag kiểm tra template có đang hiển thị
+
         while True:
             screenshot = pyautogui.screenshot()
             screenshot_np = np.array(screenshot)
@@ -38,24 +40,43 @@ class ScreenWatcher:
             loc = np.where(res >= self.threshold)
 
             if loc[0].size > 0:
-                self.detect_count += 1
+                if self.skip_count > 0:
+                    # skip_count mode
+                    if not template_visible:
+                        self.detect_count += 1  # chỉ tăng khi template mới xuất hiện
 
-                if self.detect_count > self.skip_count and not self.already_clicked:
-                    x = loc[1][0] + self.w // 2
-                    y = loc[0][0] + self.h // 2
+                    template_visible = True
 
-                    if self.callback:
-                        from virtual_mouse import move_mouse
-                        move_mouse(x, y)
-                        self.callback(x, y)
-                    else:
-                        pyautogui.click(x, y)
-                        print(f"[ScreenWatcher] Clicked {self.template_path} at detection #{self.detect_count}")
+                    if self.detect_count >= self.skip_count + 1:
+                        x = loc[1][0] + self.w // 2
+                        y = loc[0][0] + self.h // 2
 
-                    self.already_clicked = True
+                        if self.callback:
+                            from virtual_mouse import move_mouse
+                            move_mouse(x, y)
+                            self.callback(x, y)
+                        else:
+                            pyautogui.click(x, y)
+                            print(f"[ScreenWatcher] Clicked {self.template_path} at detection #{self.detect_count}")
+
+                        # KHÔNG reset detect_count, chỉ reset khi gọi reset()
+                else:
+                    # single-click mode
+                    if not self.already_clicked:
+                        x = loc[1][0] + self.w // 2
+                        y = loc[0][0] + self.h // 2
+
+                        if self.callback:
+                            from virtual_mouse import move_mouse
+                            move_mouse(x, y)
+                            self.callback(x, y)
+                        else:
+                            pyautogui.click(x, y)
+                            print(f"[ScreenWatcher] Clicked {self.template_path} (single-click mode)")
+
+                        self.already_clicked = True
 
             else:
-                self.detect_count = 0
-                self.already_clicked = False
+                template_visible = False  # template biến mất
 
             time.sleep(self.check_interval)

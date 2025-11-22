@@ -196,7 +196,7 @@ threading.Thread(target=auto_close_chrome_tabs, daemon=True).start()
 # ------------------------------------------------------------
 
 watchers = [
-    ScreenWatcher("./templates/cancel_capture.png", skip_count=2),
+    # ScreenWatcher("./templates/cancel_capture.png", skip_count=2),
     ScreenWatcher("./templates/install_software.png"),
     ScreenWatcher("./templates/skip_location_vi.png"),
     ScreenWatcher("./templates/skip_location_us.png"),
@@ -244,7 +244,6 @@ if not rows_data:
 
 def open_vm_app():
     hotkey('win', 'd')
-
     hotkey('win', 's')
     paste("a5")
     delay(0.5)
@@ -253,16 +252,18 @@ def open_vm_app():
     delay(0.7)
     hotkey('win', 'up')
 
+def close_vm_app():
+    move_click(1902, 6)
+
 def vm_setup(name, sock, address):
     iso = iso_path if iso_path else (result.stdout.strip() or default_iso)
     host, port, user, passwd = (sock.split(":") + [""] * 4)[:4]
 
     # Create new VM
-    move_click(1415, 707)
     hotkey('ctrl', 'n')
-    delay(1)
+    delay(1.2)
 
-    create_vm_location = pyautogui.locateCenterOnScreen('templates/create_vm.png', confidence=0.75)
+    create_vm_location = pyautogui.locateCenterOnScreen('templates/create_vm.png', confidence=0.7)
 
     if create_vm_location:
         pyautogui.moveTo(create_vm_location, duration=0.3)
@@ -334,6 +335,7 @@ def vm_setup(name, sock, address):
 
     # Settings
     move_click(1270, 878)
+    delay(0.5)
     hotkey('ctrl', 's')
     delay(1.2)
 
@@ -413,7 +415,7 @@ def goless_setup():
     move_click(23, 903)
     delay(1)
 
-    setting_location = pyautogui.locateCenterOnScreen('templates/window_settings.png', confidence=0.75)
+    setting_location = pyautogui.locateCenterOnScreen('templates/window_settings.png', confidence=0.7)
 
     if setting_location:
         x, y = setting_location
@@ -435,9 +437,9 @@ def goless_setup():
     move_click(30, 843)
     delay(0.5)
     move_click(365, 300)
-    delay(0.5)
+    delay(0.8)
 
-    keyboard_location = pyautogui.locateCenterOnScreen('templates/keyboard.png', confidence=0.75)
+    keyboard_location = pyautogui.locateCenterOnScreen('templates/keyboard.png', confidence=0.7)
 
     if keyboard_location:
         move_mouse(keyboard_location[0], keyboard_location[1])
@@ -626,12 +628,12 @@ if mode == "vm":
     delay(0.5)
 
     for idx, (name, sock, address) in enumerate(rows_data):
-        for w in watchers:
-            w.reset()
-
         vm_setup(name, sock, address)
         shutdown_vm()
         delay(5)
+        for w in watchers:
+            w.reset()
+        delay(1)
 
     print(f"\n✅ Completed all {len(rows_data)} items!")
     safe_exit(0)
@@ -639,18 +641,22 @@ elif mode == "goless":
     goless_setup()
     safe_exit(0)
 else:
-    open_vm_app()
-    delay(0.5)
-
     for idx, (name, sock, address) in enumerate(rows_data):
-        for w in watchers:
-            w.reset()
+        open_vm_app()
+        delay(0.5)
 
         vm_setup(name, sock, address)
         goless_setup()
+        delay(1)
         shutdown_vm()
 
+        delay(6)
         GOLESS_SUCCESS_FLAG = False
+        delay(1)
+        for w in watchers:
+            w.reset()
+        delay(1)
+        close_vm_app()
         delay(5)
 
     print(f"\n✅ Completed all {len(rows_data)} items!")
