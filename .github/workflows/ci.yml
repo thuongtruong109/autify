@@ -73,15 +73,7 @@ jobs:
           echo "ARCHIVE_NAME=$archiveName" >> $env:GITHUB_ENV
           Write-Host "📦 Created archive: $archiveName"
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: autify-vm-build-${{ github.run_number }}
-          path: vm/*.zip
-          retention-days: 30
-          compression-level: 0
-
-      - name: Deploy artifact to GitHub Pages
+      - name: Deploy to GitHub Pages
         shell: bash
         run: |
           git config user.name "github-actions"
@@ -97,7 +89,7 @@ jobs:
           cp "./vm/${ARCHIVE_NAME}" downloads/
 
           git add .
-          git commit -m "Update artifact $ARCHIVE_NAME" || echo "No changes"
+          git commit -m "Update build: $ARCHIVE_NAME" || echo "No changes"
           git push origin gh-pages --force
 
       - name: Generate build summary

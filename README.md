@@ -2,17 +2,16 @@
 
 - Python 3.7+
 - Chrome Browser
-- Turn off unikey app (avoid conflict with typing input)
 
 ### Isolation environment (optional)
 
 ```bash
-python -m venv automation-env
+python -m venv myspace
 ```
 
 ```bash
-source automation-env/bin/activate  # On Mac/Linux
-automation-env\Scripts\activate  # On Windows
+source myspace/bin/activate  # On Mac/Linux
+myspace\Scripts\activate  # On Windows
 ```
 
 ### Virtual machine
@@ -20,12 +19,7 @@ automation-env\Scripts\activate  # On Windows
 ##### Install packages
 
 ```bash
-pip install pyautogui
-pip install numpy
-pip install opencv-python
-pip install pillow
-pip install pygetwindow
-pip install pyperclip
+pip install -r requirements.txt
 ```
 
 ##### Run
@@ -33,21 +27,16 @@ pip install pyperclip
 - From command line:
 
 ```bash
-python index.py  <name> <sock> <address>
+python index.py
 ```
 
-- Example:
+- Arguments input fields:
 
-```bash
-python index.py 2022-example.com 185.253.122.152:5961:lkqbgbdk:klwsil8ci4hw Louisiana
-# 193.160.82.72:6044:lkqbgbdk:klwsil8ci4hw
-```
+- `iso_path`: Path to Windows ISO file (Ex: C:\path\to\file.iso)
 
-- Arguments
-
-- `<name>`: Tên VM (ví dụ: 2022-example.com)
-- `<sock>`: Thông tin socket theo định dạng `host:port:user:password`
-- `<address>`: Địa chỉ (ví dụ: Louisiana)
+- `name`: Virtual machine name (Ex: 2022-example.com)
+- `sock`: Socket5 like format `host:port:user:password`
+- `address`: Address (Ex: Louisiana)
 
 ##### 🔨 Build
 
@@ -63,11 +52,11 @@ cd vm
 pyinstaller build.spec --clean
 ```
 
-## ⚠️ Notes
+##### ⚠️ Notes
 
-- File executable cần thư mục `templates` ở cùng cấp để hoạt động đúng
-- Console window được bật để hiển thị log và nhận command-line arguments
-- Đảm bảo các file template (.png) có trong thư mục templates trước khi chạy
+- File executable needs the `templates` folder at the same level to function correctly
+- The console window is enabled to display logs and receive command-line arguments
+- Ensure the template files (.png) are in the templates folder before running
 
 ### Store
 
@@ -88,9 +77,9 @@ Double click to **`build.bat`** or run
 pyinstaller build.spec --clean
 ```
 
-2. File exe sẽ được tạo trong thư mục `dist/autify.exe`
+2. The exe file will be created in the `dist/autify.exe` directory
 
-3. Copy file `config.json` vào cùng thư mục với file exe (nếu chưa có)
+3. Copy the `config.json` file to the same directory as the exe file (if not already present)
 
 ##### Start
 
@@ -137,8 +126,7 @@ python index.py
 
 **Error "No credentials found":**
 
-- Check if the `config.json` file exists
-- Ensure the `config.json` file has the correct format with the fields: email, password, storeId
+- Check if the `config.json` file exists and ensure that it has the correct format with the fields: email, password, storeId
 
 **WebDriver Error:**
 
@@ -151,9 +139,3 @@ python index.py
 - View detailed logs in the Activity Log
 - Ensure you are logged in before running a task
 - Check for a stable internet connection
-
-<!-- input("Đã xảy ra lỗi cần đóng và chạy lại...")
-pyautogui.scroll(-300)
-pyautogui.scroll(300)
-pyautogui.doubleClick()
-pyautogui.write('Automation_Guide.txt', interval=0.1) -->
