@@ -7,19 +7,13 @@ import pyperclip
 
 from watcher import ScreenWatcher
 from virtual_mouse import move_mouse, click_mouse, mouse_down, mouse_up
+from helpers import safe_exit, safe_locate
 
 pyautogui.FAILSAFE = True
 sys.dont_write_bytecode = True
 
 DELAY = 0.4
 GOLESS_SUCCESS_FLAG = False
-
-def safe_exit(code=0):
-    print("✅ Exit the program safely...")
-    sys.stdout.flush()
-    sys.stderr.flush()
-    sys.exit(code)
-    os._exit(0)
 
 def delay(sec=DELAY):
     time.sleep(sec)
@@ -196,7 +190,6 @@ threading.Thread(target=auto_close_chrome_tabs, daemon=True).start()
 # ------------------------------------------------------------
 
 watchers = [
-    # ScreenWatcher("./templates/cancel_capture.png", skip_count=2),
     ScreenWatcher("./templates/install_software.png"),
     ScreenWatcher("./templates/skip_location_vi.png"),
     ScreenWatcher("./templates/skip_location_us.png"),
@@ -263,16 +256,17 @@ def vm_setup(name, sock, address):
     hotkey('ctrl', 'n')
     delay(1.2)
 
-    create_vm_location = pyautogui.locateCenterOnScreen('templates/create_vm.png', confidence=0.7)
+    create_vm_location = safe_locate('templates/create_vm.png', confidence=0.7)
 
-    if create_vm_location:
+    if create_vm_location is not None:
         pyautogui.moveTo(create_vm_location, duration=0.3)
         pyautogui.mouseDown()
         pyautogui.moveTo(590, 129, duration=0.7)
         pyautogui.mouseUp()
         print("Clicked create new VM modal")
     else:
-        print("Image not found on screen.")
+        print("⚠ create_vm.png not found on screen → continue")
+        return False
 
     # Name and Operating System
     move_click(737, 208)
@@ -339,9 +333,9 @@ def vm_setup(name, sock, address):
     hotkey('ctrl', 's')
     delay(1.2)
 
-    setting_vm_location = pyautogui.locateCenterOnScreen('templates/setting_vm.png', confidence=0.65)
+    setting_vm_location = safe_locate('templates/setting_vm.png', confidence=0.65)
 
-    if setting_vm_location:
+    if setting_vm_location is not None:
         x, y = setting_vm_location
         delay(0.5)
         pyautogui.moveTo(x, y - 77, duration=0.3)
@@ -350,7 +344,8 @@ def vm_setup(name, sock, address):
         pyautogui.mouseUp()
         print("Clicked setting new VM modal")
     else:
-        print("Image not found on screen.")
+        print("⚠ setting_vm.png not found on screen → continue")
+        return False
 
     move_click(648, 351)
     move_click(880, 379)
@@ -399,11 +394,17 @@ def vm_setup(name, sock, address):
     move_click(1100, 1060, clicks=2)
     delay(2)
 
+    return True
+
 def goless_setup():
     # In the VM window
     move_click(550, 300)
 
     # Unpin chrome
+    pyautogui.rightClick(466, 996)
+    delay(1)
+    move_click(375, 951)
+    delay(0.2)
     pyautogui.rightClick(466, 996)
     delay(1)
     move_click(375, 951)
@@ -415,20 +416,20 @@ def goless_setup():
     move_click(23, 903)
     delay(1)
 
-    setting_location = pyautogui.locateCenterOnScreen('templates/window_settings.png', confidence=0.7)
+    window_setting_location = safe_locate('templates/window_settings.png', confidence=0.7)
 
-    if setting_location:
-        x, y = setting_location
+    if window_setting_location is not None:
+        x, y = window_setting_location
         move_mouse(x, y - 60)
         delay(0.3)
         click_mouse(x, y - 60)
         click_mouse(x, y - 60)
         delay(0.5)
         click_mouse(1002, 92)
-
-        print("Clicked window setting full size modal")
+        print("Clicked window setting modal")
     else:
-        print("Image not found on screen.")
+        print("⚠ window_settings.png not found on screen → continue")
+        return False
 
     # Turn on virtual keyboard
     delay(0.5)
@@ -439,20 +440,23 @@ def goless_setup():
     move_click(365, 300)
     delay(0.8)
 
-    keyboard_location = pyautogui.locateCenterOnScreen('templates/keyboard.png', confidence=0.7)
+    keyboard_location = safe_locate('templates/keyboard.png', confidence=0.7)
 
-    if keyboard_location:
+    if keyboard_location is not None:
         move_mouse(keyboard_location[0], keyboard_location[1])
         delay(0.3)
         click_mouse(keyboard_location[0], keyboard_location[1])
+        delay(0.3)
         click_mouse(keyboard_location[0], keyboard_location[1])
+        delay(0.3)
         mouse_down()
         move_mouse(306, 562)
-        time.sleep(0.7)
+        time.sleep(0.8)
         mouse_up()
-        print("Clicked keyboard modal")
+        print("Clicked window keyboard modal")
     else:
-        print("Image not found on screen.")
+        print("⚠ keyboard.png not found on screen → continue")
+        return False
 
     # Open Chrome
     paste_into_vm(110, 1000, "chrome")
@@ -576,7 +580,7 @@ def goless_setup():
     delay(1)
     move_click(1694, 154)
     move_click(1748, 154)
-    delay(0.5)
+    delay(0.6)
 
     # Unpin Tab search
     pyautogui.rightClick(1805, 105)
@@ -623,17 +627,33 @@ def goless_setup():
         minimize_keyboard_vm()
         delay(15)
 
-if mode == "vm":
-    open_vm_app()
-    delay(0.5)
+    return True
 
+def cleanup_after_vm():
+    global GOLESS_SUCCESS_FLAG
+    delay(6)
+    GOLESS_SUCCESS_FLAG = False
+    delay(1)
+    for w in watchers:
+        w.reset()
+    delay(1)
+    close_vm_app()
+    delay(5)
+
+if mode == "vm":
     for idx, (name, sock, address) in enumerate(rows_data):
-        vm_setup(name, sock, address)
+        open_vm_app()
+        delay(0.5)
+
+        vm_ok = vm_setup(name, sock, address)
+        if not vm_ok:
+            print(f"⛔ VM {name} setup FAILED → skipping...")
+            shutdown_vm()
+            cleanup_after_vm()
+            continue
+
         shutdown_vm()
-        delay(5)
-        for w in watchers:
-            w.reset()
-        delay(1)
+        cleanup_after_vm()
 
     print(f"\n✅ Completed all {len(rows_data)} items!")
     safe_exit(0)
@@ -645,19 +665,22 @@ else:
         open_vm_app()
         delay(0.5)
 
-        vm_setup(name, sock, address)
-        goless_setup()
+        vm_ok = vm_setup(name, sock, address)
+        if not vm_ok:
+            print(f"⛔ VM {name} setup FAILED → skipping...")
+            cleanup_after_vm()
+            continue
+
+        goless_ok = goless_setup()
+        if not goless_ok:
+            print(f"⛔ Goless {name} setup FAILED → skipping...")
+            shutdown_vm()
+            cleanup_after_vm()
+            continue
+
         delay(1)
         shutdown_vm()
-
-        delay(6)
-        GOLESS_SUCCESS_FLAG = False
-        delay(1)
-        for w in watchers:
-            w.reset()
-        delay(1)
-        close_vm_app()
-        delay(5)
+        cleanup_after_vm()
 
     print(f"\n✅ Completed all {len(rows_data)} items!")
     safe_exit(0)

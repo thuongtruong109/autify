@@ -65,7 +65,7 @@ jobs:
         shell: pwsh
         run: |
           $exe = Get-ChildItem dist -Filter *.exe | Select-Object -First 1
-          $base = $exe.BaseName  # example: autify_vm
+          $base = $exe.BaseName
           $archiveName = "$base.zip"
 
           Compress-Archive -Path dist\* -DestinationPath $archiveName -Force
@@ -94,7 +94,7 @@ jobs:
           rm -rf *
 
           mkdir -p downloads
-          cp vm/$ARCHIVE_NAME downloads/
+          cp "./vm/${ARCHIVE_NAME}" downloads/
 
           git add .
           git commit -m "Update artifact $ARCHIVE_NAME" || echo "No changes"
