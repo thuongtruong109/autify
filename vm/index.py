@@ -196,12 +196,11 @@ threading.Thread(target=auto_close_chrome_tabs, daemon=True).start()
 # ------------------------------------------------------------
 
 watchers = [
-    ScreenWatcher("./templates/cancel_capture.png", min_delay=180),
+    ScreenWatcher("./templates/cancel_capture.png", skip_count=2),
     ScreenWatcher("./templates/install_software.png"),
     ScreenWatcher("./templates/skip_location_vi.png"),
     ScreenWatcher("./templates/skip_location_us.png"),
     ScreenWatcher("./templates/restart_vm.png"),
-    # ScreenWatcher("./templates/skip_location_us_2.png", threshold=0.75),
     ScreenWatcher("./templates/skip_chrome_welcome.png", threshold=0.65, callback=skip_chrome_welcome_callback),
     ScreenWatcher("./templates/skip_chrome_welcome2.png", threshold=0.65, callback=skip_chrome_welcome_callback),
     ScreenWatcher("./templates/skip_AI_banner.png"),
