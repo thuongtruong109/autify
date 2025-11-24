@@ -2,8 +2,6 @@ import pygetwindow as gw
 import pyautogui
 import time
 
-pyautogui.click(200, 200)
-
 # duyệt tất cả cửa sổ Chrome đang mở
 for win in gw.getAllWindows():
     title = win.title.lower()

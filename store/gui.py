@@ -23,7 +23,7 @@ class StoreAutomationGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("🛍️ Autify")
-        self.root.geometry("900x700")
+        self.root.geometry("600x700")
         self.root.resizable(False, False)
 
         # Variables
@@ -45,7 +45,7 @@ class StoreAutomationGUI:
         # Configure Notebook (Tabs) style
         style.configure('TNotebook', background='#ecf0f1', borderwidth=0)
         style.configure('TNotebook.Tab',
-                       padding=[20, 10],
+                       padding=[20, 5],
                        font=('Segoe UI', 11, 'bold'),
                        background='#bdc3c7',
                        foreground='#2c3e50',
@@ -53,9 +53,9 @@ class StoreAutomationGUI:
         style.map('TNotebook.Tab',
                  background=[('selected', '#3498db'), ('active', '#5dade2')],
                  foreground=[('selected', 'white'), ('active', 'white')],
-                 padding=[('selected', [20, 10]), ('active', [20, 10])])  # Keep same padding        # Configure button styles
+                 padding=[('selected', [20, 5]), ('active', [20, 5])])  # Keep same padding        # Configure button styles
         style.configure('Task.TButton',
-                       padding=10,
+                       padding=5,
                        font=('Segoe UI', 10),
                        background='#4CAF50',
                        foreground='white')
@@ -64,7 +64,7 @@ class StoreAutomationGUI:
                  background=[('active', '#45a049'), ('disabled', '#cccccc')])
 
         style.configure('Login.TButton',
-                       padding=10,
+                       padding=5,
                        font=('Segoe UI', 11, 'bold'),
                        background='#2196F3',
                        foreground='white')
@@ -93,6 +93,32 @@ class StoreAutomationGUI:
         self.notebook = ttk.Notebook(main_container)
         self.notebook.pack(fill='both', expand=True)
 
+        # Login frame (placed on top-right of notebook)
+        login_frame = tk.Frame(main_container, bg='#ecf0f1')
+        login_frame.place(relx=1.0, rely=0, anchor='ne', height=40)
+
+        # Status icon (initially not logged in)
+        self.status_icon = tk.Label(login_frame, text="⚪", font=('Segoe UI', 12), bg='#2196F3', fg='white')
+        self.status_icon.pack()
+
+        # Login Button
+        self.login_button = tk.Button(login_frame,
+                                      text="🔐 Login",
+                                      font=('Segoe UI', 11, 'bold'),
+                                      bg='#2196F3',
+                                      fg='white',
+                                      command=self.login_action,
+                                      relief='raised',
+                                      bd=0,
+                                      padx=20,
+                                      pady=5,
+                                      activebackground='#1976D2',
+                                      activeforeground='white')
+        self.login_button.pack()
+
+        # Place status icon absolutely on the button
+        self.status_icon.place(in_=self.login_button, relx=0.85, rely=0.5, anchor='center')
+
         # Create Credentials Tab
         self.credentials_tab = self.create_credentials_tab()
         self.notebook.add(self.credentials_tab, text='🔑 Credentials')
@@ -112,7 +138,7 @@ class StoreAutomationGUI:
         log_frame.pack(fill='both', expand=True, pady=(10, 0))
 
         self.log_text = scrolledtext.ScrolledText(log_frame,
-                                                 height=6,
+                                                 height=4,
                                                  font=('Consolas', 9),
                                                  bg='#2c3e50',
                                                  fg='#ecf0f1',
@@ -138,11 +164,6 @@ class StoreAutomationGUI:
         # Create scrollable frame
         scrollable_frame = tk.Frame(canvas, bg='#ecf0f1')
 
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-
         canvas.create_window((0, 0), window=scrollable_frame, anchor='nw')
         canvas.configure(yscrollcommand=scrollbar.set)
 
@@ -150,10 +171,56 @@ class StoreAutomationGUI:
         scrollbar.pack(side='right', fill='y')
         canvas.pack(side='left', fill='both', expand=True)
 
-        # Enable mousewheel scrolling
+        # Enable mousewheel scrolling with smart handling for textareas
         def _on_mousewheel(event):
+            """Smart mousewheel handler that scrolls canvas when textarea can't scroll"""
+            widget = event.widget
+
+            # Check if widget is a ScrolledText
+            if isinstance(widget, scrolledtext.ScrolledText):
+                # Get current scroll position
+                try:
+                    yview = widget.yview()
+                    scroll_direction = -1 if event.delta > 0 else 1
+
+                    # If scrolling up and already at top, scroll canvas
+                    if scroll_direction == -1 and yview[0] <= 0:
+                        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+                        return "break"
+                    # If scrolling down and already at bottom, scroll canvas
+                    elif scroll_direction == 1 and yview[1] >= 1:
+                        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+                        return "break"
+                    # Otherwise, let the textarea handle its own scrolling
+                    else:
+                        return
+                except:
+                    pass
+
+            # For all other widgets, scroll the canvas
             canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+        def bind_mousewheel_recursive(widget, callback):
+            """Recursively bind mousewheel to widget and all its children"""
+            widget.bind("<MouseWheel>", callback)
+            for child in widget.winfo_children():
+                bind_mousewheel_recursive(child, callback)
+
+        # Bind mousewheel to canvas, tab_frame and all children
+        canvas.bind("<MouseWheel>", _on_mousewheel)
+        tab_frame.bind("<MouseWheel>", _on_mousewheel)
+
+        # Update bindings whenever scrollable_frame is configured
+        def update_bindings(event=None):
+            bind_mousewheel_recursive(scrollable_frame, _on_mousewheel)
+
+        scrollable_frame.bind("<Configure>", lambda e: (
+            canvas.configure(scrollregion=canvas.bbox("all")),
+            update_bindings()
+        ))
+
+        # Initial binding
+        update_bindings()
 
         # Credentials Input Frame
         input_frame = tk.LabelFrame(scrollable_frame,
@@ -162,41 +229,94 @@ class StoreAutomationGUI:
                                     bg='#ecf0f1',
                                     fg='#2c3e50',
                                     padx=15,
-                                    pady=10)
-        input_frame.pack(fill='x', pady=(10, 15), padx=10)
+                                    pady=10,
+                                    borderwidth=0)
+        input_frame.pack(fill='x', expand=False, pady=(10, 15), padx=10)
 
         # Store ID
         tk.Label(input_frame, text="Store ID:", font=('Segoe UI', 10),
                 bg='#ecf0f1', fg='#2c3e50', anchor='w').grid(row=0, column=0, sticky='w', pady=5)
-        self.store_id_entry = tk.Entry(input_frame, font=('Segoe UI', 10), width=40)
+        self.store_id_entry = tk.Entry(input_frame, font=('Segoe UI', 10), width=60)
         self.store_id_entry.grid(row=0, column=1, sticky='ew', pady=5, padx=(10, 0))
 
         # Email
         tk.Label(input_frame, text="Email:", font=('Segoe UI', 10),
                 bg='#ecf0f1', fg='#2c3e50', anchor='w').grid(row=1, column=0, sticky='w', pady=5)
-        self.email_entry = tk.Entry(input_frame, font=('Segoe UI', 10), width=40)
+        self.email_entry = tk.Entry(input_frame, font=('Segoe UI', 10), width=60)
         self.email_entry.grid(row=1, column=1, sticky='ew', pady=5, padx=(10, 0))
 
         # Password
         tk.Label(input_frame, text="Password:", font=('Segoe UI', 10),
                 bg='#ecf0f1', fg='#2c3e50', anchor='w').grid(row=2, column=0, sticky='w', pady=5)
-        self.password_entry = tk.Entry(input_frame, font=('Segoe UI', 10), width=40, show='*')
+        self.password_entry = tk.Entry(input_frame, font=('Segoe UI', 10), width=60, show='*')
         self.password_entry.grid(row=2, column=1, sticky='ew', pady=5, padx=(10, 0))
-
-        # SEO Title
-        tk.Label(input_frame, text="SEO Title:", font=('Segoe UI', 10),
-                bg='#ecf0f1', fg='#2c3e50', anchor='w').grid(row=3, column=0, sticky='w', pady=5)
-        self.seo_title_entry = tk.Entry(input_frame, font=('Segoe UI', 10), width=40)
-        self.seo_title_entry.grid(row=3, column=1, sticky='ew', pady=5, padx=(10, 0))
-
-        # SEO Description
-        tk.Label(input_frame, text="SEO Description:", font=('Segoe UI', 10),
-                bg='#ecf0f1', fg='#2c3e50', anchor='w').grid(row=4, column=0, sticky='w', pady=5)
-        self.seo_description_entry = tk.Entry(input_frame, font=('Segoe UI', 10), width=40)
-        self.seo_description_entry.grid(row=4, column=1, sticky='ew', pady=5, padx=(10, 0))
 
         # Configure grid
         input_frame.columnconfigure(1, weight=1)
+
+        # SEO Frame
+        seo_frame = tk.LabelFrame(scrollable_frame,
+                                  text="⚙️ Preferences",
+                                  font=('Segoe UI', 11, 'bold'),
+                                  bg='#ecf0f1',
+                                  fg='#2c3e50',
+                                  padx=15,
+                                  pady=10,
+                                  borderwidth=0)
+        seo_frame.pack(fill='x', expand=False, pady=(0, 15), padx=10)
+
+        # SEO Title
+        tk.Label(seo_frame, text="SEO Title:", font=('Segoe UI', 10),
+                bg='#ecf0f1', fg='#2c3e50', anchor='w').grid(row=0, column=0, sticky='w', pady=5)
+        self.seo_title_entry = tk.Entry(seo_frame, font=('Segoe UI', 10), width=60)
+        self.seo_title_entry.grid(row=1, column=0, sticky='ew', pady=5)
+
+        # SEO Description
+        tk.Label(seo_frame, text="SEO Description:", font=('Segoe UI', 10),
+                bg='#ecf0f1', fg='#2c3e50', anchor='w').grid(row=2, column=0, sticky='w', pady=5)
+        self.seo_description_entry = tk.Entry(seo_frame, font=('Segoe UI', 10), width=60)
+        self.seo_description_entry.grid(row=3, column=0, sticky='ew', pady=5)
+
+        # Configure grid
+        seo_frame.columnconfigure(0, weight=1)
+
+        # Pages Frame
+        pages_frame = tk.LabelFrame(scrollable_frame,
+                                    text="� Policies",
+                                    font=('Segoe UI', 11, 'bold'),
+                                    bg='#ecf0f1',
+                                    fg='#2c3e50',
+                                    padx=15,
+                                    pady=10,
+                                    borderwidth=0)
+        pages_frame.pack(fill='x', expand=False, pady=(0, 15), padx=10)
+
+        # Return & Refund Policy
+        tk.Label(pages_frame, text="Return & Refund Policy:", font=('Segoe UI', 10),
+                bg='#ecf0f1', fg='#2c3e50', anchor='w').grid(row=0, column=0, sticky='w', pady=5)
+        self.return_refund_text = scrolledtext.ScrolledText(pages_frame, height=4, font=('Segoe UI', 9), wrap=tk.WORD)
+        self.return_refund_text.grid(row=1, column=0, sticky='ew', pady=5)
+
+        # Terms of Service
+        tk.Label(pages_frame, text="Terms of Service:", font=('Segoe UI', 10),
+                bg='#ecf0f1', fg='#2c3e50', anchor='w').grid(row=2, column=0, sticky='w', pady=5)
+        self.terms_service_text = scrolledtext.ScrolledText(pages_frame, height=4, font=('Segoe UI', 9), wrap=tk.WORD)
+        self.terms_service_text.grid(row=3, column=0, sticky='ew', pady=5)
+
+        # Shipping Policy
+        tk.Label(pages_frame, text="Shipping Policy:", font=('Segoe UI', 10),
+                bg='#ecf0f1', fg='#2c3e50', anchor='w').grid(row=4, column=0, sticky='w', pady=5)
+        self.shipping_policy_text = scrolledtext.ScrolledText(pages_frame, height=4, font=('Segoe UI', 9), wrap=tk.WORD)
+        self.shipping_policy_text.grid(row=5, column=0, sticky='ew', pady=5)
+
+        # Contact Information
+        tk.Label(pages_frame, text="Contact Information:", font=('Segoe UI', 10),
+                bg='#ecf0f1', fg='#2c3e50', anchor='w').grid(row=6, column=0, sticky='w', pady=5)
+        self.contact_info_text = scrolledtext.ScrolledText(pages_frame, height=4, font=('Segoe UI', 9), wrap=tk.WORD)
+        self.contact_info_text.grid(row=7, column=0, sticky='ew', pady=5)
+
+        # Configure grid
+        pages_frame.columnconfigure(0, weight=1)
 
         return tab_frame
 
@@ -212,11 +332,6 @@ class StoreAutomationGUI:
         # Create scrollable frame
         scrollable_frame = tk.Frame(canvas, bg='#ecf0f1')
 
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-
         canvas.create_window((0, 0), window=scrollable_frame, anchor='nw')
         canvas.configure(yscrollcommand=scrollbar.set)
 
@@ -224,35 +339,56 @@ class StoreAutomationGUI:
         scrollbar.pack(side='right', fill='y')
         canvas.pack(side='left', fill='both', expand=True)
 
-        # Enable mousewheel scrolling
+        # Enable mousewheel scrolling with smart handling for textareas
         def _on_mousewheel(event):
+            """Smart mousewheel handler that scrolls canvas when textarea can't scroll"""
+            widget = event.widget
+
+            # Check if widget is a ScrolledText
+            if isinstance(widget, scrolledtext.ScrolledText):
+                # Get current scroll position
+                try:
+                    yview = widget.yview()
+                    scroll_direction = -1 if event.delta > 0 else 1
+
+                    # If scrolling up and already at top, scroll canvas
+                    if scroll_direction == -1 and yview[0] <= 0:
+                        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+                        return "break"
+                    # If scrolling down and already at bottom, scroll canvas
+                    elif scroll_direction == 1 and yview[1] >= 1:
+                        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+                        return "break"
+                    # Otherwise, let the textarea handle its own scrolling
+                    else:
+                        return
+                except:
+                    pass
+
+            # For all other widgets, scroll the canvas
             canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        canvas.bind_all("<MouseWheel>", _on_mousewheel)
 
-        # Status Frame
-        status_frame = tk.LabelFrame(scrollable_frame,
-                                     text="📌 Login Status",
-                                     font=('Segoe UI', 11, 'bold'),
-                                     bg='#ecf0f1',
-                                     fg='#2c3e50',
-                                     padx=10,
-                                     pady=10)
-        status_frame.pack(fill='x', pady=(10, 15), padx=10)
+        def bind_mousewheel_recursive(widget, callback):
+            """Recursively bind mousewheel to widget and all its children"""
+            widget.bind("<MouseWheel>", callback)
+            for child in widget.winfo_children():
+                bind_mousewheel_recursive(child, callback)
 
-        self.status_label = tk.Label(status_frame,
-                                     text="Status: ⚪ Not logged in",
-                                     font=('Segoe UI', 10, 'bold'),
-                                     bg='#ecf0f1',
-                                     fg='#e74c3c',
-                                     anchor='w')
-        self.status_label.pack(fill='x', pady=2)
+        # Bind mousewheel to canvas, tab_frame and all children
+        canvas.bind("<MouseWheel>", _on_mousewheel)
+        tab_frame.bind("<MouseWheel>", _on_mousewheel)
 
-        # Login Button
-        self.login_button = ttk.Button(status_frame,
-                                      text="🔐 Login to Shopify",
-                                      style='Login.TButton',
-                                      command=self.login_action)
-        self.login_button.pack(pady=10)
+        # Update bindings whenever scrollable_frame is configured
+        def update_bindings(event=None):
+            bind_mousewheel_recursive(scrollable_frame, _on_mousewheel)
+
+        scrollable_frame.bind("<Configure>", lambda e: (
+            canvas.configure(scrollregion=canvas.bbox("all")),
+            update_bindings()
+        ))
+
+        # Initial binding
+        update_bindings()
 
         # Tasks Frame
         tasks_frame = tk.LabelFrame(scrollable_frame,
@@ -262,7 +398,7 @@ class StoreAutomationGUI:
                                    fg='#2c3e50',
                                    padx=15,
                                    pady=10)
-        tasks_frame.pack(fill='both', expand=True, pady=(0, 10), padx=10)
+        tasks_frame.pack(fill='x', expand=False, pady=(10, 10), padx=10)
 
         # Create task buttons in a grid
         self.task_buttons = {}
@@ -421,6 +557,7 @@ class StoreAutomationGUI:
                 self.log("❌ Login failed")
                 self.root.after(0, lambda: messagebox.showerror("Login Failed", "Could not login to Shopify"))
                 self.root.after(0, self.enable_inputs)
+                self.root.after(0, lambda: self.status_icon.config(text="❌", fg='#e74c3c'))
 
                 if self.driver:
                     self.driver.quit()
@@ -430,6 +567,7 @@ class StoreAutomationGUI:
             self.log(f"❌ Login error: {e}")
             self.root.after(0, lambda: messagebox.showerror("Error", f"Login error:\n{e}"))
             self.root.after(0, self.enable_inputs)
+            self.root.after(0, lambda: self.status_icon.config(text="❌", fg='#e74c3c'))
 
             if self.driver:
                 self.driver.quit()
@@ -443,10 +581,11 @@ class StoreAutomationGUI:
         self.password_entry.config(state='normal')
         self.seo_title_entry.config(state='normal')
         self.seo_description_entry.config(state='normal')
+        self.status_icon.config(text="⚪", fg='white')
 
     def on_login_success(self):
         """Update UI after successful login"""
-        self.status_label.config(text="Status: 🟢 Logged in", fg='#27ae60')
+        self.status_icon.config(text="✅", fg='#27ae60')
         self.login_button.config(text="✅ Logged In", state='disabled')
 
         # Enable all task buttons
@@ -529,9 +668,12 @@ class TextRedirector:
         self.widget.insert(tk.END, text)
         self.widget.see(tk.END)
         self.widget.update()
+        # Also write to terminal
+        sys.__stdout__.write(text)
+        sys.__stdout__.flush()
 
     def flush(self):
-        pass
+        sys.__stdout__.flush()
 
 
 def main():

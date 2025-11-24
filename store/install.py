@@ -3,7 +3,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from typing import List
-from utils import delay, wait_for_admin, highlight_element
+from utils import delay, wait_for_admin, highlight_element, find_button
 
 APPS = [
     {"name": "Track123", "slug": "track123", "type": "modal"},

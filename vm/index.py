@@ -1,4 +1,4 @@
-import sys, os, time, subprocess, time, random, threading
+import sys, os, subprocess, time, random, threading
 import cv2
 import numpy as np
 import pyautogui
@@ -127,7 +127,7 @@ def search_vm(text):
 
 def start_vm():
     pyautogui.rightClick(30, 1010, duration=DELAY)
-    delay()
+    delay(1)
     move_click(75, 753)
     move_click(320, 753)
 
@@ -190,6 +190,11 @@ threading.Thread(target=auto_close_chrome_tabs, daemon=True).start()
 # ------------------------------------------------------------
 
 watchers = [
+    ScreenWatcher("./templates/update_driver_iso.png"),
+    ScreenWatcher("./templates/update_driver_iso.png", min_delay=20),
+    ScreenWatcher("./templates/update_driver_iso.png", min_delay=30),
+
+    ScreenWatcher("./templates/cancel_capture.png", min_delay=150),
     ScreenWatcher("./templates/install_software.png"),
     ScreenWatcher("./templates/skip_location_vi.png"),
     ScreenWatcher("./templates/skip_location_us.png"),
@@ -249,7 +254,7 @@ def close_vm_app():
     move_click(1902, 6)
 
 def vm_setup(name, sock, address):
-    iso = iso_path if iso_path else (result.stdout.strip() or default_iso)
+    iso = iso_path if iso_path else (default_iso or result.stdout.strip())
     host, port, user, passwd = (sock.split(":") + [""] * 4)[:4]
 
     # Create new VM
@@ -368,14 +373,17 @@ def vm_setup(name, sock, address):
     # Start
     start_vm()
 
-    delay(6)
+    delay(5)
 
     # Load iso to new VM
     for _ in range(6):
-        move_click(1104, 770)
+        move_click(1185, 770)
         move_click(797, 249)
         move_click(797, 274)
         delay(0.1)
+        press_key('right')
+        delay(0.1)
+        press_key('enter')
         move_click(1005, 374)
         delay(0.1)
 
