@@ -18,7 +18,6 @@ from pages import setup_contact_page
 from shipping import setup_shipping_zones
 from themes import setup_preferences
 
-
 class StoreAutomationGUI:
     def __init__(self, root):
         self.root = root
@@ -72,18 +71,49 @@ class StoreAutomationGUI:
         style.map('Login.TButton',
                  background=[('active', '#1976D2'), ('disabled', '#cccccc')])
 
-    def create_widgets(self):
-        # Header Frame
-        # header_frame = tk.Frame(self.root, bg='#2c3e50', height=40)
-        # header_frame.pack(fill='x')
-        # header_frame.pack_propagate(False)
+    def setup_placeholder(self, entry, placeholder_text):
+        """Setup placeholder behavior for Entry widget"""
+        def on_focus_in(event):
+            if entry.get() == placeholder_text:
+                entry.delete(0, tk.END)
+                entry.config(fg='#2c3e50')  # Normal text color
 
-        # title_label = tk.Label(header_frame,
-        #                       text="🛍️ Store Automation Tool",
-        #                       font=('Segoe UI', 20, 'bold'),
-        #                       bg='#2c3e50',
-        #                       fg='white')
-        # title_label.pack(pady=10)
+        def on_focus_out(event):
+            if entry.get() == '':
+                entry.insert(0, placeholder_text)
+                entry.config(fg='#95a5a6')  # Placeholder color
+
+        # Set initial placeholder
+        entry.insert(0, placeholder_text)
+        entry.config(fg='#95a5a6')  # Placeholder color
+
+        # Bind events
+        entry.bind('<FocusIn>', on_focus_in)
+        entry.bind('<FocusOut>', on_focus_out)
+
+    def setup_text_placeholder(self, text_widget, placeholder_text):
+        """Setup placeholder behavior for ScrolledText widget"""
+        def on_focus_in(event):
+            current_text = text_widget.get('1.0', tk.END).strip()
+            if current_text == placeholder_text:
+                text_widget.delete('1.0', tk.END)
+                text_widget.config(fg='#2c3e50')  # Normal text color
+
+        def on_focus_out(event):
+            current_text = text_widget.get('1.0', tk.END).strip()
+            if current_text == '':
+                text_widget.insert('1.0', placeholder_text)
+                text_widget.config(fg='#95a5a6')  # Placeholder color
+
+        # Set initial placeholder
+        text_widget.insert('1.0', placeholder_text)
+        text_widget.config(fg='#95a5a6')  # Placeholder color
+
+        # Bind events
+        text_widget.bind('<FocusIn>', on_focus_in)
+        text_widget.bind('<FocusOut>', on_focus_out)
+
+    def create_widgets(self):
 
         # Main Container
         main_container = tk.Frame(self.root, bg='#ecf0f1')
@@ -111,7 +141,7 @@ class StoreAutomationGUI:
                                       relief='raised',
                                       bd=0,
                                       padx=20,
-                                      pady=5,
+                                      pady=3,
                                       activebackground='#1976D2',
                                       activeforeground='white')
         self.login_button.pack()
@@ -133,8 +163,8 @@ class StoreAutomationGUI:
                                  font=('Segoe UI', 11, 'bold'),
                                  bg='#ecf0f1',
                                  fg='#2c3e50',
-                                 padx=10,
-                                 pady=10)
+                                 padx=6,
+                                 pady=6)
         log_frame.pack(fill='both', expand=True, pady=(10, 0))
 
         self.log_text = scrolledtext.ScrolledText(log_frame,
@@ -164,12 +194,19 @@ class StoreAutomationGUI:
         # Create scrollable frame
         scrollable_frame = tk.Frame(canvas, bg='#ecf0f1')
 
-        canvas.create_window((0, 0), window=scrollable_frame, anchor='nw')
+        # Pack scrollable_frame into canvas with full width
+        canvas.create_window((0, 0), window=scrollable_frame, anchor='nw', width=canvas.winfo_width())
         canvas.configure(yscrollcommand=scrollbar.set)
 
         # Pack scrollbar and canvas
         scrollbar.pack(side='right', fill='y')
         canvas.pack(side='left', fill='both', expand=True)
+
+        # Update scrollable_frame width when canvas resizes
+        def update_scrollable_width(event):
+            canvas.itemconfig(canvas.find_withtag("all")[0], width=event.width)
+
+        canvas.bind('<Configure>', update_scrollable_width)
 
         # Enable mousewheel scrolling with smart handling for textareas
         def _on_mousewheel(event):
@@ -228,95 +265,266 @@ class StoreAutomationGUI:
                                     font=('Segoe UI', 11, 'bold'),
                                     bg='#ecf0f1',
                                     fg='#2c3e50',
-                                    padx=15,
                                     pady=10,
                                     borderwidth=0)
-        input_frame.pack(fill='x', expand=False, pady=(10, 15), padx=10)
+        input_frame.pack(fill='both', expand=True, pady=(10, 15))
 
-        # Store ID
-        tk.Label(input_frame, text="Store ID:", font=('Segoe UI', 10),
-                bg='#ecf0f1', fg='#2c3e50', anchor='w').grid(row=0, column=0, sticky='w', pady=5)
-        self.store_id_entry = tk.Entry(input_frame, font=('Segoe UI', 10), width=60)
-        self.store_id_entry.grid(row=0, column=1, sticky='ew', pady=5, padx=(10, 0))
-
-        # Email
-        tk.Label(input_frame, text="Email:", font=('Segoe UI', 10),
-                bg='#ecf0f1', fg='#2c3e50', anchor='w').grid(row=1, column=0, sticky='w', pady=5)
+        # Email - using placeholder instead of label
         self.email_entry = tk.Entry(input_frame, font=('Segoe UI', 10), width=60)
-        self.email_entry.grid(row=1, column=1, sticky='ew', pady=5, padx=(10, 0))
+        self.email_entry.grid(row=1, column=0, sticky='ew', pady=5)
+        self.setup_placeholder(self.email_entry, 'Email address')
 
-        # Password
-        tk.Label(input_frame, text="Password:", font=('Segoe UI', 10),
-                bg='#ecf0f1', fg='#2c3e50', anchor='w').grid(row=2, column=0, sticky='w', pady=5)
+        # Password - using placeholder instead of label
         self.password_entry = tk.Entry(input_frame, font=('Segoe UI', 10), width=60, show='*')
-        self.password_entry.grid(row=2, column=1, sticky='ew', pady=5, padx=(10, 0))
+        self.password_entry.grid(row=2, column=0, sticky='ew', pady=5)
+        self.setup_placeholder(self.password_entry, 'Password')
 
         # Configure grid
-        input_frame.columnconfigure(1, weight=1)
+        input_frame.columnconfigure(0, weight=1)
 
         # SEO Frame
         seo_frame = tk.LabelFrame(scrollable_frame,
-                                  text="⚙️ Preferences",
-                                  font=('Segoe UI', 11, 'bold'),
-                                  bg='#ecf0f1',
-                                  fg='#2c3e50',
-                                  padx=15,
-                                  pady=10,
-                                  borderwidth=0)
-        seo_frame.pack(fill='x', expand=False, pady=(0, 15), padx=10)
+                      text="⚙️ Preferences",
+                      font=('Segoe UI', 11, 'bold'),
+                      bg='#ecf0f1',
+                      fg='#2c3e50',
+                      pady=10,
+                      borderwidth=0)
+        seo_frame.pack(fill='both', expand=True, pady=(0, 15))
 
-        # SEO Title
-        tk.Label(seo_frame, text="SEO Title:", font=('Segoe UI', 10),
-                bg='#ecf0f1', fg='#2c3e50', anchor='w').grid(row=0, column=0, sticky='w', pady=5)
+        # SEO Title - using placeholder instead of label
         self.seo_title_entry = tk.Entry(seo_frame, font=('Segoe UI', 10), width=60)
-        self.seo_title_entry.grid(row=1, column=0, sticky='ew', pady=5)
+        self.seo_title_entry.grid(row=0, column=0, sticky='ew', pady=5)
+        self.setup_placeholder(self.seo_title_entry, 'SEO title')
 
-        # SEO Description
-        tk.Label(seo_frame, text="SEO Description:", font=('Segoe UI', 10),
-                bg='#ecf0f1', fg='#2c3e50', anchor='w').grid(row=2, column=0, sticky='w', pady=5)
+        # SEO Description - using placeholder instead of label
         self.seo_description_entry = tk.Entry(seo_frame, font=('Segoe UI', 10), width=60)
-        self.seo_description_entry.grid(row=3, column=0, sticky='ew', pady=5)
+        self.seo_description_entry.grid(row=1, column=0, sticky='ew', pady=5)
+        self.setup_placeholder(self.seo_description_entry, 'SEO description')
 
         # Configure grid
         seo_frame.columnconfigure(0, weight=1)
 
         # Pages Frame
         pages_frame = tk.LabelFrame(scrollable_frame,
-                                    text="� Policies",
-                                    font=('Segoe UI', 11, 'bold'),
-                                    bg='#ecf0f1',
-                                    fg='#2c3e50',
-                                    padx=15,
-                                    pady=10,
-                                    borderwidth=0)
-        pages_frame.pack(fill='x', expand=False, pady=(0, 15), padx=10)
+                        text="📄 Policies",
+                        font=('Segoe UI', 11, 'bold'),
+                        bg='#ecf0f1',
+                        fg='#2c3e50',
+                        pady=10,
+                        borderwidth=0)
+        pages_frame.pack(fill='both', expand=True, pady=(0, 15))
 
-        # Return & Refund Policy
-        tk.Label(pages_frame, text="Return & Refund Policy:", font=('Segoe UI', 10),
-                bg='#ecf0f1', fg='#2c3e50', anchor='w').grid(row=0, column=0, sticky='w', pady=5)
+        # Return & Refund Policy - using placeholder instead of label
         self.return_refund_text = scrolledtext.ScrolledText(pages_frame, height=4, font=('Segoe UI', 9), wrap=tk.WORD)
-        self.return_refund_text.grid(row=1, column=0, sticky='ew', pady=5)
+        self.return_refund_text.grid(row=0, column=0, sticky='ew', pady=5)
+        self.setup_text_placeholder(self.return_refund_text, 'Return and refund policy...')
 
-        # Terms of Service
-        tk.Label(pages_frame, text="Terms of Service:", font=('Segoe UI', 10),
-                bg='#ecf0f1', fg='#2c3e50', anchor='w').grid(row=2, column=0, sticky='w', pady=5)
+        # Terms of Service - using placeholder instead of label
         self.terms_service_text = scrolledtext.ScrolledText(pages_frame, height=4, font=('Segoe UI', 9), wrap=tk.WORD)
-        self.terms_service_text.grid(row=3, column=0, sticky='ew', pady=5)
+        self.terms_service_text.grid(row=1, column=0, sticky='ew', pady=5)
+        self.setup_text_placeholder(self.terms_service_text, 'Terms of service...')
 
-        # Shipping Policy
-        tk.Label(pages_frame, text="Shipping Policy:", font=('Segoe UI', 10),
-                bg='#ecf0f1', fg='#2c3e50', anchor='w').grid(row=4, column=0, sticky='w', pady=5)
+        # Shipping Policy - using placeholder instead of label
         self.shipping_policy_text = scrolledtext.ScrolledText(pages_frame, height=4, font=('Segoe UI', 9), wrap=tk.WORD)
-        self.shipping_policy_text.grid(row=5, column=0, sticky='ew', pady=5)
+        self.shipping_policy_text.grid(row=2, column=0, sticky='ew', pady=5)
+        self.setup_text_placeholder(self.shipping_policy_text, 'Shipping policy...')
 
-        # Contact Information
-        tk.Label(pages_frame, text="Contact Information:", font=('Segoe UI', 10),
-                bg='#ecf0f1', fg='#2c3e50', anchor='w').grid(row=6, column=0, sticky='w', pady=5)
+        # Contact Information - using placeholder instead of label
         self.contact_info_text = scrolledtext.ScrolledText(pages_frame, height=4, font=('Segoe UI', 9), wrap=tk.WORD)
-        self.contact_info_text.grid(row=7, column=0, sticky='ew', pady=5)
+        self.contact_info_text.grid(row=3, column=0, sticky='ew', pady=5)
+        self.setup_text_placeholder(self.contact_info_text, 'Contact information...')
 
         # Configure grid
         pages_frame.columnconfigure(0, weight=1)
+
+        # Marketing Frame
+        marketing_frame = tk.LabelFrame(scrollable_frame,
+                           text="📢 Marketing",
+                           font=('Segoe UI', 11, 'bold'),
+                           bg='#ecf0f1',
+                           fg='#2c3e50',
+                           pady=10,
+                           borderwidth=0)
+        marketing_frame.pack(fill='both', expand=True, pady=(0, 15))
+
+        # Marketing Subject - using placeholder instead of label
+        self.marketing_subject_entry = tk.Entry(marketing_frame, font=('Segoe UI', 10), width=60)
+        self.marketing_subject_entry.grid(row=0, column=0, sticky='ew', pady=5)
+        self.setup_placeholder(self.marketing_subject_entry, 'Marketing subject line')
+
+        # Configure grid
+        marketing_frame.columnconfigure(0, weight=1)
+
+        # Upsell Frame
+        upsell_frame = tk.LabelFrame(scrollable_frame,
+                        text="💰 Upsell",
+                        font=('Segoe UI', 11, 'bold'),
+                        bg='#ecf0f1',
+                        fg='#2c3e50',
+                        pady=10,
+                        borderwidth=0)
+        upsell_frame.pack(fill='both', expand=True, pady=(0, 15))
+
+        # Upsell Campaign Title - using placeholder instead of label
+        self.upsell_campaign_title_entry = tk.Entry(upsell_frame, font=('Segoe UI', 10), width=60)
+        self.upsell_campaign_title_entry.grid(row=0, column=0, sticky='ew', pady=5)
+        self.setup_placeholder(self.upsell_campaign_title_entry, 'Upsell campaign title')
+
+        # Upsell Thank You - using placeholder instead of label
+        self.upsell_thank_you_entry = tk.Entry(upsell_frame, font=('Segoe UI', 10), width=60)
+        self.upsell_thank_you_entry.grid(row=1, column=0, sticky='ew', pady=5)
+        self.setup_placeholder(self.upsell_thank_you_entry, 'Upsell thank you message')
+
+        # Configure grid
+        upsell_frame.columnconfigure(0, weight=1)
+
+        # Pages Frame
+        pages_content_frame = tk.LabelFrame(scrollable_frame,
+                        text="📄 Pages",
+                        font=('Segoe UI', 11, 'bold'),
+                        bg='#ecf0f1',
+                        fg='#2c3e50',
+                        pady=10,
+                        borderwidth=0)
+        pages_content_frame.pack(fill='both', expand=True, pady=(0, 15))
+
+        # About Us - using placeholder instead of label
+        self.about_us_text = scrolledtext.ScrolledText(pages_content_frame, height=4, font=('Segoe UI', 9), wrap=tk.WORD)
+        self.about_us_text.grid(row=0, column=0, sticky='ew', pady=5)
+        self.setup_text_placeholder(self.about_us_text, 'About Us page content...')
+
+        # Contact Us - using placeholder instead of label
+        self.contact_us_text = scrolledtext.ScrolledText(pages_content_frame, height=4, font=('Segoe UI', 9), wrap=tk.WORD)
+        self.contact_us_text.grid(row=1, column=0, sticky='ew', pady=5)
+        self.setup_text_placeholder(self.contact_us_text, 'Contact Us page content...')
+
+        # Configure grid
+        pages_content_frame.columnconfigure(0, weight=1)
+
+        # Image with Text Frame (3 rows; each row has Title + Description side-by-side)
+        image_text_frame = tk.LabelFrame(scrollable_frame,
+                        text="🖼️ Image with Text",
+                        font=('Segoe UI', 11, 'bold'),
+                        bg='#ecf0f1',
+                        fg='#2c3e50',
+                        pady=10,
+                        borderwidth=0)
+        image_text_frame.pack(fill='both', expand=True, pady=(0, 15))
+
+        # Column headers
+        tk.Label(image_text_frame, text="Title", font=('Segoe UI', 10, 'bold'),
+                bg='#ecf0f1', fg='#2c3e50').grid(row=0, column=0, sticky='w', padx=(2, 8))
+        tk.Label(image_text_frame, text="Description", font=('Segoe UI', 10, 'bold'),
+                bg='#ecf0f1', fg='#2c3e50').grid(row=0, column=1, sticky='w', padx=(8, 2))
+
+        # Row 1
+        self.image_text_title_1_entry = tk.Entry(image_text_frame, font=('Segoe UI', 10))
+        self.image_text_title_1_entry.grid(row=1, column=0, sticky='ew', pady=4, padx=(0, 8))
+        self.image_text_desc_1_entry = tk.Entry(image_text_frame, font=('Segoe UI', 10))
+        self.image_text_desc_1_entry.grid(row=1, column=1, sticky='ew', pady=4, padx=(8, 0))
+
+        # Row 2
+        self.image_text_title_2_entry = tk.Entry(image_text_frame, font=('Segoe UI', 10))
+        self.image_text_title_2_entry.grid(row=2, column=0, sticky='ew', pady=4, padx=(0, 8))
+        self.image_text_desc_2_entry = tk.Entry(image_text_frame, font=('Segoe UI', 10))
+        self.image_text_desc_2_entry.grid(row=2, column=1, sticky='ew', pady=4, padx=(8, 0))
+
+        # Row 3
+        self.image_text_title_3_entry = tk.Entry(image_text_frame, font=('Segoe UI', 10))
+        self.image_text_title_3_entry.grid(row=3, column=0, sticky='ew', pady=4, padx=(0, 8))
+        self.image_text_desc_3_entry = tk.Entry(image_text_frame, font=('Segoe UI', 10))
+        self.image_text_desc_3_entry.grid(row=3, column=1, sticky='ew', pady=4, padx=(8, 0))
+
+        # Configure grid for equal column expansion
+        image_text_frame.columnconfigure(0, weight=1)
+        image_text_frame.columnconfigure(1, weight=1)
+
+        # Slider Frame (3 rows; each row has Name + YouTube Short Link side-by-side)
+        slider_frame = tk.LabelFrame(scrollable_frame,
+                        text="🎠 Slider",
+                        font=('Segoe UI', 11, 'bold'),
+                        bg='#ecf0f1',
+                        fg='#2c3e50',
+                        pady=10,
+                        borderwidth=0)
+        slider_frame.pack(fill='both', expand=True, pady=(0, 15))
+
+        # Column headers
+        tk.Label(slider_frame, text="Name", font=('Segoe UI', 10, 'bold'),
+            bg='#ecf0f1', fg='#2c3e50').grid(row=0, column=0, sticky='w', padx=(2, 8))
+        tk.Label(slider_frame, text="YouTube Short Link", font=('Segoe UI', 10, 'bold'),
+            bg='#ecf0f1', fg='#2c3e50').grid(row=0, column=1, sticky='w', padx=(8, 2))
+
+        # Row 1
+        self.slider_name_1_entry = tk.Entry(slider_frame, font=('Segoe UI', 10))
+        self.slider_name_1_entry.grid(row=1, column=0, sticky='ew', pady=4, padx=(0, 8))
+        self.slider_link_1_entry = tk.Entry(slider_frame, font=('Segoe UI', 10))
+        self.slider_link_1_entry.grid(row=1, column=1, sticky='ew', pady=4, padx=(8, 0))
+
+        # Row 2
+        self.slider_name_2_entry = tk.Entry(slider_frame, font=('Segoe UI', 10))
+        self.slider_name_2_entry.grid(row=2, column=0, sticky='ew', pady=4, padx=(0, 8))
+        self.slider_link_2_entry = tk.Entry(slider_frame, font=('Segoe UI', 10))
+        self.slider_link_2_entry.grid(row=2, column=1, sticky='ew', pady=4, padx=(8, 0))
+
+        # Row 3
+        self.slider_name_3_entry = tk.Entry(slider_frame, font=('Segoe UI', 10))
+        self.slider_name_3_entry.grid(row=3, column=0, sticky='ew', pady=4, padx=(0, 8))
+        self.slider_link_3_entry = tk.Entry(slider_frame, font=('Segoe UI', 10))
+        self.slider_link_3_entry.grid(row=3, column=1, sticky='ew', pady=4, padx=(8, 0))
+
+        # Configure grid for equal column expansion
+        slider_frame.columnconfigure(0, weight=1)
+        slider_frame.columnconfigure(1, weight=1)
+
+        # Product Section: 4 products, each with name (input), description (textarea), and two prices on same row
+        product_section = tk.LabelFrame(scrollable_frame,
+                        text="🛍️ Products",
+                        font=('Segoe UI', 11, 'bold'),
+                        bg='#ecf0f1',
+                        fg='#2c3e50',
+                        pady=10,
+                        borderwidth=0)
+        product_section.pack(fill='both', expand=True, pady=(0, 15))
+
+        for i in range(1, 5):
+            # container for each product
+            item_frame = tk.Frame(product_section, bg='#ecf0f1')
+            item_frame.pack(fill='x', expand=True, pady=(8, 8))
+            item_frame.columnconfigure(0, weight=1)
+
+            # Product name (row 1)
+            tk.Label(item_frame, text=f"Product {i} Name:", font=('Segoe UI', 10), bg='#ecf0f1', fg='#2c3e50').grid(row=0, column=0, sticky='w')
+            setattr(self, f'product_{i}_name_entry', tk.Entry(item_frame, font=('Segoe UI', 10)))
+            getattr(self, f'product_{i}_name_entry').grid(row=1, column=0, sticky='ew', pady=4)
+            self.setup_placeholder(getattr(self, f'product_{i}_name_entry'), f'Product {i} Name')
+
+            # Product description (row 2) - using placeholder instead of label
+            setattr(self, f'product_{i}_desc_text', scrolledtext.ScrolledText(item_frame, height=3, font=('Segoe UI', 9), wrap=tk.WORD))
+            getattr(self, f'product_{i}_desc_text').grid(row=2, column=0, sticky='ew', pady=4)
+            self.setup_text_placeholder(getattr(self, f'product_{i}_desc_text'), f'Description for Product {i}...')
+
+            # Price row (row 3) - discount and original side-by-side
+            price_frame = tk.Frame(item_frame, bg='#ecf0f1')
+            price_frame.grid(row=3, column=0, sticky='ew', pady=4)
+            price_frame.columnconfigure(0, weight=1)
+            price_frame.columnconfigure(1, weight=1)
+
+            tk.Label(price_frame, text='Discount Price', font=('Segoe UI', 10), bg='#ecf0f1', fg='#2c3e50').grid(row=0, column=0, sticky='w')
+            tk.Label(price_frame, text='Original Price', font=('Segoe UI', 10), bg='#ecf0f1', fg='#2c3e50').grid(row=0, column=1, sticky='w')
+
+            setattr(self, f'product_{i}_discount_entry', tk.Entry(price_frame, font=('Segoe UI', 10)))
+            getattr(self, f'product_{i}_discount_entry').grid(row=1, column=0, sticky='ew', padx=(0, 6))
+            self.setup_placeholder(getattr(self, f'product_{i}_discount_entry'), '0.00')
+            setattr(self, f'product_{i}_original_entry', tk.Entry(price_frame, font=('Segoe UI', 10)))
+            getattr(self, f'product_{i}_original_entry').grid(row=1, column=1, sticky='ew', padx=(6, 0))
+            self.setup_placeholder(getattr(self, f'product_{i}_original_entry'), '0.00')
+
+            # Add divider between products (except after the last one)
+            if i < 4:
+                divider = tk.Frame(product_section, bg='#bdc3c7', height=1)
+                divider.pack(fill='x', pady=(5, 10))
 
         return tab_frame
 
@@ -332,12 +540,19 @@ class StoreAutomationGUI:
         # Create scrollable frame
         scrollable_frame = tk.Frame(canvas, bg='#ecf0f1')
 
-        canvas.create_window((0, 0), window=scrollable_frame, anchor='nw')
+        # Pack scrollable_frame into canvas with full width
+        canvas.create_window((0, 0), window=scrollable_frame, anchor='nw', width=canvas.winfo_width())
         canvas.configure(yscrollcommand=scrollbar.set)
 
         # Pack scrollbar and canvas
         scrollbar.pack(side='right', fill='y')
         canvas.pack(side='left', fill='both', expand=True)
+
+        # Update scrollable_frame width when canvas resizes
+        def update_scrollable_width(event):
+            canvas.itemconfig(canvas.find_withtag("all")[0], width=event.width)
+
+        canvas.bind('<Configure>', update_scrollable_width)
 
         # Enable mousewheel scrolling with smart handling for textareas
         def _on_mousewheel(event):
@@ -398,7 +613,7 @@ class StoreAutomationGUI:
                                    fg='#2c3e50',
                                    padx=15,
                                    pady=10)
-        tasks_frame.pack(fill='x', expand=False, pady=(10, 10), padx=10)
+        tasks_frame.pack(fill='both', expand=True, pady=(10, 10))
 
         # Create task buttons in a grid
         self.task_buttons = {}
@@ -469,7 +684,47 @@ class StoreAutomationGUI:
             'seo': {
                 'title': self.seo_title_entry.get().strip(),
                 'description': self.seo_description_entry.get().strip()
+            },
+            'marketing': {
+                'subject': self.marketing_subject_entry.get().strip()
+            },
+            'upsell': {
+                'campaign_title': self.upsell_campaign_title_entry.get().strip(),
+                'thank_you': self.upsell_thank_you_entry.get().strip()
+            },
+            'image_text': {
+                'titles': [
+                    self.image_text_title_1_entry.get().strip(),
+                    self.image_text_title_2_entry.get().strip(),
+                    self.image_text_title_3_entry.get().strip()
+                ],
+                'descriptions': [
+                    self.image_text_desc_1_entry.get().strip(),
+                    self.image_text_desc_2_entry.get().strip(),
+                    self.image_text_desc_3_entry.get().strip()
+                ]
+            },
+            'slider': {
+                'names': [
+                    self.slider_name_1_entry.get().strip(),
+                    self.slider_name_2_entry.get().strip(),
+                    self.slider_name_3_entry.get().strip()
+                ],
+                'youtube_links': [
+                    self.slider_link_1_entry.get().strip(),
+                    self.slider_link_2_entry.get().strip(),
+                    self.slider_link_3_entry.get().strip()
+                ]
             }
+            ,
+            'products': [
+                {
+                    'name': getattr(self, f'product_{i}_name_entry').get().strip(),
+                    'description': getattr(self, f'product_{i}_desc_text').get('1.0', tk.END).strip(),
+                    'discount_price': getattr(self, f'product_{i}_discount_entry').get().strip(),
+                    'original_price': getattr(self, f'product_{i}_original_entry').get().strip()
+                } for i in range(1, 5)
+            ]
         }
 
     def log(self, message):

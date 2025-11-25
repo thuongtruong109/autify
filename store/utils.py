@@ -23,7 +23,8 @@ CRED_PATH = get_config_path()
 def delay(seconds: float):
     time.sleep(seconds)
 
-def load_credentials() -> Dict[str, Any]:
+def load_credentials_from_json() -> Dict[str, Any]:
+    """Load credentials from config.json file"""
     print(f"Attempting to load credentials from: {CRED_PATH}")
     if not os.path.exists(CRED_PATH):
         print(f"Error: {CRED_PATH} not found.")
@@ -48,6 +49,29 @@ def load_credentials() -> Dict[str, Any]:
 
     print(f"Loaded credentials for store: {data['storeId']}")
     return data
+
+def load_credentials(use_sheet: bool = True, row_index: int = 0) -> Dict[str, Any]:
+    """
+    Load credentials from Google Sheet or JSON config file.
+    Args:
+        use_sheet: If True, load from Google Sheet; if False, load from config.json
+        row_index: Row index to load from Google Sheet (default: 0 = first row)
+    """
+    if use_sheet:
+        try:
+            from sheet import get_credentials_from_sheet
+            print("📊 Loading credentials from Google Sheet...")
+            credentials = get_credentials_from_sheet(row_index)
+            if credentials:
+                return credentials
+            print("⚠️ Failed to load from Google Sheet. Falling back to config.json...")
+        except ImportError:
+            print("⚠️ sheet.py not found. Falling back to config.json...")
+        except Exception as e:
+            print(f"⚠️ Error loading from Google Sheet: {e}. Falling back to config.json...")
+
+    # Fallback to JSON config
+    return load_credentials_from_json()
 
 def highlight_element(driver: webdriver.Chrome, element):
     driver.execute_script(

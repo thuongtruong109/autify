@@ -191,8 +191,8 @@ threading.Thread(target=auto_close_chrome_tabs, daemon=True).start()
 
 watchers = [
     ScreenWatcher("./templates/update_driver_iso.png"),
-    ScreenWatcher("./templates/update_driver_iso.png", min_delay=20),
-    ScreenWatcher("./templates/update_driver_iso.png", min_delay=30),
+    ScreenWatcher("./templates/update_driver_iso.png", min_delay=5),
+    ScreenWatcher("./templates/update_driver_iso.png", min_delay=10),
 
     ScreenWatcher("./templates/cancel_capture.png", min_delay=150),
     ScreenWatcher("./templates/install_software.png"),
@@ -378,18 +378,28 @@ def vm_setup(name, sock, address):
     # Load iso to new VM
     for _ in range(6):
         move_click(1185, 770)
+
+        # Click cancel captuture
         move_click(797, 249)
+        delay(0.1)
         move_click(797, 274)
-        delay(0.1)
-        press_key('right')
-        delay(0.1)
-        press_key('enter')
         move_click(1005, 374)
-        delay(0.1)
+
+        press_key('right')
+        press_key('enter')
 
     delay(50)
     move_click(1000, 500)
     move_click(1090, 530)
+
+    # Verify install chrome (some driver has this issue)
+    move_click(427, 469, clicks=2)
+    for _ in range(20)
+        move_click(491, 123)
+        delay(0.1)
+        move_click(491, 148)
+        move_click(699, 248)
+        delay(0.2)
 
     delay(300)
 

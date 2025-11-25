@@ -1,9 +1,4 @@
 {
-    "store_id": "",
-    "email": "",
-    "password": "",
-    "seo": {
-        "title": "",
-        "description": "",
-    }
+    "email": "domain@example.com",
+    "password": "password123",
 }
