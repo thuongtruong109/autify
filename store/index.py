@@ -135,7 +135,7 @@ def main():
                 install_apps(driver, storeId)
 
             if 'handle_dser_open_and_confirm' in selected_tasks:
-                handle_dser_open_and_confirm(driver, storeId)
+                handle_dser_open_and_confirm(driver, storeId, password)
 
             if 'setup_world_market' in selected_tasks:
                 setup_world_market(driver, storeId)

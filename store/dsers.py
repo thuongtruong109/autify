@@ -5,7 +5,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from utils import delay, highlight_element
 
 
-def handle_dser_open_and_confirm(driver: webdriver.Chrome, storeId: str):
+def handle_dser_open_and_confirm(driver: webdriver.Chrome, storeId: str, password: str):
     """
     Mở tab mới đến trang DSers app, click "Open" button, sau đó trong tab mới click "CONFIRM" button.
     """
@@ -92,22 +92,11 @@ def handle_dser_open_and_confirm(driver: webdriver.Chrome, storeId: str):
         )
         print("✅ Trang DSers chính đã load xong.")
 
-        # Kiểm tra URL hiện tại
-        current_url = driver.current_url
-        if 'dsers.com/application/select/supply_apps' in current_url:
-            print("ℹ️ Đã ở select/supply_apps page, tiến hành click img.")
-            # Tìm và click img trong div CardSelect_cardItemContainer__ZIPS5
-            print("🔍 Tìm img trong div 'CardSelect_cardItemContainer__ZIPS5'...")
-            img_element = WebDriverWait(driver, 30).until(
-                EC.presence_of_element_located((By.XPATH, "//div[@class='CardSelect_cardItemContainer__ZIPS5']//img"))
-            )
+        # Flow xử lý theo URL hiện tại - kiểm tra liên tục sau mỗi bước
 
-            highlight_element(driver, img_element)
-            print(f"✅ Tìm thấy img. Alt: '{img_element.get_attribute('alt')}'. Click...")
-            driver.execute_script("arguments[0].click();", img_element)
-            delay(3)
-            print("✅ Đã click img trong CardSelect_cardItemContainer.")
-        elif 'dsers.com/application/pricing' in current_url:
+        # Bước 1: Kiểm tra nếu đang ở pricing page
+        current_url = driver.current_url
+        if 'dsers.com/application/pricing' in current_url:
             print("ℹ️ Đã ở pricing page, tiến hành click GET STARTED.")
             # Tìm và click span 'GET STARTED'
             print("🔍 Tìm span với text 'GET STARTED'...")
@@ -121,7 +110,7 @@ def handle_dser_open_and_confirm(driver: webdriver.Chrome, storeId: str):
             delay(3)
             print("✅ Đã click span 'GET STARTED'.")
 
-            # Chờ trang redirect đến select/supply_apps và click img
+            # Chờ trang redirect đến select/supply_apps
             print("⏳ Đang chờ trang redirect đến select/supply_apps...")
             WebDriverWait(driver, 30).until(
                 lambda d: 'dsers.com/application/select/supply_apps' in d.current_url
@@ -134,6 +123,10 @@ def handle_dser_open_and_confirm(driver: webdriver.Chrome, storeId: str):
             )
             print("✅ Trang select/supply_apps đã load xong.")
 
+        # Bước 2: Kiểm tra lại URL - nếu đang ở select/supply_apps
+        current_url = driver.current_url
+        if 'dsers.com/application/select/supply_apps' in current_url:
+            print("ℹ️ Đang ở select/supply_apps page, tiến hành click img.")
             # Tìm và click img trong div CardSelect_cardItemContainer__ZIPS5
             print("🔍 Tìm img trong div 'CardSelect_cardItemContainer__ZIPS5'...")
             img_element = WebDriverWait(driver, 30).until(
@@ -145,68 +138,106 @@ def handle_dser_open_and_confirm(driver: webdriver.Chrome, storeId: str):
             driver.execute_script("arguments[0].click();", img_element)
             delay(3)
             print("✅ Đã click img trong CardSelect_cardItemContainer.")
-        else:
-            # Bước 4: Tìm và click span với text 'confirm'
-            print("🔍 Tìm span với text 'confirm'...")
-            confirm_element = WebDriverWait(driver, 30).until(
-                EC.presence_of_element_located((By.XPATH, "//span[normalize-space()='confirm']"))
-            )
 
-            highlight_element(driver, confirm_element)
-            print(f"✅ Tìm thấy span 'confirm'. Text: '{confirm_element.text}'. Click...")
-            driver.execute_script("arguments[0].click();", confirm_element)
-            delay(3)
-            print("✅ Đã click span 'confirm'.")
-
-            # Bước 5: Chờ trang redirect đến pricing page và click 'GET STARTED'
-            print("⏳ Đang chờ trang redirect đến pricing page...")
-            WebDriverWait(driver, 30).until(
-                lambda d: 'dsers.com/application/pricing' in d.current_url
-            )
-            print("✅ Đã redirect đến pricing page.")
-
-            # Chờ page load xong
+            # Chờ page load xong sau khi click
+            print("⏳ Đang chờ trang load xong...")
             WebDriverWait(driver, 20).until(
                 lambda d: d.execute_script("return document.readyState") == "complete"
             )
-            print("✅ Trang pricing đã load xong.")
+            print("✅ Trang đã load xong.")
 
-            # Tìm và click span 'GET STARTED'
-            print("🔍 Tìm span với text 'GET STARTED'...")
-            get_started_element = WebDriverWait(driver, 30).until(
-                EC.presence_of_element_located((By.XPATH, "//span[normalize-space()='GET STARTED']"))
+        # Bước 3: Kiểm tra lại URL - nếu có pricing page với OAuthor
+        current_url = driver.current_url
+        if 'dsers.com/application/pricing' in current_url:
+            print("ℹ️ Đang ở pricing page, tiến hành OAuthor với AliExpress.")
+
+            # Tìm và click div 'Link and authorize to AliExpress'
+            print("🔍 Tìm div 'Link and authorize to AliExpress'...")
+            aliexpress_link = WebDriverWait(driver, 30).until(
+                EC.element_to_be_clickable((By.XPATH, "//div[@class='CardSelect_cardLabel__oZmiX' and contains(text(), 'Link and authorize to AliExpress')]"))
             )
 
-            highlight_element(driver, get_started_element)
-            print(f"✅ Tìm thấy span 'GET STARTED'. Text: '{get_started_element.text}'. Click...")
-            driver.execute_script("arguments[0].click();", get_started_element)
+            highlight_element(driver, aliexpress_link)
+            print(f"✅ Tìm thấy div 'Link and authorize to AliExpress'. Text: '{aliexpress_link.text}'. Click...")
+            driver.execute_script("arguments[0].click();", aliexpress_link)
             delay(3)
-            print("✅ Đã click span 'GET STARTED'.")
+            print("✅ Đã click div 'Link and authorize to AliExpress'.")
 
-            # Bước 6: Chờ trang redirect đến select/supply_apps và click img
-            print("⏳ Đang chờ trang redirect đến select/supply_apps...")
-            WebDriverWait(driver, 30).until(
-                lambda d: 'dsers.com/application/select/supply_apps' in d.current_url
-            )
-            print("✅ Đã redirect đến select/supply_apps page.")
-
-            # Chờ page load xong
+            # Chờ page load xong sau khi click
+            print("⏳ Đang chờ trang load xong...")
             WebDriverWait(driver, 20).until(
                 lambda d: d.execute_script("return document.readyState") == "complete"
             )
-            print("✅ Trang select/supply_apps đã load xong.")
+            print("✅ Trang đã load xong.")
 
-            # Tìm và click img trong div CardSelect_cardItemContainer__ZIPS5
-            print("🔍 Tìm img trong div 'CardSelect_cardItemContainer__ZIPS5'...")
-            img_element = WebDriverWait(driver, 30).until(
-                EC.presence_of_element_located((By.XPATH, "//div[@class='CardSelect_cardItemContainer__ZIPS5']//img"))
+        # Bước 4: Kiểm tra nếu có button REGISTER YOURSELF
+        current_url = driver.current_url
+        try:
+            register_button = WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located((By.XPATH, "//button[@class='ant-btn ant-btn-hollowed REGISTER_YOURSELF']//span[text()='REGISTER YOURSELF']"))
             )
 
-            highlight_element(driver, img_element)
-            print(f"✅ Tìm thấy img. Alt: '{img_element.get_attribute('alt')}'. Click...")
-            driver.execute_script("arguments[0].click();", img_element)
+            print("🔍 Tìm thấy button 'REGISTER YOURSELF'. Click...")
+            highlight_element(driver, register_button)
+            driver.execute_script("arguments[0].click();", register_button)
             delay(3)
-            print("✅ Đã click img trong CardSelect_cardItemContainer.")
+            print("✅ Đã click button 'REGISTER YOURSELF'.")
+
+            # Chờ page load xong sau khi click
+            print("⏳ Đang chờ trang load xong sau khi click REGISTER YOURSELF...")
+            WebDriverWait(driver, 20).until(
+                lambda d: d.execute_script("return document.readyState") == "complete"
+            )
+            print("✅ Trang đã load xong.")
+
+            # Bước 5: Điền password và click GET STARTED
+            print("🔍 Tìm input password với id 'register_registerPs'...")
+            password_input = WebDriverWait(driver, 30).until(
+                EC.presence_of_element_located((By.ID, "register_registerPs"))
+            )
+
+            # Viết hoa ký tự đầu tiên của password
+            capitalized_password = password[0].upper() + password[1:] if len(password) > 0 else password
+
+            highlight_element(driver, password_input)
+            print(f"✅ Tìm thấy input password. Điền password (viết hoa ký tự đầu)...")
+            password_input.clear()
+            password_input.send_keys(capitalized_password)
+            delay(2)
+            print("✅ Đã điền password.")
+
+            # Bước 6: Tìm và click button GET STARTED
+            print("🔍 Tìm button 'GET STARTED'...")
+            get_started_button = WebDriverWait(driver, 30).until(
+                EC.element_to_be_clickable((By.XPATH, "//button[@class='ant-btn ant-btn-default ant-btn-lg Login_button__Hpdt-']//span[text()='GET STARTED']"))
+            )
+
+            highlight_element(driver, get_started_button)
+            print(f"✅ Tìm thấy button 'GET STARTED'. Click...")
+            driver.execute_script("arguments[0].click();", get_started_button)
+            delay(3)
+            print("✅ Đã click button 'GET STARTED'.")
+
+            # Chờ page load xong sau khi click GET STARTED
+            print("⏳ Đang chờ trang load xong sau khi click GET STARTED...")
+            WebDriverWait(driver, 20).until(
+                lambda d: d.execute_script("return document.readyState") == "complete"
+            )
+            print("✅ Trang đã load xong.")
+
+            # Bước 7: Tìm và click button 'confirm'
+            print("🔍 Tìm button 'confirm'...")
+            confirm_button = WebDriverWait(driver, 30).until(
+                EC.element_to_be_clickable((By.XPATH, "//button[@class='ant-btn ant-btn-primary footer_confirm']//span[text()='confirm']"))
+            )
+
+            highlight_element(driver, confirm_button)
+            print(f"✅ Tìm thấy button 'confirm'. Click...")
+            driver.execute_script("arguments[0].click();", confirm_button)
+            delay(3)
+            print("✅ Đã click button 'confirm'.")
+        except:
+            print("ℹ️ Không tìm thấy button 'REGISTER YOURSELF', bỏ qua bước này.")
 
         print("\n✅ HOÀN TẤT XỬ LÝ MỞ VÀ XÁC NHẬN DSERS!")
         print("="*60)

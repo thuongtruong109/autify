@@ -879,6 +879,9 @@ class StoreAutomationGUI:
             elif task_func == setup_preferences:
                 seo_data = self.credentials.get('seo', {})
                 task_func(self.driver, store_id, seo_data)
+            elif task_func == handle_dser_open_and_confirm:
+                password = self.credentials.get('password', '')
+                task_func(self.driver, store_id, password)
             else:
                 task_func(self.driver, store_id)
 
