@@ -542,9 +542,222 @@ def setup_shipping_zones(driver: webdriver.Chrome, storeId: str):
             except Exception as e:
                 print(f"⚠️ Lỗi khi tìm button 'Done': {e}")
 
-            # # Sau khi hoàn thành tất cả các delete, gọi hàm click_save_button
-            # print("\n🔍 Kiểm tra và click button 'Save' nếu có...")
-            # click_save_button(driver)
+            # 6a. Add international rate 1
+            try:
+                # Tìm tất cả các element "Add rate" và chọn element cuối cùng
+                add_rate_buttons = WebDriverWait(driver, 10).until(
+                    EC.presence_of_all_elements_located((By.XPATH, "//span[contains(@class, 'Polaris-Text') and contains(text(), 'Add rate')]"))
+                )
+
+                if add_rate_buttons:
+                    # Lấy element cuối cùng
+                    add_rate_button = add_rate_buttons[-1]
+                    highlight_element(driver, add_rate_button)
+                    driver.execute_script("arguments[0].click();", add_rate_button)
+                    delay(1)
+                else:
+                    print("⚠️ Không tìm thấy element 'Add rate'")
+                    raise Exception("No 'Add rate' button found")
+
+                # Đợi modal mở ra
+                try:
+                    modal = WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, ".Polaris-Modal-Dialog__Modal"))
+                    )
+                    delay(1)
+
+                    # Tìm input name="amount" với id="Rates-Cost-TextField"
+                    try:
+                        amount_input = modal.find_element(By.CSS_SELECTOR, "input[name='amount'][id='Rates-Cost-TextField']")
+                        highlight_element(driver, amount_input)
+
+                        # Click vào input để focus
+                        amount_input.click()
+                        delay(0.3)
+
+                        # Clear value bằng nhiều cách để đảm bảo
+                        # Cách 1: Select all và delete
+                        amount_input.send_keys(Keys.CONTROL + "a")
+                        delay(0.2)
+                        amount_input.send_keys(Keys.DELETE)
+                        delay(0.2)
+
+                        # Cách 2: Clear bằng JavaScript
+                        driver.execute_script("arguments[0].value = '';", amount_input)
+                        delay(0.2)
+
+                        # Cách 3: Select bằng JavaScript
+                        driver.execute_script("arguments[0].select();", amount_input)
+                        delay(0.2)
+
+                        # Nhập giá trị mới 9.99
+                        amount_input.send_keys("9.99")
+                        delay(0.5)
+
+                    except Exception as e:
+                        print(f"⚠️ Không tìm thấy input name='amount': {e}")
+
+                    # Tìm và click button "Done"
+                    try:
+                        done_button = None
+
+                        # Thử nhiều cách tìm button "Done"
+                        try:
+                            done_button = modal.find_element(By.XPATH, ".//button[contains(text(), 'Done')]")
+                        except:
+                            pass
+
+                        if not done_button:
+                            try:
+                                done_button = modal.find_element(By.XPATH, ".//button[.//*[contains(text(), 'Done')]]")
+                            except:
+                                pass
+
+                        if not done_button:
+                            try:
+                                done_button = modal.find_element(By.XPATH, ".//button[normalize-space()='Done' or .//*[normalize-space()='Done']]")
+                            except:
+                                pass
+
+                        if not done_button:
+                            # Tìm tất cả buttons và kiểm tra text
+                            all_buttons = modal.find_elements(By.TAG_NAME, "button")
+                            for btn in all_buttons:
+                                btn_text = btn.text.strip().lower()
+                                if 'done' in btn_text:
+                                    done_button = btn
+                                    break
+
+                        if done_button:
+                            highlight_element(driver, done_button)
+                            driver.execute_script("arguments[0].click();", done_button)
+                            delay(0.5)
+
+                            # Đợi modal đóng
+                            try:
+                                WebDriverWait(driver, 10).until(
+                                    EC.invisibility_of_element_located((By.CSS_SELECTOR, ".Polaris-Modal-Dialog__Modal"))
+                                )
+                                print("✅ Modal đã đóng")
+                                delay(1)
+                            except Exception as e:
+                                print(f"⚠️ Không thể xác nhận modal đã đóng: {e}")
+                                delay(1)
+                        else:
+                            print("⚠️ Không tìm thấy button 'Done'")
+
+                    except Exception as e:
+                        print(f"⚠️ Lỗi khi tìm button 'Done': {e}")
+
+                except Exception as e:
+                    print(f"⚠️ Không tìm thấy modal: {e}")
+
+            except Exception as e:
+                print(f"⚠️ Không tìm thấy 'Add rate' button: {e}")
+
+            # 6b. Add international rate 2
+            try:
+                # Tìm tất cả các element "Add rate" và chọn element cuối cùng
+                add_rate_buttons = WebDriverWait(driver, 10).until(
+                    EC.presence_of_all_elements_located((By.XPATH, "//span[contains(@class, 'Polaris-Text') and contains(text(), 'Add rate')]"))
+                )
+
+                if add_rate_buttons:
+                    # Lấy element cuối cùng
+                    add_rate_button = add_rate_buttons[-1]
+                    highlight_element(driver, add_rate_button)
+                    driver.execute_script("arguments[0].click();", add_rate_button)
+                    delay(0.5)
+                else:
+                    raise Exception("No 'Add rate' button found")
+
+                # Đợi modal mở ra
+                try:
+                    modal = WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, ".Polaris-Modal-Dialog__Modal"))
+                    )
+                    delay(0.5)
+
+                    # Tìm select element thứ 2 và chọn option thứ 2
+                    try:
+                        # Tìm tất cả select elements trong modal
+                        select_elements = modal.find_elements(By.TAG_NAME, "select")
+
+                        if len(select_elements) >= 2:
+                            select_element = select_elements[1]
+                            highlight_element(driver, select_element)
+
+                            # Lấy tất cả options và chọn option thứ 2
+                            options = select_element.find_elements(By.TAG_NAME, "option")
+                            if len(options) >= 2:
+                                driver.execute_script("arguments[0].selectedIndex = 1; arguments[0].dispatchEvent(new Event('change', { bubbles: true }));", select_element)
+                                delay(1)
+                            else:
+                                print(f"⚠️ Chỉ có {len(options)} option(s), không đủ để chọn option thứ 2")
+                        else:
+                            print(f"⚠️ Chỉ có {len(select_elements)} select element(s), không đủ để chọn select thứ 2")
+                    except Exception as e:
+                        print(f"⚠️ Không tìm thấy select element thứ 2: {e}")
+
+                    # Tìm và click button "Done"
+                    try:
+                        done_button = None
+
+                        # Thử nhiều cách tìm button "Done"
+                        try:
+                            done_button = modal.find_element(By.XPATH, ".//button[contains(text(), 'Done')]")
+                        except:
+                            pass
+
+                        if not done_button:
+                            try:
+                                done_button = modal.find_element(By.XPATH, ".//button[.//*[contains(text(), 'Done')]]")
+                            except:
+                                pass
+
+                        if not done_button:
+                            try:
+                                done_button = modal.find_element(By.XPATH, ".//button[normalize-space()='Done' or .//*[normalize-space()='Done']]")
+                            except:
+                                pass
+
+                        if not done_button:
+                            # Tìm tất cả buttons và kiểm tra text
+                            all_buttons = modal.find_elements(By.TAG_NAME, "button")
+                            for btn in all_buttons:
+                                btn_text = btn.text.strip().lower()
+                                if 'done' in btn_text:
+                                    done_button = btn
+                                    break
+
+                        if done_button:
+                            highlight_element(driver, done_button)
+                            driver.execute_script("arguments[0].click();", done_button)
+                            delay(1)
+
+                            # Đợi modal đóng
+                            try:
+                                WebDriverWait(driver, 10).until(
+                                    EC.invisibility_of_element_located((By.CSS_SELECTOR, ".Polaris-Modal-Dialog__Modal"))
+                                )
+                                delay(0.5)
+                            except Exception as e:
+                                print(f"⚠️ Không thể xác nhận modal đã đóng: {e}")
+                                delay(0.5)
+                        else:
+                            print("⚠️ Không tìm thấy button 'Done'")
+
+                    except Exception as e:
+                        print(f"⚠️ Lỗi khi tìm button 'Done': {e}")
+
+                except Exception as e:
+                    print(f"⚠️ Không tìm thấy modal: {e}")
+
+            except Exception as e:
+                print(f"⚠️ Không tìm thấy 'Add rate' button ở step #6b: {e}")
+
+            # Sau khi hoàn thành tất cả các delete, gọi hàm click_save_button
+            click_save_button(driver)
 
         except Exception as e:
             print(f"⚠️ Không tìm thấy element 'General shipping rates': {e}")

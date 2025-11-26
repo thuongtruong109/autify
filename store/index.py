@@ -62,7 +62,7 @@ def show_interactive_menu():
         ('setup_world_market', '🌍 Markets'),
         ('setup_legal_policies', '📜 Policies'),
         ('setup_contact_page', '📄 Pages'),
-        ('setup_shipping_zones', '🚚 Shipping (progress)'),
+        ('setup_shipping_zones', '🚚 Shipping'),
         ('setup_preferences', '⚙️  Preferences'),
     ]
 
