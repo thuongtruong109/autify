@@ -6,7 +6,7 @@ import random
 
 from states import US_STATES
 
-NOTE = "❌ Chú ý: Không được di chuyển chuột khi tool đang chạy."
+NOTE = "❌ Chú ý: Nhớ tắt CapsLock và không được di chuyển chuột khi tool đang chạy!"
 
 DEFAULT_ADDRESSES = [
     "New Orleans, Louisiana",

@@ -158,6 +158,21 @@ def stop_on_goless_success(x, y):
     print("🟢 Goless success detected. Stopping script!")
     GOLESS_SUCCESS_FLAG = True
 
+def install_software_callback(x, y):
+    # Verify install chrome (some driver has this issue)
+    click_mouse(x, y)
+    delay(35)
+    move_click(431, 405)
+    delay(2)
+    move_click(431, 405)
+    for _ in range(30):
+        move_click(491, 123)
+        delay(0.2)
+        move_click(491, 148)
+        delay(0.2)
+        move_click(699, 248)
+        delay(1)
+
 # ---------------- Auto-close Chrome welcome ----------------
 def auto_close_chrome_tabs():
     TARGET_TITLES = [
@@ -195,7 +210,7 @@ watchers = [
     ScreenWatcher("./templates/update_driver_iso.png", min_delay=10),
 
     ScreenWatcher("./templates/cancel_capture.png", min_delay=150),
-    ScreenWatcher("./templates/install_software.png"),
+    ScreenWatcher("./templates/install_software.png", callback=install_software_callback),
     ScreenWatcher("./templates/skip_location_vi.png"),
     ScreenWatcher("./templates/skip_location_us.png"),
     ScreenWatcher("./templates/restart_vm.png"),
@@ -203,6 +218,7 @@ watchers = [
     ScreenWatcher("./templates/skip_chrome_welcome2.png", threshold=0.65, callback=skip_chrome_welcome_callback),
     ScreenWatcher("./templates/skip_AI_banner.png"),
     ScreenWatcher("./templates/skip_privacy.png"),
+    ScreenWatcher("./templates/skip_privacy.png", min_delay=5),
     ScreenWatcher("./templates/goless_success.png", callback=stop_on_goless_success)
 ]
 
@@ -392,15 +408,6 @@ def vm_setup(name, sock, address):
     move_click(1000, 500)
     move_click(1090, 530)
 
-    # Verify install chrome (some driver has this issue)
-    move_click(427, 469, clicks=2)
-    for _ in range(20)
-        move_click(491, 123)
-        delay(0.1)
-        move_click(491, 148)
-        move_click(699, 248)
-        delay(0.2)
-
     delay(300)
 
     # Open fullsize VM window
@@ -468,8 +475,9 @@ def goless_setup():
         click_mouse(keyboard_location[0], keyboard_location[1])
         delay(0.3)
         mouse_down()
+        delay(0.8)
         move_mouse(306, 562)
-        time.sleep(0.8)
+        time.sleep(1)
         mouse_up()
         print("Clicked window keyboard modal")
     else:

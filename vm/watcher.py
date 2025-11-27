@@ -8,6 +8,7 @@ class ScreenWatcher:
     def __init__(self, template_path, threshold=0.8, min_delay=0, check_interval=0.5, callback=None):
         self.template_path = template_path
         self.threshold = threshold
+        self.min_delay = min_delay
         self.check_interval = check_interval
         self.callback = callback
 
@@ -38,26 +39,26 @@ class ScreenWatcher:
             loc = np.where(res >= self.threshold)
 
             if loc[0].size > 0:
-                if min_delay > 0:
+                if self.min_delay > 0:
                     if self.detect_start_time is None:
-                    self.detect_start_time = time.time()
+                        self.detect_start_time = time.time()
 
-                elapsed = time.time() - self.detect_start_time
+                    elapsed = time.time() - self.detect_start_time
 
-                if elapsed >= self.min_delay:
-                    if not self.already_clicked:
-                        x = loc[1][0] + self.w // 2
-                        y = loc[0][0] + self.h // 2
+                    if elapsed >= self.min_delay:
+                        if not self.already_clicked:
+                            x = loc[1][0] + self.w // 2
+                            y = loc[0][0] + self.h // 2
 
-                        if self.callback:
-                            from virtual_mouse import move_mouse
-                            move_mouse(x, y)
-                            self.callback(x, y)
-                        else:
-                            pyautogui.click(x, y)
-                            print(f"[ScreenWatcher] Clicked {self.template_path} after {self.min_delay}s delay")
+                            if self.callback:
+                                from virtual_mouse import move_mouse
+                                move_mouse(x, y)
+                                self.callback(x, y)
+                            else:
+                                pyautogui.click(x, y)
+                                print(f"[ScreenWatcher] Clicked {self.template_path} after {self.min_delay}s delay")
 
-                        self.already_clicked = True
+                            self.already_clicked = True
 
                 else:
                     if not self.already_clicked:
