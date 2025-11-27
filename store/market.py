@@ -5,40 +5,32 @@ from selenium.webdriver.support import expected_conditions as EC
 from utils import delay, highlight_element, click_save_button, find_button
 
 def setup_world_market(driver: webdriver.Chrome, storeId: str):
-    """Vào markets page và setup World market với điều kiện"""
     print("\n" + "="*60)
     print("🌍 SETUP WORLD MARKET...")
     print("="*60)
 
     # Vào markets page
     markets_url = f"https://admin.shopify.com/store/{storeId}/markets/new"
-    print(f"Đang vào trang: {markets_url}")
     driver.get(markets_url)
     delay(3)
 
     try:
         # 1. Tìm input field và điền "World"
-        print("🔍 Tìm input field để điền 'World'...")
         input_field = WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "input.Polaris-TextField__Input"))
         )
         input_field.clear()
         input_field.send_keys("World")
-        print("✅ Đã điền 'World' vào input field.")
         delay(2)
 
         # 2. Tìm và click button "Add condition"
-        print("🔍 Tìm button 'Add condition'...")
         add_condition_btn = find_button(driver, ["Add condition"])
         if add_condition_btn:
             highlight_element(driver, add_condition_btn)
-            print("✅ Tìm thấy button 'Add condition'. Click...")
             driver.execute_script("arguments[0].click();", add_condition_btn)
             delay(3)
-            print("✅ Đã click 'Add condition'. Modal sẽ xuất hiện...")
 
             # 3. Tìm checkbox có label "Showing 237 regions" và tick vào
-            print("🔍 Tìm checkbox có label 'Showing 237 regions' trong modal...")
             try:
                 # Tìm element chứa text "Showing 237 regions"
                 label_xpath = "//span[contains(text(), 'Showing') and contains(text(), 'regions')]"
@@ -68,10 +60,8 @@ def setup_world_market(driver: webdriver.Chrome, storeId: str):
                 if checkbox:
                     if not checkbox.is_selected():
                         highlight_element(driver, checkbox)
-                        print("✅ Tìm thấy checkbox. Đang tick vào...")
                         driver.execute_script("arguments[0].click();", checkbox)
                         delay(1)
-                        print("✅ Đã tick checkbox.")
                     else:
                         print("ℹ️ Checkbox đã được tick sẵn.")
                 else:
@@ -88,16 +78,13 @@ def setup_world_market(driver: webdriver.Chrome, storeId: str):
                         if not first_checkbox.is_selected():
                             highlight_element(driver, first_checkbox)
                             driver.execute_script("arguments[0].click();", first_checkbox)
-                            print("✅ Đã tick checkbox đầu tiên (fallback).")
                 except Exception as e2:
                     print(f"⚠️ Lỗi khi tìm checkboxes: {e2}")
 
             # 4. Tìm và click button "Done"
-            print("🔍 Tìm button 'Done' trong modal...")
             done_btn = find_button(driver, ["Done"])
             if done_btn:
                 highlight_element(driver, done_btn)
-                print("✅ Tìm thấy button 'Done'. Click...")
                 driver.execute_script("arguments[0].click();", done_btn)
                 delay(2)
                 print("✅ Đã click 'Done'.")

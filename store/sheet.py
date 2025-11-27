@@ -48,10 +48,13 @@ def parse_credentials_from_row(row_data: list) -> Optional[Dict[str, Any]]:
     else:
         store_id = password.replace('.', '-').replace('_', '-')
 
+    domain = password.split('@')[0]
+
     return {
         "email": email,
         "password": password,
-        "storeId": store_id
+        "storeId": store_id,
+        "domain": domain
     }
 
 def get_credentials_from_sheet(row_index: int = 0) -> Optional[Dict[str, Any]]:

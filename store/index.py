@@ -1,15 +1,13 @@
-import json
-import os
-import time
+import json, os, time
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from typing import Optional
 import inquirer
+from fake_useragent import UserAgent
 
 from utils import load_credentials
-
-from auth import login_to_shopify
+from auth import login_to_shopify, register_shopify_account
 from install import install_apps
 from dsers import handle_dser_open_and_confirm
 from market import setup_world_market
@@ -17,6 +15,7 @@ from policies import setup_legal_policies
 from pages import setup_contact_page
 from shipping import setup_shipping_zones
 from themes import setup_preferences
+from domain import connect_domain
 
 def setup_driver() -> Optional[webdriver.Chrome]:
     try:
@@ -25,21 +24,36 @@ def setup_driver() -> Optional[webdriver.Chrome]:
 
         options = webdriver.ChromeOptions()
         options.add_argument("--start-maximized")
+        options.add_argument(f"user-agent={UserAgent.random}")
 
-        # SAVE SESSION TO selenium_data FOLDER
         user_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "selenium_data")
         options.add_argument(f"--user-data-dir={user_data_dir}")
 
-        # Disable unnecessary logs
+        # options.add_argument("user-data-dir=C:/Users/you/AppData/Local/Google/Chrome/User Data")
+        # options.add_argument("profile-directory=Profile 1")
+
         options.add_experimental_option("excludeSwitches", ["enable-logging"])
-        options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--remote-debugging-port=9222")
         options.add_argument("--disable-extensions")
+        options.add_argument("--disable-blink-features=AutomationControlled")
 
         driver = webdriver.Chrome(service=service, options=options)
         driver.implicitly_wait(10)
+        driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+            "source": """
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined
+                })
+            """
+        })
+        driver.execute_script(
+            "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+        )
+        driver.execute_script("""
+            Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 4});
+            Object.defineProperty(navigator, 'deviceMemory', {get: () => 4});
+        """)
         return driver
     except Exception as e:
         print(f"❌ Critical error initializing WebDriver. Details: {e}")
@@ -56,6 +70,7 @@ def show_interactive_menu():
     print("="*80 + "\n")
 
     task_options = [
+        ('register_shopify_account', '🆕 Register'),
         ('login', '🔐 Login'),
         ('install_apps', '📦 Install Apps'),
         ('handle_dser_open_and_confirm', '🛠️  DSers (progress)'),
@@ -64,6 +79,7 @@ def show_interactive_menu():
         ('setup_contact_page', '📄 Pages'),
         ('setup_shipping_zones', '🚚 Shipping'),
         ('setup_preferences', '⚙️  Preferences'),
+        ('connect_domain', '🌐 Connect Domain'),
     ]
 
     questions = [
@@ -102,17 +118,24 @@ def main():
         print("No valid credentials found. Exiting.")
         return
 
-    email, password, storeId = entry["email"], entry["password"], entry["storeId"]
+    email, password, storeId, domain = entry["email"], entry["password"], entry["storeId"], entry["domain"]
 
     selected_tasks = show_interactive_menu()
     if not selected_tasks:
         return
 
-    driver = setup_driver()
+    driver = setup_driver(domain)
     if not driver:
         return
 
     try:
+        if 'register_shopify_account' in selected_tasks:
+                registered = register_shopify_account(driver, email, password, storeId)
+                if not registered:
+                    print("🚫 Registration failed. Cannot proceed.")
+                    return
+                print("\n✅ Registration successful!")
+                print("="*60)
         # Chỉ login nếu user chọn task "login" hoặc có task khác cần thực hiện
         if 'login' in selected_tasks or len(selected_tasks) > 0:
             print("\n🔐 Login to Shopify...")
@@ -151,6 +174,9 @@ def main():
 
             if 'setup_preferences' in selected_tasks:
                 setup_preferences(driver, storeId)
+
+            if 'connect_domain' in selected_tasks:
+                connect_domain(driver, storeId, domain)
 
     except Exception as e:
         print(f"\nAn unexpected error occurred during processing: {e}")

@@ -1,12 +1,9 @@
-# file này mới nhất, chưa push
-
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from utils import delay, highlight_element, click_save_button, find_iframe_with_element
 import os
-
 
 def setup_preferences(driver: webdriver.Chrome, storeId: str, seo_data: dict = None):
     """Vào trang online store preferences và điền thông tin Name và Description"""
