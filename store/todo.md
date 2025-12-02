@@ -3,12 +3,8 @@ pip install -r requirements.txt
 1. Marketing
 
 - tiếp tục tạo 1 function để vào trang (https://admin.shopify.com/store/11egxa-9w/marketing/automations):
-  - tìm element có dòng chữ "Recover abandoned checkout" và click vào, sau đó cũng trong element đó, tìm button có chữ "Review email" và click vào
-  - tìm element có dòng chữ "Recover abandoned cart" và click vào, sau đó cũng trong element đó, tìm button có chữ "Preview template" và click vào
-  - tìm element có dòng chữ "Recover abandoned cart" và click vào, sau đó cũng trong element đó, tìm button có chữ "Preview template" và click vào
-
-2. Selleasy
-
-- tiếp tục tạo 1 function để vào trang (https://admin.shopify.com/store/11egxa-9w/apps/lb-upsell):
-  - tìm button có chữ "Start free trial" và click vào
-  - tiếp theo tìm button có chữ "Approve" và click vào
+  - đợi trang load và tìm element có dòng chữ "Recover abandoned checkout" và click vào, sau đó cũng trong element đó, đợi và tìm button có chữ "Review email" xuất hiện và click vào và click vào
+  - đợi modal hiện lên, tìm trong modal đó và click vào: <button class="Polaris-Button Polaris-Button--pressable Polaris-Button--variantTertiary Polaris-Button--sizeMedium Polaris-Button--textAlignCenter Polaris-Button--iconOnly" aria-label="Close" type="button" aria-pressed="false"><span class="Polaris-Button__Icon"><s-internal-icon type="x" tone="legacy-inherit"><template shadowrootmode="open"><span aria-hidden="true" class="icon color-base tone-legacy-inherit size-base"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M11.97 13.03a.749.749 0 1 0 1.06-1.06l-3.97-3.97 3.97-3.97a.749.749 0 1 0-1.06-1.06l-3.97 3.97-3.97-3.97a.749.749 0 1 0-1.06 1.06l3.97 3.97-3.97 3.97a.749.749 0 1 0 1.06 1.06l3.97-3.97z"></path></svg></span></template></s-internal-icon></span></button>
+  - Xong quay lại trang (https://admin.shopify.com/store/11egxa-9w/marketing/automations)
+  - Cũng đợi trang load và tìm element có dòng chữ "Recover abandoned cart" và click vào, sau đó cũng trong element đó, đợi và tìm button có chữ "Preview template" xuất hiện và click vào, sau khi click thì modal xuất hiện, tìm trong modal đó và click vào element: <span class="Polaris-Text--root Polaris-Text--bodySm Polaris-Text--semibold">Turn on automation</span>
+  - đợi và tìm element có dòng chữ "Recover abandoned cart" và click vào, sau đó cũng trong element đó, đợi và tìm button có chữ "Preview template" xuất hiện và click vào

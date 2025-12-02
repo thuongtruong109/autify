@@ -16,6 +16,8 @@ from pages import setup_contact_page
 from shipping import setup_shipping_zones
 from themes import setup_preferences
 from domain import connect_domain
+from selleasy import setup_selleasy
+from content import setup_content_menus
 
 def setup_driver() -> Optional[webdriver.Chrome]:
     try:
@@ -80,6 +82,8 @@ def show_interactive_menu():
         ('setup_shipping_zones', '🚚 Shipping'),
         ('setup_preferences', '⚙️  Preferences'),
         ('connect_domain', '🌐 Connect Domain'),
+        ('setup_selleasy', '🎯 Selleasy'),
+        ('setup_content_menus', '📋 Content Menus'),
     ]
 
     questions = [
@@ -177,6 +181,12 @@ def main():
 
             if 'connect_domain' in selected_tasks:
                 connect_domain(driver, storeId, domain)
+
+            if 'setup_selleasy' in selected_tasks:
+                setup_selleasy(driver, storeId)
+
+            if 'setup_content_menus' in selected_tasks:
+                setup_content_menus(driver, storeId)
 
     except Exception as e:
         print(f"\nAn unexpected error occurred during processing: {e}")
