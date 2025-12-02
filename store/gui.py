@@ -9,7 +9,7 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from typing import Optional
 
-from auth import login_to_shopify
+from auth import login_to_shopify, start_captcha_monitor, stop_captcha_monitor
 from install import install_apps
 from dsers import handle_dser_open_and_confirm
 from market import setup_world_market
@@ -752,6 +752,11 @@ class StoreAutomationGUI:
             driver.implicitly_wait(10)
 
             self.log("✅ WebDriver setup completed")
+
+            # Khởi động captcha monitor ngay sau khi setup driver
+            self.log("🔄 Starting Cloudflare captcha auto-monitor...")
+            start_captcha_monitor(driver, check_interval=2.0)
+
             return driver
         except Exception as e:
             self.log(f"❌ Critical error initializing WebDriver: {e}")
@@ -815,6 +820,7 @@ class StoreAutomationGUI:
                 self.root.after(0, lambda: self.status_icon.config(text="❌", fg='#e74c3c'))
 
                 if self.driver:
+                    stop_captcha_monitor()
                     self.driver.quit()
                     self.driver = None
 
@@ -825,6 +831,7 @@ class StoreAutomationGUI:
             self.root.after(0, lambda: self.status_icon.config(text="❌", fg='#e74c3c'))
 
             if self.driver:
+                stop_captcha_monitor()
                 self.driver.quit()
                 self.driver = None
 
@@ -907,6 +914,8 @@ class StoreAutomationGUI:
         if self.driver:
             if messagebox.askokcancel("Quit", "Do you want to close the browser and exit?"):
                 try:
+                    # Dừng captcha monitor trước khi đóng browser
+                    stop_captcha_monitor()
                     self.driver.quit()
                     self.log("Browser closed")
                 except:

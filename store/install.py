@@ -16,7 +16,6 @@ APPS = [
     {"name": "DSers-AliExpress Dropshipping", "slug": "dsers", "type": "new_tab"},
 ]
 
-
 def semi_auto_install_and_pin(driver: webdriver.Chrome, storeId: str):
 
     main_window_handle = driver.current_window_handle

@@ -1,12 +1,21 @@
+import threading
+import time
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from utils import delay, wait_for_admin, find_button, highlight_element
 
+# Global flag để control background thread
+_captcha_monitor_active = False
+_captcha_monitor_thread = None
+
 def login_to_shopify(driver: webdriver.Chrome, email: str, password: str, storeId: str) -> bool:
     """Đăng nhập vào Shopify Admin"""
     print(f"\n{'='*50}\nProcessing store ID: {storeId}\n{'='*50}")
+
+    # Captcha monitor sẽ được khởi động ở main() để bảo vệ TẤT CẢ các chức năng
+    # Không cần khởi động lại ở đây
 
     # 1. Navigate to store admin URL
     login_url = f"https://admin.shopify.com/store/{storeId}"
@@ -77,9 +86,8 @@ def login_to_shopify(driver: webdriver.Chrome, email: str, password: str, storeI
 
     return logged
 
-def check_and_click_verify_human(driver: webdriver.Chrome) -> bool:
-    """Kiểm tra và click vào yêu cầu 'Verify you are human' nếu có"""
-    print("🔍 Kiểm tra xem có yêu cầu xác minh 'Verify you are human' không...")
+def cloudflare_captcha(driver: webdriver.Chrome, verbose: bool = True) -> bool:
+    """Kiểm tra và click vào Cloudflare captcha 'Verify you are human' nếu có"""
     try:
         verify_elements = driver.find_elements(
             By.XPATH,
@@ -87,7 +95,8 @@ def check_and_click_verify_human(driver: webdriver.Chrome) -> bool:
         )
 
         if verify_elements:
-            print("✅ Tìm thấy yêu cầu 'Verify you are human'. Click vào...")
+            if verbose:
+                print("✅ Tìm thấy yêu cầu 'Verify you are human'. Click vào...")
             # Tìm element có thể click (button, link, hoặc div có role="button")
             clickable_verify = None
 
@@ -100,27 +109,86 @@ def check_and_click_verify_human(driver: webdriver.Chrome) -> bool:
             if clickable_verify:
                 highlight_element(driver, clickable_verify)
                 clickable_verify.click()
-                print("✅ Đã click vào 'Verify you are human'.")
+                if verbose:
+                    print("✅ Đã click vào 'Verify you are human'.")
                 delay(3)
                 return True
             else:
                 # Nếu không tìm thấy element có thể click, thử click vào element đầu tiên
                 highlight_element(driver, verify_elements[0])
                 verify_elements[0].click()
-                print("✅ Đã click vào element chứa 'Verify you are human'.")
+                if verbose:
+                    print("✅ Đã click vào element chứa 'Verify you are human'.")
                 delay(3)
                 return True
         else:
-            print("ℹ️ Không tìm thấy yêu cầu 'Verify you are human'. Tiếp tục...")
             return False
 
     except Exception as e:
-        print(f"⚠️ Lỗi khi kiểm tra/xác minh human: {e}")
-        print("ℹ️ Tiếp tục quá trình đăng ký...")
+        if verbose:
+            print(f"⚠️ Lỗi khi kiểm tra/xác minh human: {e}")
         return False
+
+
+def _cloudflare_captcha_monitor(driver: webdriver.Chrome, check_interval: float = 2.0):
+    """Background thread để liên tục kiểm tra và xử lý Cloudflare captcha"""
+    global _captcha_monitor_active
+
+    print("🔄 Cloudflare captcha monitor đã bắt đầu (chạy trong background)...")
+
+    while _captcha_monitor_active:
+        try:
+            # Kiểm tra captcha (không verbose để tránh spam log)
+            found = cloudflare_captcha(driver, verbose=False)
+            if found:
+                print("🤖 [Background] Đã tự động xử lý Cloudflare captcha!")
+        except Exception as e:
+            # Bỏ qua lỗi để thread tiếp tục chạy
+            pass
+
+        # Chờ trước khi check lại
+        time.sleep(check_interval)
+
+    print("🛑 Cloudflare captcha monitor đã dừng.")
+
+
+def start_captcha_monitor(driver: webdriver.Chrome, check_interval: float = 2.0):
+    """Khởi động background thread để tự động kiểm tra captcha"""
+    global _captcha_monitor_active, _captcha_monitor_thread
+
+    # Nếu thread đã chạy, không khởi động lại
+    if _captcha_monitor_active and _captcha_monitor_thread and _captcha_monitor_thread.is_alive():
+        print("ℹ️ Captcha monitor đã đang chạy.")
+        return
+
+    _captcha_monitor_active = True
+    _captcha_monitor_thread = threading.Thread(
+        target=_cloudflare_captcha_monitor,
+        args=(driver, check_interval),
+        daemon=True  # Daemon thread sẽ tự động kết thúc khi program exit
+    )
+    _captcha_monitor_thread.start()
+
+
+def stop_captcha_monitor():
+    """Dừng background thread kiểm tra captcha"""
+    global _captcha_monitor_active, _captcha_monitor_thread
+
+    if _captcha_monitor_active:
+        print("⏳ Đang dừng captcha monitor...")
+        _captcha_monitor_active = False
+
+        # Đợi thread kết thúc (timeout 5s)
+        if _captcha_monitor_thread:
+            _captcha_monitor_thread.join(timeout=5)
+
+        print("✅ Captcha monitor đã dừng.")
 
 def register_shopify_account(driver: webdriver.Chrome, email: str, password: str, storeId: str) -> bool:
     print(f"\n{'='*50}\nStarting Shopify registration process\n{'='*50}")
+
+    # Captcha monitor sẽ được khởi động ở main() để bảo vệ TẤT CẢ các chức năng
+    # Không cần khởi động lại ở đây
 
     # 1. Navigate to Shopify admin homepage
     signup_url = "https://www.shopify.com/"
@@ -150,8 +218,7 @@ def register_shopify_account(driver: webdriver.Chrome, email: str, password: str
         )
         delay(2)
 
-        # 4. Check if "Verify you are human" appears
-        check_and_click_verify_human(driver)
+        # 4. Captcha sẽ được tự động xử lý bởi background thread
 
         # 5. Find and fill email input
         print("🔍 Tìm input email và điền thông tin...")
@@ -216,7 +283,7 @@ def register_shopify_account(driver: webdriver.Chrome, email: str, password: str
         # 8. Find and click "I am human" checkbox (in shadow root or iframe)
         print("🔍 Tìm và click 'I am human' checkbox...")
         try:
-            human_clicked = find_and_click_human_verification(driver)
+            human_clicked = shopify_captcha(driver)
             if human_clicked:
                 print("✅ Đã click 'I am human' checkbox.")
                 delay(3)
@@ -239,7 +306,7 @@ def register_shopify_account(driver: webdriver.Chrome, email: str, password: str
         print("*"*80 + "\n")
         return False
 
-def find_and_click_human_verification(driver: webdriver.Chrome) -> bool:
+def shopify_captcha(driver: webdriver.Chrome) -> bool:
     # 1. Thử tìm trong DOM thông thường
     try:
         human_elements = driver.find_elements(

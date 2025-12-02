@@ -7,7 +7,7 @@ import inquirer
 from fake_useragent import UserAgent
 
 from utils import load_credentials
-from auth import login_to_shopify, register_shopify_account
+from auth import login_to_shopify, register_shopify_account, start_captcha_monitor, stop_captcha_monitor
 from install import install_apps
 from dsers import handle_dser_open_and_confirm
 from market import setup_world_market
@@ -124,9 +124,11 @@ def main():
     if not selected_tasks:
         return
 
-    driver = setup_driver(domain)
+    driver = setup_driver()
     if not driver:
         return
+
+    start_captcha_monitor(driver, check_interval=2.0)
 
     try:
         if 'register_shopify_account' in selected_tasks:
@@ -136,7 +138,7 @@ def main():
                     return
                 print("\n✅ Registration successful!")
                 print("="*60)
-        # Chỉ login nếu user chọn task "login" hoặc có task khác cần thực hiện
+
         if 'login' in selected_tasks or len(selected_tasks) > 0:
             print("\n🔐 Login to Shopify...")
             print("="*60)
@@ -149,11 +151,9 @@ def main():
             print("\n✅ Login successful!")
             print("="*60)
 
-        # Nếu user chỉ chọn "login", không chạy các task khác
         if selected_tasks == ['login']:
             print("\n✅ Login completed. No other tasks selected.")
         else:
-            # Chạy các task khác (bỏ qua 'login' vì đã thực hiện ở trên)
             if 'install_apps' in selected_tasks:
                 install_apps(driver, storeId)
 
@@ -181,6 +181,8 @@ def main():
     except Exception as e:
         print(f"\nAn unexpected error occurred during processing: {e}")
     finally:
+        stop_captcha_monitor()
+
         print("\n" + "="*80)
         print("✅ [Completed] All tasks have been completed.")
         print("📌 The browser will REMAIN OPEN for you to check the results.")
