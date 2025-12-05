@@ -1,4 +1,9 @@
 {
   "email": "",
-  "password": ""
+  "password": "",
+  "bright_data": {
+    "api_key": "2f7e94c1c03b71e260d32b720e6c75ff1f22f18735318c54fa592ae8952d5fc9",
+    "zone": "residential_proxy1",
+    "enabled": true
+  }
 }

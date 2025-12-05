@@ -1,15 +1,22 @@
-import tkinter as tk
-from tkinter import ttk, messagebox, scrolledtext
-import threading
 import sys
 import os
-from io import StringIO
+
+if hasattr(sys, '_MEIPASS'):
+    base_path = sys._MEIPASS
+else:
+    base_path = os.path.dirname(__file__)
+
+import threading
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from typing import Optional
 
-from auth import login_to_shopify, start_captcha_monitor, stop_captcha_monitor
+from PySide6.QtWidgets import *
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+
+from auth import login_to_shopify, register_shopify_account, start_captcha_monitor, stop_captcha_monitor
 from install import install_apps
 from dsers import handle_dser_open_and_confirm
 from market import setup_world_market
@@ -17,164 +24,175 @@ from policies import setup_legal_policies
 from pages import setup_contact_page
 from shipping import setup_shipping_zones
 from themes import setup_preferences
+from domain import connect_domain
+from selleasy import setup_selleasy
+from content import setup_content_menus
 
-class StoreAutomationGUI:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("🛍️ Autify")
-        self.root.geometry("600x700")
-        self.root.resizable(False, False)
+class StoreAutomationGUI(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Autify")
+        self.setGeometry(100, 100, 600, 700)
+        self.setFixedSize(600, 700)
+        self.setWindowIcon(QIcon(os.path.join(base_path, 'favicon.ico')))
 
         # Variables
         self.driver = None
         self.is_logged_in = False
         self.credentials = None
 
-        # Style
+        # Setup UI
         self.setup_styles()
-
-        # GUI Components
         self.create_widgets()
 
     def setup_styles(self):
-        """Configure ttk styles"""
-        style = ttk.Style()
-        style.theme_use('clam')
+        """Configure Qt stylesheets"""
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #ecf0f1;
+                border: none;
+            }
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                padding: 6px 20px;
+                font: bold 11px 'Segoe UI';
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #666666;
+            }
+            QPushButton#loginButton {
+                background-color: #2196F3;
+                font: bold 11px 'Segoe UI';
+                padding: 6px 20px;
+                border-radius: 6px;
+            }
+            QPushButton#loginButton:hover {
+                background-color: #1976D2;
+            }
+            QLineEdit {
+                padding: 5px;
+                border: 1px solid #bdc3c7;
+                border-radius: 4px;
+                font: 10px 'Segoe UI';
+                background-color: white;
+            }
+            QTextEdit {
+                border: 1px solid #bdc3c7;
+                border-radius: 4px;
+                font: 11px 'Consolas';
+                background-color: #2c3e50;
+                color: #ecf0f1;
+            }
+            QTextEdit#inputText, QTextEdit#productText {
+                background-color: white;
+                color: #2c3e50;
+                font: 10px 'Segoe UI';
+            }
+            QGroupBox {
+                font: bold 11px 'Segoe UI';
+                color: #2c3e50;
+                border: 1px solid #bdc3c7;
+                border-radius: 5px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
+            }
+            QLabel {
+                color: #2c3e50;
+                font: 10px 'Segoe UI';
+            }
+            QScrollArea {
+                border: none;
+            }
+        """)
 
-        # Configure Notebook (Tabs) style
-        style.configure('TNotebook', background='#ecf0f1', borderwidth=0)
-        style.configure('TNotebook.Tab',
-                       padding=[20, 5],
-                       font=('Segoe UI', 11, 'bold'),
-                       background='#bdc3c7',
-                       foreground='#2c3e50',
-                       width=15)  # Fixed width to prevent size change
-        style.map('TNotebook.Tab',
-                 background=[('selected', '#3498db'), ('active', '#5dade2')],
-                 foreground=[('selected', 'white'), ('active', 'white')],
-                 padding=[('selected', [20, 5]), ('active', [20, 5])])  # Keep same padding        # Configure button styles
-        style.configure('Task.TButton',
-                       padding=5,
-                       font=('Segoe UI', 10),
-                       background='#4CAF50',
-                       foreground='white')
-
-        style.map('Task.TButton',
-                 background=[('active', '#45a049'), ('disabled', '#cccccc')])
-
-        style.configure('Login.TButton',
-                       padding=5,
-                       font=('Segoe UI', 11, 'bold'),
-                       background='#2196F3',
-                       foreground='white')
-
-        style.map('Login.TButton',
-                 background=[('active', '#1976D2'), ('disabled', '#cccccc')])
-
-    def setup_placeholder(self, entry, placeholder_text):
-        """Setup placeholder behavior for Entry widget"""
-        def on_focus_in(event):
-            if entry.get() == placeholder_text:
-                entry.delete(0, tk.END)
-                entry.config(fg='#2c3e50')  # Normal text color
-
-        def on_focus_out(event):
-            if entry.get() == '':
-                entry.insert(0, placeholder_text)
-                entry.config(fg='#95a5a6')  # Placeholder color
-
-        # Set initial placeholder
-        entry.insert(0, placeholder_text)
-        entry.config(fg='#95a5a6')  # Placeholder color
-
-        # Bind events
-        entry.bind('<FocusIn>', on_focus_in)
-        entry.bind('<FocusOut>', on_focus_out)
-
-    def setup_text_placeholder(self, text_widget, placeholder_text):
-        """Setup placeholder behavior for ScrolledText widget"""
-        def on_focus_in(event):
-            current_text = text_widget.get('1.0', tk.END).strip()
-            if current_text == placeholder_text:
-                text_widget.delete('1.0', tk.END)
-                text_widget.config(fg='#2c3e50')  # Normal text color
-
-        def on_focus_out(event):
-            current_text = text_widget.get('1.0', tk.END).strip()
-            if current_text == '':
-                text_widget.insert('1.0', placeholder_text)
-                text_widget.config(fg='#95a5a6')  # Placeholder color
-
-        # Set initial placeholder
-        text_widget.insert('1.0', placeholder_text)
-        text_widget.config(fg='#95a5a6')  # Placeholder color
-
-        # Bind events
-        text_widget.bind('<FocusIn>', on_focus_in)
-        text_widget.bind('<FocusOut>', on_focus_out)
 
     def create_widgets(self):
+        # Create central widget
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
 
-        # Main Container
-        main_container = tk.Frame(self.root, bg='#ecf0f1')
-        main_container.pack(fill='both', expand=True, padx=6, pady=6)
+        # Main layout
+        main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(2, 2, 2, 2)
 
-        # Create Notebook (Tabs)
-        self.notebook = ttk.Notebook(main_container)
-        self.notebook.pack(fill='both', expand=True)
+        # Create tab widget
+        self.notebook = QTabWidget()
+        self.notebook.setStyleSheet("""
+            QTabWidget::pane {
+                border: none;
+                background-color: #ecf0f1;
+            }
+            QTabBar::tab {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #f8f9fa, stop:1 #e9ecef);
+                color: #2c3e50;
+                padding: 6px 16px;
+                margin-right: 4px;
+                font: bold 11px 'Segoe UI';
+                min-width: 80px;
+                border: 1px solid #dee2e6;
+                border-radius: 6px 6px 0 0;
+            }
+            QTabBar::tab:selected {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #ffffff, stop:1 #e3f2fd);
+                color: #007bff;
 
-        # Login frame (placed on top-right of notebook)
-        login_frame = tk.Frame(main_container, bg='#ecf0f1')
-        login_frame.place(relx=1.0, rely=0, anchor='ne', height=40)
+            }
+            QTabBar::tab:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #ffffff, stop:1 #e3f2fd);
+                color: #1976d2;
+            }
+        """)
+        main_layout.addWidget(self.notebook)
 
-        # Status icon (initially not logged in)
-        self.status_icon = tk.Label(login_frame, text="⚪", font=('Segoe UI', 12), bg='#2196F3', fg='white')
-        self.status_icon.pack()
+        # Login frame (now in the same row as tabs)
+        login_frame = QWidget()
+        login_layout = QHBoxLayout(login_frame)
+        login_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Status icon
+        self.status_icon = QLabel("⚪")
+        self.status_icon.setStyleSheet("font-size: 12px; color: white; background-color: #2196F3; border-radius: 50%; text-align: center; padding: 0;")
+        self.status_icon.setAlignment(Qt.AlignCenter)
+        self.status_icon.setFixedSize(20, 20)
+        login_layout.addWidget(self.status_icon)
 
         # Login Button
-        self.login_button = tk.Button(login_frame,
-                                      text="🔐 Login",
-                                      font=('Segoe UI', 11, 'bold'),
-                                      bg='#2196F3',
-                                      fg='white',
-                                      command=self.login_action,
-                                      relief='raised',
-                                      bd=0,
-                                      padx=20,
-                                      pady=3,
-                                      activebackground='#1976D2',
-                                      activeforeground='white')
-        self.login_button.pack()
+        self.login_button = QPushButton("🔐 Login")
+        self.login_button.setObjectName("loginButton")
+        self.login_button.clicked.connect(self.login_action)
+        login_layout.addWidget(self.login_button)
 
-        # Place status icon absolutely on the button
-        self.status_icon.place(in_=self.login_button, relx=0.85, rely=0.5, anchor='center')
+        # Set login frame as corner widget in the tab bar
+        self.notebook.setCornerWidget(login_frame)
 
         # Create Credentials Tab
         self.credentials_tab = self.create_credentials_tab()
-        self.notebook.add(self.credentials_tab, text='🔑 Credentials')
+        self.notebook.addTab(self.credentials_tab, '🔑 Credentials')
 
         # Create Tasks Tab
         self.tasks_tab = self.create_tasks_tab()
-        self.notebook.add(self.tasks_tab, text='🎯 Tasks')
+        self.notebook.addTab(self.tasks_tab, '🎯 Tasks')
 
-        # Log Frame (outside tabs, at bottom)
-        log_frame = tk.LabelFrame(main_container,
-                                 text="📋 Activity Log",
-                                 font=('Segoe UI', 11, 'bold'),
-                                 bg='#ecf0f1',
-                                 fg='#2c3e50',
-                                 padx=6,
-                                 pady=6)
-        log_frame.pack(fill='both', expand=True, pady=(10, 0))
-
-        self.log_text = scrolledtext.ScrolledText(log_frame,
-                                                 height=4,
-                                                 font=('Consolas', 9),
-                                                 bg='#2c3e50',
-                                                 fg='#ecf0f1',
-                                                 insertbackground='white',
-                                                 wrap=tk.WORD)
-        self.log_text.pack(fill='both', expand=True)
+        # Log Frame (at bottom)
+        self.log_text = QTextEdit()
+        self.log_text.setReadOnly(True)
+        self.log_text.setMaximumHeight(80)  # Reduce entire section height by half
+        main_layout.addWidget(self.log_text)
 
         # Redirect stdout to log
         sys.stdout = TextRedirector(self.log_text, "stdout")
@@ -183,459 +201,359 @@ class StoreAutomationGUI:
         self.log("Please enter your store credentials and click Login")
 
     def create_credentials_tab(self):
-        """Create the Credentials tab with scrollbar"""
-        # Create frame for tab
-        tab_frame = tk.Frame(self.notebook, bg='#ecf0f1')
+        """Create the Credentials tab with scroll area"""
+        # Create scroll area
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
-        # Create canvas and scrollbar
-        canvas = tk.Canvas(tab_frame, bg='#ecf0f1', highlightthickness=0)
-        scrollbar = ttk.Scrollbar(tab_frame, orient='vertical', command=canvas.yview)
+        # Create container widget for scroll area
+        container = QWidget()
+        scroll_area.setWidget(container)
 
-        # Create scrollable frame
-        scrollable_frame = tk.Frame(canvas, bg='#ecf0f1')
-
-        # Pack scrollable_frame into canvas with full width
-        canvas.create_window((0, 0), window=scrollable_frame, anchor='nw', width=canvas.winfo_width())
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        # Pack scrollbar and canvas
-        scrollbar.pack(side='right', fill='y')
-        canvas.pack(side='left', fill='both', expand=True)
-
-        # Update scrollable_frame width when canvas resizes
-        def update_scrollable_width(event):
-            canvas.itemconfig(canvas.find_withtag("all")[0], width=event.width)
-
-        canvas.bind('<Configure>', update_scrollable_width)
-
-        # Enable mousewheel scrolling with smart handling for textareas
-        def _on_mousewheel(event):
-            """Smart mousewheel handler that scrolls canvas when textarea can't scroll"""
-            widget = event.widget
-
-            # Check if widget is a ScrolledText
-            if isinstance(widget, scrolledtext.ScrolledText):
-                # Get current scroll position
-                try:
-                    yview = widget.yview()
-                    scroll_direction = -1 if event.delta > 0 else 1
-
-                    # If scrolling up and already at top, scroll canvas
-                    if scroll_direction == -1 and yview[0] <= 0:
-                        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-                        return "break"
-                    # If scrolling down and already at bottom, scroll canvas
-                    elif scroll_direction == 1 and yview[1] >= 1:
-                        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-                        return "break"
-                    # Otherwise, let the textarea handle its own scrolling
-                    else:
-                        return
-                except:
-                    pass
-
-            # For all other widgets, scroll the canvas
-            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-
-        def bind_mousewheel_recursive(widget, callback):
-            """Recursively bind mousewheel to widget and all its children"""
-            widget.bind("<MouseWheel>", callback)
-            for child in widget.winfo_children():
-                bind_mousewheel_recursive(child, callback)
-
-        # Bind mousewheel to canvas, tab_frame and all children
-        canvas.bind("<MouseWheel>", _on_mousewheel)
-        tab_frame.bind("<MouseWheel>", _on_mousewheel)
-
-        # Update bindings whenever scrollable_frame is configured
-        def update_bindings(event=None):
-            bind_mousewheel_recursive(scrollable_frame, _on_mousewheel)
-
-        scrollable_frame.bind("<Configure>", lambda e: (
-            canvas.configure(scrollregion=canvas.bbox("all")),
-            update_bindings()
-        ))
-
-        # Initial binding
-        update_bindings()
+        # Main layout for container
+        layout = QVBoxLayout(container)
 
         # Credentials Input Frame
-        input_frame = tk.LabelFrame(scrollable_frame,
-                                    text="🔑 Store Credentials",
-                                    font=('Segoe UI', 11, 'bold'),
-                                    bg='#ecf0f1',
-                                    fg='#2c3e50',
-                                    pady=10,
-                                    borderwidth=0)
-        input_frame.pack(fill='both', expand=True, pady=(10, 15))
+        input_group = QGroupBox("🔑 Credentials")
+        layout.addWidget(input_group)
 
-        # Email - using placeholder instead of label
-        self.email_entry = tk.Entry(input_frame, font=('Segoe UI', 10), width=60)
-        self.email_entry.grid(row=1, column=0, sticky='ew', pady=5)
-        self.setup_placeholder(self.email_entry, 'Email address')
+        input_layout = QVBoxLayout(input_group)
 
-        # Password - using placeholder instead of label
-        self.password_entry = tk.Entry(input_frame, font=('Segoe UI', 10), width=60, show='*')
-        self.password_entry.grid(row=2, column=0, sticky='ew', pady=5)
-        self.setup_placeholder(self.password_entry, 'Password')
+        # Store ID
+        self.store_id_entry = QLineEdit()
+        self.store_id_entry.setPlaceholderText('Domain')
+        input_layout.addWidget(self.store_id_entry)
 
-        # Configure grid
-        input_frame.columnconfigure(0, weight=1)
+        # Email
+        self.email_entry = QLineEdit()
+        self.email_entry.setPlaceholderText('Email address')
+        input_layout.addWidget(self.email_entry)
+
+        # Password
+        self.password_entry = QLineEdit()
+        self.password_entry.setEchoMode(QLineEdit.Password)
+        self.password_entry.setPlaceholderText('Password')
+        input_layout.addWidget(self.password_entry)
 
         # SEO Frame
-        seo_frame = tk.LabelFrame(scrollable_frame,
-                      text="⚙️ Preferences",
-                      font=('Segoe UI', 11, 'bold'),
-                      bg='#ecf0f1',
-                      fg='#2c3e50',
-                      pady=10,
-                      borderwidth=0)
-        seo_frame.pack(fill='both', expand=True, pady=(0, 15))
+        seo_group = QGroupBox("⚙️ Preferences")
+        layout.addWidget(seo_group)
 
-        # SEO Title - using placeholder instead of label
-        self.seo_title_entry = tk.Entry(seo_frame, font=('Segoe UI', 10), width=60)
-        self.seo_title_entry.grid(row=0, column=0, sticky='ew', pady=5)
-        self.setup_placeholder(self.seo_title_entry, 'SEO title')
+        seo_layout = QVBoxLayout(seo_group)
 
-        # SEO Description - using placeholder instead of label
-        self.seo_description_entry = tk.Entry(seo_frame, font=('Segoe UI', 10), width=60)
-        self.seo_description_entry.grid(row=1, column=0, sticky='ew', pady=5)
-        self.setup_placeholder(self.seo_description_entry, 'SEO description')
+        # SEO Title
+        self.seo_title_entry = QLineEdit()
+        self.seo_title_entry.setPlaceholderText('SEO title')
+        seo_layout.addWidget(self.seo_title_entry)
 
-        # Configure grid
-        seo_frame.columnconfigure(0, weight=1)
+        # SEO Description
+        self.seo_description_entry = QLineEdit()
+        self.seo_description_entry.setPlaceholderText('SEO description')
+        seo_layout.addWidget(self.seo_description_entry)
 
         # Pages Frame
-        pages_frame = tk.LabelFrame(scrollable_frame,
-                        text="📄 Policies",
-                        font=('Segoe UI', 11, 'bold'),
-                        bg='#ecf0f1',
-                        fg='#2c3e50',
-                        pady=10,
-                        borderwidth=0)
-        pages_frame.pack(fill='both', expand=True, pady=(0, 15))
+        pages_group = QGroupBox("📄 Policies")
+        layout.addWidget(pages_group)
 
-        # Return & Refund Policy - using placeholder instead of label
-        self.return_refund_text = scrolledtext.ScrolledText(pages_frame, height=4, font=('Segoe UI', 9), wrap=tk.WORD)
-        self.return_refund_text.grid(row=0, column=0, sticky='ew', pady=5)
-        self.setup_text_placeholder(self.return_refund_text, 'Return and refund policy...')
+        pages_layout = QVBoxLayout(pages_group)
 
-        # Terms of Service - using placeholder instead of label
-        self.terms_service_text = scrolledtext.ScrolledText(pages_frame, height=4, font=('Segoe UI', 9), wrap=tk.WORD)
-        self.terms_service_text.grid(row=1, column=0, sticky='ew', pady=5)
-        self.setup_text_placeholder(self.terms_service_text, 'Terms of service...')
+        # Return & Refund Policy
+        self.return_refund_text = QTextEdit()
+        self.return_refund_text.setObjectName("inputText")
+        self.return_refund_text.setPlaceholderText('Return and refund policy...')
+        self.return_refund_text.setMaximumHeight(80)
+        pages_layout.addWidget(self.return_refund_text)
 
-        # Shipping Policy - using placeholder instead of label
-        self.shipping_policy_text = scrolledtext.ScrolledText(pages_frame, height=4, font=('Segoe UI', 9), wrap=tk.WORD)
-        self.shipping_policy_text.grid(row=2, column=0, sticky='ew', pady=5)
-        self.setup_text_placeholder(self.shipping_policy_text, 'Shipping policy...')
+        # Terms of Service
+        self.terms_service_text = QTextEdit()
+        self.terms_service_text.setObjectName("inputText")
+        self.terms_service_text.setPlaceholderText('Terms of service...')
+        self.terms_service_text.setMaximumHeight(80)
+        pages_layout.addWidget(self.terms_service_text)
 
-        # Contact Information - using placeholder instead of label
-        self.contact_info_text = scrolledtext.ScrolledText(pages_frame, height=4, font=('Segoe UI', 9), wrap=tk.WORD)
-        self.contact_info_text.grid(row=3, column=0, sticky='ew', pady=5)
-        self.setup_text_placeholder(self.contact_info_text, 'Contact information...')
+        # Shipping Policy
+        self.shipping_policy_text = QTextEdit()
+        self.shipping_policy_text.setObjectName("inputText")
+        self.shipping_policy_text.setPlaceholderText('Shipping policy...')
+        self.shipping_policy_text.setMaximumHeight(80)
+        pages_layout.addWidget(self.shipping_policy_text)
 
-        # Configure grid
-        pages_frame.columnconfigure(0, weight=1)
+        # Contact Information
+        self.contact_info_text = QTextEdit()
+        self.contact_info_text.setObjectName("inputText")
+        self.contact_info_text.setPlaceholderText('Contact information...')
+        self.contact_info_text.setMaximumHeight(80)
+        pages_layout.addWidget(self.contact_info_text)
 
         # Marketing Frame
-        marketing_frame = tk.LabelFrame(scrollable_frame,
-                           text="📢 Marketing",
-                           font=('Segoe UI', 11, 'bold'),
-                           bg='#ecf0f1',
-                           fg='#2c3e50',
-                           pady=10,
-                           borderwidth=0)
-        marketing_frame.pack(fill='both', expand=True, pady=(0, 15))
+        marketing_group = QGroupBox("📢 Marketing")
+        layout.addWidget(marketing_group)
 
-        # Marketing Subject - using placeholder instead of label
-        self.marketing_subject_entry = tk.Entry(marketing_frame, font=('Segoe UI', 10), width=60)
-        self.marketing_subject_entry.grid(row=0, column=0, sticky='ew', pady=5)
-        self.setup_placeholder(self.marketing_subject_entry, 'Marketing subject line')
+        marketing_layout = QVBoxLayout(marketing_group)
 
-        # Configure grid
-        marketing_frame.columnconfigure(0, weight=1)
+        # Marketing Subject
+        self.marketing_subject_entry = QLineEdit()
+        self.marketing_subject_entry.setPlaceholderText('Marketing subject line')
+        marketing_layout.addWidget(self.marketing_subject_entry)
 
         # Upsell Frame
-        upsell_frame = tk.LabelFrame(scrollable_frame,
-                        text="💰 Upsell",
-                        font=('Segoe UI', 11, 'bold'),
-                        bg='#ecf0f1',
-                        fg='#2c3e50',
-                        pady=10,
-                        borderwidth=0)
-        upsell_frame.pack(fill='both', expand=True, pady=(0, 15))
+        upsell_group = QGroupBox("💰 Upsell")
+        layout.addWidget(upsell_group)
 
-        # Upsell Campaign Title - using placeholder instead of label
-        self.upsell_campaign_title_entry = tk.Entry(upsell_frame, font=('Segoe UI', 10), width=60)
-        self.upsell_campaign_title_entry.grid(row=0, column=0, sticky='ew', pady=5)
-        self.setup_placeholder(self.upsell_campaign_title_entry, 'Upsell campaign title')
+        upsell_layout = QVBoxLayout(upsell_group)
 
-        # Upsell Thank You - using placeholder instead of label
-        self.upsell_thank_you_entry = tk.Entry(upsell_frame, font=('Segoe UI', 10), width=60)
-        self.upsell_thank_you_entry.grid(row=1, column=0, sticky='ew', pady=5)
-        self.setup_placeholder(self.upsell_thank_you_entry, 'Upsell thank you message')
+        # Upsell Campaign Title
+        self.upsell_campaign_title_entry = QLineEdit()
+        self.upsell_campaign_title_entry.setPlaceholderText('Upsell campaign title')
+        upsell_layout.addWidget(self.upsell_campaign_title_entry)
 
-        # Configure grid
-        upsell_frame.columnconfigure(0, weight=1)
+        # Upsell Thank You
+        self.upsell_thank_you_entry = QLineEdit()
+        self.upsell_thank_you_entry.setPlaceholderText('Upsell thank you message')
+        upsell_layout.addWidget(self.upsell_thank_you_entry)
 
-        # Pages Frame
-        pages_content_frame = tk.LabelFrame(scrollable_frame,
-                        text="📄 Pages",
-                        font=('Segoe UI', 11, 'bold'),
-                        bg='#ecf0f1',
-                        fg='#2c3e50',
-                        pady=10,
-                        borderwidth=0)
-        pages_content_frame.pack(fill='both', expand=True, pady=(0, 15))
+        # Pages Content Frame
+        pages_content_group = QGroupBox("📄 Pages")
+        layout.addWidget(pages_content_group)
 
-        # About Us - using placeholder instead of label
-        self.about_us_text = scrolledtext.ScrolledText(pages_content_frame, height=4, font=('Segoe UI', 9), wrap=tk.WORD)
-        self.about_us_text.grid(row=0, column=0, sticky='ew', pady=5)
-        self.setup_text_placeholder(self.about_us_text, 'About Us page content...')
+        pages_content_layout = QVBoxLayout(pages_content_group)
 
-        # Contact Us - using placeholder instead of label
-        self.contact_us_text = scrolledtext.ScrolledText(pages_content_frame, height=4, font=('Segoe UI', 9), wrap=tk.WORD)
-        self.contact_us_text.grid(row=1, column=0, sticky='ew', pady=5)
-        self.setup_text_placeholder(self.contact_us_text, 'Contact Us page content...')
+        # About Us
+        self.about_us_text = QTextEdit()
+        self.about_us_text.setObjectName("inputText")
+        self.about_us_text.setPlaceholderText('About Us page content...')
+        self.about_us_text.setMaximumHeight(80)
+        pages_content_layout.addWidget(self.about_us_text)
 
-        # Configure grid
-        pages_content_frame.columnconfigure(0, weight=1)
+        # Contact Us
+        self.contact_us_text = QTextEdit()
+        self.contact_us_text.setObjectName("inputText")
+        self.contact_us_text.setPlaceholderText('Contact Us page content...')
+        self.contact_us_text.setMaximumHeight(80)
+        pages_content_layout.addWidget(self.contact_us_text)
 
-        # Image with Text Frame (3 rows; each row has Title + Description side-by-side)
-        image_text_frame = tk.LabelFrame(scrollable_frame,
-                        text="🖼️ Image with Text",
-                        font=('Segoe UI', 11, 'bold'),
-                        bg='#ecf0f1',
-                        fg='#2c3e50',
-                        pady=10,
-                        borderwidth=0)
-        image_text_frame.pack(fill='both', expand=True, pady=(0, 15))
+        # Product Section
+        product_group = QGroupBox("🛍️ Products")
+        layout.addWidget(product_group)
 
-        # Column headers
-        tk.Label(image_text_frame, text="Title", font=('Segoe UI', 10, 'bold'),
-                bg='#ecf0f1', fg='#2c3e50').grid(row=0, column=0, sticky='w', padx=(2, 8))
-        tk.Label(image_text_frame, text="Description", font=('Segoe UI', 10, 'bold'),
-                bg='#ecf0f1', fg='#2c3e50').grid(row=0, column=1, sticky='w', padx=(8, 2))
+        product_layout = QVBoxLayout(product_group)
+        product_layout.setContentsMargins(2, 2, 2, 2)
 
-        # Row 1
-        self.image_text_title_1_entry = tk.Entry(image_text_frame, font=('Segoe UI', 10))
-        self.image_text_title_1_entry.grid(row=1, column=0, sticky='ew', pady=4, padx=(0, 8))
-        self.image_text_desc_1_entry = tk.Entry(image_text_frame, font=('Segoe UI', 10))
-        self.image_text_desc_1_entry.grid(row=1, column=1, sticky='ew', pady=4, padx=(8, 0))
+        discount_values = [49.99, 79.99, 99.99, 119.99]
+        original_values = [99, 119, 149, 179]
+        for i, v in enumerate(discount_values, start=1):
+            product_widget = QWidget()
+            product_layout.addWidget(product_widget)
 
-        # Row 2
-        self.image_text_title_2_entry = tk.Entry(image_text_frame, font=('Segoe UI', 10))
-        self.image_text_title_2_entry.grid(row=2, column=0, sticky='ew', pady=4, padx=(0, 8))
-        self.image_text_desc_2_entry = tk.Entry(image_text_frame, font=('Segoe UI', 10))
-        self.image_text_desc_2_entry.grid(row=2, column=1, sticky='ew', pady=4, padx=(8, 0))
+            product_item_layout = QVBoxLayout(product_widget)
 
-        # Row 3
-        self.image_text_title_3_entry = tk.Entry(image_text_frame, font=('Segoe UI', 10))
-        self.image_text_title_3_entry.grid(row=3, column=0, sticky='ew', pady=4, padx=(0, 8))
-        self.image_text_desc_3_entry = tk.Entry(image_text_frame, font=('Segoe UI', 10))
-        self.image_text_desc_3_entry.grid(row=3, column=1, sticky='ew', pady=4, padx=(8, 0))
+            # Product name
+            setattr(self, f'product_{i}_name_entry', QLineEdit())
+            getattr(self, f'product_{i}_name_entry').setPlaceholderText(f'Product {i} name')
+            product_item_layout.addWidget(getattr(self, f'product_{i}_name_entry'))
 
-        # Configure grid for equal column expansion
-        image_text_frame.columnconfigure(0, weight=1)
-        image_text_frame.columnconfigure(1, weight=1)
+            # Product description
+            desc_layout = QHBoxLayout()
+            setattr(self, f'product_{i}_desc_text', QTextEdit())
+            getattr(self, f'product_{i}_desc_text').setObjectName("productText")
+            getattr(self, f'product_{i}_desc_text').setMaximumHeight(60)
+            getattr(self, f'product_{i}_desc_text').setPlaceholderText(f'Product {i} description...')
+            product_item_layout.addWidget(getattr(self, f'product_{i}_desc_text'))
 
-        # Slider Frame (3 rows; each row has Name + YouTube Short Link side-by-side)
-        slider_frame = tk.LabelFrame(scrollable_frame,
-                        text="🎠 Slider",
-                        font=('Segoe UI', 11, 'bold'),
-                        bg='#ecf0f1',
-                        fg='#2c3e50',
-                        pady=10,
-                        borderwidth=0)
-        slider_frame.pack(fill='both', expand=True, pady=(0, 15))
+            # Price row
+            price_layout = QHBoxLayout()
+            setattr(self, f'product_{i}_discount_entry', QLineEdit())
+            getattr(self, f'product_{i}_discount_entry').setText(str(v))
+            getattr(self, f'product_{i}_discount_entry').setPlaceholderText('Discount price')
+            price_layout.addWidget(getattr(self, f'product_{i}_discount_entry'))
 
-        # Column headers
-        tk.Label(slider_frame, text="Name", font=('Segoe UI', 10, 'bold'),
-            bg='#ecf0f1', fg='#2c3e50').grid(row=0, column=0, sticky='w', padx=(2, 8))
-        tk.Label(slider_frame, text="YouTube Short Link", font=('Segoe UI', 10, 'bold'),
-            bg='#ecf0f1', fg='#2c3e50').grid(row=0, column=1, sticky='w', padx=(8, 2))
+            setattr(self, f'product_{i}_original_entry', QLineEdit())
+            getattr(self, f'product_{i}_original_entry').setText(str(original_values[i-1]))
+            getattr(self, f'product_{i}_original_entry').setPlaceholderText('Original price')
+            price_layout.addWidget(getattr(self, f'product_{i}_original_entry'))
 
-        # Row 1
-        self.slider_name_1_entry = tk.Entry(slider_frame, font=('Segoe UI', 10))
-        self.slider_name_1_entry.grid(row=1, column=0, sticky='ew', pady=4, padx=(0, 8))
-        self.slider_link_1_entry = tk.Entry(slider_frame, font=('Segoe UI', 10))
-        self.slider_link_1_entry.grid(row=1, column=1, sticky='ew', pady=4, padx=(8, 0))
+            product_item_layout.addLayout(price_layout)
 
-        # Row 2
-        self.slider_name_2_entry = tk.Entry(slider_frame, font=('Segoe UI', 10))
-        self.slider_name_2_entry.grid(row=2, column=0, sticky='ew', pady=4, padx=(0, 8))
-        self.slider_link_2_entry = tk.Entry(slider_frame, font=('Segoe UI', 10))
-        self.slider_link_2_entry.grid(row=2, column=1, sticky='ew', pady=4, padx=(8, 0))
-
-        # Row 3
-        self.slider_name_3_entry = tk.Entry(slider_frame, font=('Segoe UI', 10))
-        self.slider_name_3_entry.grid(row=3, column=0, sticky='ew', pady=4, padx=(0, 8))
-        self.slider_link_3_entry = tk.Entry(slider_frame, font=('Segoe UI', 10))
-        self.slider_link_3_entry.grid(row=3, column=1, sticky='ew', pady=4, padx=(8, 0))
-
-        # Configure grid for equal column expansion
-        slider_frame.columnconfigure(0, weight=1)
-        slider_frame.columnconfigure(1, weight=1)
-
-        # Product Section: 4 products, each with name (input), description (textarea), and two prices on same row
-        product_section = tk.LabelFrame(scrollable_frame,
-                        text="🛍️ Products",
-                        font=('Segoe UI', 11, 'bold'),
-                        bg='#ecf0f1',
-                        fg='#2c3e50',
-                        pady=10,
-                        borderwidth=0)
-        product_section.pack(fill='both', expand=True, pady=(0, 15))
-
-        for i in range(1, 5):
-            # container for each product
-            item_frame = tk.Frame(product_section, bg='#ecf0f1')
-            item_frame.pack(fill='x', expand=True, pady=(8, 8))
-            item_frame.columnconfigure(0, weight=1)
-
-            # Product name (row 1)
-            tk.Label(item_frame, text=f"Product {i} Name:", font=('Segoe UI', 10), bg='#ecf0f1', fg='#2c3e50').grid(row=0, column=0, sticky='w')
-            setattr(self, f'product_{i}_name_entry', tk.Entry(item_frame, font=('Segoe UI', 10)))
-            getattr(self, f'product_{i}_name_entry').grid(row=1, column=0, sticky='ew', pady=4)
-            self.setup_placeholder(getattr(self, f'product_{i}_name_entry'), f'Product {i} Name')
-
-            # Product description (row 2) - using placeholder instead of label
-            setattr(self, f'product_{i}_desc_text', scrolledtext.ScrolledText(item_frame, height=3, font=('Segoe UI', 9), wrap=tk.WORD))
-            getattr(self, f'product_{i}_desc_text').grid(row=2, column=0, sticky='ew', pady=4)
-            self.setup_text_placeholder(getattr(self, f'product_{i}_desc_text'), f'Description for Product {i}...')
-
-            # Price row (row 3) - discount and original side-by-side
-            price_frame = tk.Frame(item_frame, bg='#ecf0f1')
-            price_frame.grid(row=3, column=0, sticky='ew', pady=4)
-            price_frame.columnconfigure(0, weight=1)
-            price_frame.columnconfigure(1, weight=1)
-
-            tk.Label(price_frame, text='Discount Price', font=('Segoe UI', 10), bg='#ecf0f1', fg='#2c3e50').grid(row=0, column=0, sticky='w')
-            tk.Label(price_frame, text='Original Price', font=('Segoe UI', 10), bg='#ecf0f1', fg='#2c3e50').grid(row=0, column=1, sticky='w')
-
-            setattr(self, f'product_{i}_discount_entry', tk.Entry(price_frame, font=('Segoe UI', 10)))
-            getattr(self, f'product_{i}_discount_entry').grid(row=1, column=0, sticky='ew', padx=(0, 6))
-            self.setup_placeholder(getattr(self, f'product_{i}_discount_entry'), '0.00')
-            setattr(self, f'product_{i}_original_entry', tk.Entry(price_frame, font=('Segoe UI', 10)))
-            getattr(self, f'product_{i}_original_entry').grid(row=1, column=1, sticky='ew', padx=(6, 0))
-            self.setup_placeholder(getattr(self, f'product_{i}_original_entry'), '0.00')
-
-            # Add divider between products (except after the last one)
+            # Add separator
             if i < 4:
-                divider = tk.Frame(product_section, bg='#bdc3c7', height=1)
-                divider.pack(fill='x', pady=(5, 10))
+                separator = QFrame()
+                separator.setFrameShape(QFrame.HLine)
+                separator.setFrameShadow(QFrame.Sunken)
+                separator.setStyleSheet("QFrame { border: none; border-top: 1px dashed #959797; }")
+                product_layout.addWidget(separator)
 
-        return tab_frame
+        # Image with Text Frame
+        image_text_group = QGroupBox("🖼️ Image with Text")
+        layout.addWidget(image_text_group)
+
+        image_text_layout = QVBoxLayout(image_text_group)
+        image_text_layout.setContentsMargins(2, 2, 2, 2)
+
+        for i in range(1, 4):
+            image_text_widget = QWidget()
+            image_text_layout.addWidget(image_text_widget)
+
+            image_text_item_layout = QVBoxLayout(image_text_widget)
+
+            # Title
+            setattr(self, f'image_text_title_{i}_entry', QLineEdit())
+            getattr(self, f'image_text_title_{i}_entry').setPlaceholderText("Title")
+            image_text_item_layout.addWidget(getattr(self, f'image_text_title_{i}_entry'))
+
+            # Description
+            setattr(self, f'image_text_desc_{i}_entry', QTextEdit())
+            getattr(self, f'image_text_desc_{i}_entry').setObjectName("productText")
+            getattr(self, f'image_text_desc_{i}_entry').setMaximumHeight(60)
+            getattr(self, f'image_text_desc_{i}_entry').setPlaceholderText("Description...")
+            image_text_item_layout.addWidget(getattr(self, f'image_text_desc_{i}_entry'))
+
+            # Add separator
+            if i < 3:
+                separator = QFrame()
+                separator.setFrameShape(QFrame.HLine)
+                separator.setFrameShadow(QFrame.Sunken)
+                separator.setStyleSheet("QFrame { border: none; border-top: 1px dashed #959797; }")
+                image_text_layout.addWidget(separator)
+
+        # Slider Frame
+        slider_group = QGroupBox("🎠 Slider")
+        layout.addWidget(slider_group)
+
+        slider_layout = QGridLayout(slider_group)
+
+        slider_layout.setColumnStretch(0, 1)
+        slider_layout.setColumnStretch(1, 3)
+
+        # Row 1
+        self.slider_name_1_entry = QLineEdit()
+        self.slider_name_1_entry.setPlaceholderText("Name")
+        slider_layout.addWidget(self.slider_name_1_entry, 0, 0)
+        self.slider_link_1_entry = QLineEdit()
+        self.slider_link_1_entry.setPlaceholderText("YouTube Short Link")
+        slider_layout.addWidget(self.slider_link_1_entry, 0, 1)
+
+        # Row 2
+        self.slider_name_2_entry = QLineEdit()
+        self.slider_name_2_entry.setPlaceholderText("Name")
+        slider_layout.addWidget(self.slider_name_2_entry, 1, 0)
+        self.slider_link_2_entry = QLineEdit()
+        self.slider_link_2_entry.setPlaceholderText("YouTube Short Link")
+        slider_layout.addWidget(self.slider_link_2_entry, 1, 1)
+
+        # Row 3
+        self.slider_name_3_entry = QLineEdit()
+        self.slider_name_3_entry.setPlaceholderText("Name")
+        slider_layout.addWidget(self.slider_name_3_entry, 2, 0)
+        self.slider_link_3_entry = QLineEdit()
+        self.slider_link_3_entry.setPlaceholderText("YouTube Short Link")
+        slider_layout.addWidget(self.slider_link_3_entry, 2, 1)
+
+        # Reviews Section
+        reviews_group = QGroupBox("📝 Reviews")
+        layout.addWidget(reviews_group)
+
+        reviews_layout = QVBoxLayout(reviews_group)
+        reviews_layout.setContentsMargins(2, 2, 2, 2)
+        reviews_layout.setSpacing(0)
+
+        for i in range(1, 11):
+            review_widget = QWidget()
+            reviews_layout.addWidget(review_widget)
+
+            review_item_layout = QVBoxLayout(review_widget)
+
+            # Review file name and browse button
+            file_layout = QHBoxLayout()
+            setattr(self, f'review_file_{i}_name_entry', QLineEdit())
+            getattr(self, f'review_file_{i}_name_entry').setPlaceholderText(f'Review title {i}')
+            file_layout.addWidget(getattr(self, f'review_file_{i}_name_entry'))
+            setattr(self, f'review_file_{i}_browse_button', QPushButton('Browse'))
+            getattr(self, f'review_file_{i}_browse_button').clicked.connect(lambda checked, idx=i: self.browse_review_file(idx))
+            file_layout.addWidget(getattr(self, f'review_file_{i}_browse_button'))
+
+            review_item_layout.addLayout(file_layout)
+
+        # FAQ Section
+        faq_group = QGroupBox("❓ FAQ")
+        layout.addWidget(faq_group)
+
+        faq_layout = QVBoxLayout(faq_group)
+        faq_layout.setContentsMargins(2, 2, 2, 2)
+
+        for i in range(1, 7):
+            faq_widget = QWidget()
+            faq_layout.addWidget(faq_widget)
+
+            faq_item_layout = QVBoxLayout(faq_widget)
+
+            # FAQ question
+            setattr(self, f'faq_{i}_question_entry', QLineEdit())
+            getattr(self, f'faq_{i}_question_entry').setPlaceholderText(f'FAQ question {i}')
+            faq_item_layout.addWidget(getattr(self, f'faq_{i}_question_entry'))
+
+            # FAQ answer
+            setattr(self, f'faq_{i}_answer_text', QTextEdit())
+            getattr(self, f'faq_{i}_answer_text').setObjectName("productText")
+            getattr(self, f'faq_{i}_answer_text').setMaximumHeight(60)
+            getattr(self, f'faq_{i}_answer_text').setPlaceholderText(f'FAQ answer {i}...')
+            faq_item_layout.addWidget(getattr(self, f'faq_{i}_answer_text'))
+
+            # Add separator
+            if i < 6:
+                separator = QFrame()
+                separator.setFrameShape(QFrame.HLine)
+                separator.setFrameShadow(QFrame.Sunken)
+                separator.setStyleSheet("QFrame { border: none; border-top: 1px dashed #959797; }")
+                faq_layout.addWidget(separator)
+
+        layout.addStretch()
+
+        return scroll_area
 
     def create_tasks_tab(self):
-        """Create the Tasks tab with scrollbar"""
-        # Create frame for tab
-        tab_frame = tk.Frame(self.notebook, bg='#ecf0f1')
+        """Create the Tasks tab"""
+        # Create scroll area
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
 
-        # Create canvas and scrollbar
-        canvas = tk.Canvas(tab_frame, bg='#ecf0f1', highlightthickness=0)
-        scrollbar = ttk.Scrollbar(tab_frame, orient='vertical', command=canvas.yview)
+        # Create container widget
+        container = QWidget()
+        scroll_area.setWidget(container)
 
-        # Create scrollable frame
-        scrollable_frame = tk.Frame(canvas, bg='#ecf0f1')
-
-        # Pack scrollable_frame into canvas with full width
-        canvas.create_window((0, 0), window=scrollable_frame, anchor='nw', width=canvas.winfo_width())
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        # Pack scrollbar and canvas
-        scrollbar.pack(side='right', fill='y')
-        canvas.pack(side='left', fill='both', expand=True)
-
-        # Update scrollable_frame width when canvas resizes
-        def update_scrollable_width(event):
-            canvas.itemconfig(canvas.find_withtag("all")[0], width=event.width)
-
-        canvas.bind('<Configure>', update_scrollable_width)
-
-        # Enable mousewheel scrolling with smart handling for textareas
-        def _on_mousewheel(event):
-            """Smart mousewheel handler that scrolls canvas when textarea can't scroll"""
-            widget = event.widget
-
-            # Check if widget is a ScrolledText
-            if isinstance(widget, scrolledtext.ScrolledText):
-                # Get current scroll position
-                try:
-                    yview = widget.yview()
-                    scroll_direction = -1 if event.delta > 0 else 1
-
-                    # If scrolling up and already at top, scroll canvas
-                    if scroll_direction == -1 and yview[0] <= 0:
-                        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-                        return "break"
-                    # If scrolling down and already at bottom, scroll canvas
-                    elif scroll_direction == 1 and yview[1] >= 1:
-                        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-                        return "break"
-                    # Otherwise, let the textarea handle its own scrolling
-                    else:
-                        return
-                except:
-                    pass
-
-            # For all other widgets, scroll the canvas
-            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-
-        def bind_mousewheel_recursive(widget, callback):
-            """Recursively bind mousewheel to widget and all its children"""
-            widget.bind("<MouseWheel>", callback)
-            for child in widget.winfo_children():
-                bind_mousewheel_recursive(child, callback)
-
-        # Bind mousewheel to canvas, tab_frame and all children
-        canvas.bind("<MouseWheel>", _on_mousewheel)
-        tab_frame.bind("<MouseWheel>", _on_mousewheel)
-
-        # Update bindings whenever scrollable_frame is configured
-        def update_bindings(event=None):
-            bind_mousewheel_recursive(scrollable_frame, _on_mousewheel)
-
-        scrollable_frame.bind("<Configure>", lambda e: (
-            canvas.configure(scrollregion=canvas.bbox("all")),
-            update_bindings()
-        ))
-
-        # Initial binding
-        update_bindings()
+        # Main layout
+        layout = QVBoxLayout(container)
 
         # Tasks Frame
-        tasks_frame = tk.LabelFrame(scrollable_frame,
-                                   text="🎯 Available Tasks",
-                                   font=('Segoe UI', 11, 'bold'),
-                                   bg='#ecf0f1',
-                                   fg='#2c3e50',
-                                   padx=15,
-                                   pady=10)
-        tasks_frame.pack(fill='both', expand=True, pady=(10, 10))
+        tasks_group = QGroupBox("🎯 Available Tasks")
+        layout.addWidget(tasks_group)
 
-        # Create task buttons in a grid
+        tasks_layout = QGridLayout(tasks_group)
+
+        # Create task buttons
         self.task_buttons = {}
         tasks = [
+            ('register_shopify_account', '🆕 Register', register_shopify_account),
             ('install_apps', '📦 Install Apps', install_apps),
-            ('handle_dser', '🛠️ DSers (progress)', handle_dser_open_and_confirm),
+            ('handle_dser_open_and_confirm', '🛠️ DSers (progress)', handle_dser_open_and_confirm),
             ('setup_world_market', '🌍 Markets', setup_world_market),
-            ('setup_policies', '📜 Policies', setup_legal_policies),
-            ('setup_pages', '📄 Pages', setup_contact_page),
-            ('setup_shipping', '🚚 Shipping (progress)', setup_shipping_zones),
+            ('setup_legal_policies', '📜 Policies', setup_legal_policies),
+            ('setup_contact_page', '📄 Pages', setup_contact_page),
+            ('setup_shipping_zones', '🚚 Shipping', setup_shipping_zones),
             ('setup_preferences', '⚙️ Preferences', setup_preferences),
+            ('connect_domain', '🌐 Connect Domain', connect_domain),
+            ('setup_selleasy', '🎯 Selleasy', setup_selleasy),
+            ('setup_content_menus', '📋 Content Menus', setup_content_menus),
         ]
 
         row = 0
         col = 0
         for task_id, task_label, task_func in tasks:
-            btn = ttk.Button(tasks_frame,
-                           text=task_label,
-                           style='Task.TButton',
-                           state='disabled',
-                           command=lambda f=task_func, l=task_label: self.run_task(f, l))
-            btn.grid(row=row, column=col, padx=8, pady=8, sticky='ew')
+            btn = QPushButton(task_label)
+            btn.setEnabled(False)
+            btn.clicked.connect(lambda checked, f=task_func, l=task_label: self.run_task(f, l))
+            tasks_layout.addWidget(btn, row, col)
             self.task_buttons[task_id] = btn
 
             col += 1
@@ -643,34 +561,33 @@ class StoreAutomationGUI:
                 col = 0
                 row += 1
 
-        # Configure grid columns to expand equally
-        tasks_frame.columnconfigure(0, weight=1)
-        tasks_frame.columnconfigure(1, weight=1)
+        # Add stretch
+        layout.addStretch()
 
-        return tab_frame
+        return scroll_area
 
     def validate_inputs(self):
         """Validate input fields"""
-        store_id = self.store_id_entry.get().strip()
-        email = self.email_entry.get().strip()
-        password = self.password_entry.get().strip()
-        seo_title = self.seo_title_entry.get().strip()
-        seo_description = self.seo_description_entry.get().strip()
+        store_id = self.store_id_entry.text().strip()
+        email = self.email_entry.text().strip()
+        password = self.password_entry.text()
+        seo_title = self.seo_title_entry.text().strip()
+        seo_description = self.seo_description_entry.text().strip()
 
         if not store_id:
-            messagebox.showerror("Error", "Store ID is required!")
+            QMessageBox.critical(self, "Error", "Domain is required!")
             return False
         if not email:
-            messagebox.showerror("Error", "Email is required!")
+            QMessageBox.critical(self, "Error", "Email is required!")
             return False
         if not password:
-            messagebox.showerror("Error", "Password is required!")
+            QMessageBox.critical(self, "Error", "Password is required!")
             return False
         if not seo_title:
-            messagebox.showerror("Error", "SEO Title is required!")
+            QMessageBox.critical(self, "Error", "SEO Title is required!")
             return False
         if not seo_description:
-            messagebox.showerror("Error", "SEO Description is required!")
+            QMessageBox.critical(self, "Error", "SEO Description is required!")
             return False
 
         return True
@@ -678,60 +595,60 @@ class StoreAutomationGUI:
     def get_credentials_from_inputs(self):
         """Get credentials from input fields"""
         return {
-            'storeId': self.store_id_entry.get().strip(),
-            'email': self.email_entry.get().strip(),
-            'password': self.password_entry.get().strip(),
+            'storeId': self.store_id_entry.text().strip(),
+            'email': self.email_entry.text().strip(),
+            'password': self.password_entry.text(),
             'seo': {
-                'title': self.seo_title_entry.get().strip(),
-                'description': self.seo_description_entry.get().strip()
+                'title': self.seo_title_entry.text().strip(),
+                'description': self.seo_description_entry.text().strip()
             },
             'marketing': {
-                'subject': self.marketing_subject_entry.get().strip()
+                'subject': self.marketing_subject_entry.text().strip()
             },
             'upsell': {
-                'campaign_title': self.upsell_campaign_title_entry.get().strip(),
-                'thank_you': self.upsell_thank_you_entry.get().strip()
+                'campaign_title': self.upsell_campaign_title_entry.text().strip(),
+                'thank_you': self.upsell_thank_you_entry.text().strip()
             },
             'image_text': {
                 'titles': [
-                    self.image_text_title_1_entry.get().strip(),
-                    self.image_text_title_2_entry.get().strip(),
-                    self.image_text_title_3_entry.get().strip()
+                    self.image_text_title_1_entry.text().strip(),
+                    self.image_text_title_2_entry.text().strip(),
+                    self.image_text_title_3_entry.text().strip()
                 ],
                 'descriptions': [
-                    self.image_text_desc_1_entry.get().strip(),
-                    self.image_text_desc_2_entry.get().strip(),
-                    self.image_text_desc_3_entry.get().strip()
+                    self.image_text_desc_1_entry.toPlainText().strip(),
+                    self.image_text_desc_2_entry.toPlainText().strip(),
+                    self.image_text_desc_3_entry.toPlainText().strip()
                 ]
             },
             'slider': {
                 'names': [
-                    self.slider_name_1_entry.get().strip(),
-                    self.slider_name_2_entry.get().strip(),
-                    self.slider_name_3_entry.get().strip()
+                    self.slider_name_1_entry.text().strip(),
+                    self.slider_name_2_entry.text().strip(),
+                    self.slider_name_3_entry.text().strip()
                 ],
                 'youtube_links': [
-                    self.slider_link_1_entry.get().strip(),
-                    self.slider_link_2_entry.get().strip(),
-                    self.slider_link_3_entry.get().strip()
+                    self.slider_link_1_entry.text().strip(),
+                    self.slider_link_2_entry.text().strip(),
+                    self.slider_link_3_entry.text().strip()
                 ]
-            }
-            ,
+            },
             'products': [
                 {
-                    'name': getattr(self, f'product_{i}_name_entry').get().strip(),
-                    'description': getattr(self, f'product_{i}_desc_text').get('1.0', tk.END).strip(),
-                    'discount_price': getattr(self, f'product_{i}_discount_entry').get().strip(),
-                    'original_price': getattr(self, f'product_{i}_original_entry').get().strip()
+                    'name': getattr(self, f'product_{i}_name_entry').text().strip(),
+                    'description': getattr(self, f'product_{i}_desc_text').toPlainText().strip(),
+                    'discount_price': getattr(self, f'product_{i}_discount_entry').text().strip(),
+                    'original_price': getattr(self, f'product_{i}_original_entry').text().strip()
                 } for i in range(1, 5)
             ]
         }
 
     def log(self, message):
         """Add message to log"""
-        self.log_text.insert(tk.END, f"{message}\n")
-        self.log_text.see(tk.END)
-        self.log_text.update()
+        self.log_text.append(f"{message}")
+        # Scroll to bottom
+        scrollbar = self.log_text.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
 
     def setup_driver(self) -> Optional[webdriver.Chrome]:
         """Setup Chrome WebDriver"""
@@ -760,7 +677,7 @@ class StoreAutomationGUI:
             return driver
         except Exception as e:
             self.log(f"❌ Critical error initializing WebDriver: {e}")
-            messagebox.showerror("Error", f"Failed to initialize WebDriver:\n{e}")
+            QMessageBox.critical(self, "Error", f"Failed to initialize WebDriver:\n{e}")
             return None
 
     def login_action(self):
@@ -779,12 +696,12 @@ class StoreAutomationGUI:
         self.log(f"📝 Credentials validated for store: {self.credentials['storeId']}")
 
         # Disable login button and input fields
-        self.login_button.config(state='disabled')
-        self.store_id_entry.config(state='disabled')
-        self.email_entry.config(state='disabled')
-        self.password_entry.config(state='disabled')
-        self.seo_title_entry.config(state='disabled')
-        self.seo_description_entry.config(state='disabled')
+        self.login_button.setEnabled(False)
+        self.store_id_entry.setEnabled(False)
+        self.email_entry.setEnabled(False)
+        self.password_entry.setEnabled(False)
+        self.seo_title_entry.setEnabled(False)
+        self.seo_description_entry.setEnabled(False)
 
         # Run login in separate thread
         thread = threading.Thread(target=self.login_thread, daemon=True)
@@ -812,12 +729,12 @@ class StoreAutomationGUI:
                 self.log("✅ Login successful!")
 
                 # Update UI in main thread
-                self.root.after(0, self.on_login_success)
+                QTimer.singleShot(0, self.on_login_success)
             else:
                 self.log("❌ Login failed")
-                self.root.after(0, lambda: messagebox.showerror("Login Failed", "Could not login to Shopify"))
-                self.root.after(0, self.enable_inputs)
-                self.root.after(0, lambda: self.status_icon.config(text="❌", fg='#e74c3c'))
+                QTimer.singleShot(0, lambda: QMessageBox.critical(self, "Login Failed", "Could not login to Shopify"))
+                QTimer.singleShot(0, self.enable_inputs)
+                QTimer.singleShot(0, lambda: self.status_icon.setText("❌"))
 
                 if self.driver:
                     stop_captcha_monitor()
@@ -826,9 +743,9 @@ class StoreAutomationGUI:
 
         except Exception as e:
             self.log(f"❌ Login error: {e}")
-            self.root.after(0, lambda: messagebox.showerror("Error", f"Login error:\n{e}"))
-            self.root.after(0, self.enable_inputs)
-            self.root.after(0, lambda: self.status_icon.config(text="❌", fg='#e74c3c'))
+            QTimer.singleShot(0, lambda: QMessageBox.critical(self, "Error", f"Login error:\n{e}"))
+            QTimer.singleShot(0, self.enable_inputs)
+            QTimer.singleShot(0, lambda: self.status_icon.setText("❌"))
 
             if self.driver:
                 stop_captcha_monitor()
@@ -837,34 +754,37 @@ class StoreAutomationGUI:
 
     def enable_inputs(self):
         """Re-enable input fields and login button"""
-        self.login_button.config(state='normal')
-        self.store_id_entry.config(state='normal')
-        self.email_entry.config(state='normal')
-        self.password_entry.config(state='normal')
-        self.seo_title_entry.config(state='normal')
-        self.seo_description_entry.config(state='normal')
-        self.status_icon.config(text="⚪", fg='white')
+        self.login_button.setEnabled(True)
+        self.store_id_entry.setEnabled(True)
+        self.email_entry.setEnabled(True)
+        self.password_entry.setEnabled(True)
+        self.seo_title_entry.setEnabled(True)
+        self.seo_description_entry.setEnabled(True)
+        self.status_icon.setText("⚪")
+        self.status_icon.setStyleSheet("color: white; background-color: #2196F3;")
 
     def on_login_success(self):
         """Update UI after successful login"""
-        self.status_icon.config(text="✅", fg='#27ae60')
-        self.login_button.config(text="✅ Logged In", state='disabled')
+        self.status_icon.setText("✅")
+        self.status_icon.setStyleSheet("color: #27ae60; background-color: #2196F3;")
+        self.login_button.setText("✅ Logged In")
+        self.login_button.setEnabled(False)
 
         # Enable all task buttons
         for btn in self.task_buttons.values():
-            btn.config(state='normal')
+            btn.setEnabled(True)
 
-        messagebox.showinfo("Success", "Login successful! You can now run tasks.")
+        QMessageBox.information(self, "Success", "Login successful! You can now run tasks.")
 
     def run_task(self, task_func, task_label):
         """Run a specific task"""
         if not self.is_logged_in:
-            messagebox.showwarning("Warning", "Please login first!")
+            QMessageBox.warning(self, "Warning", "Please login first!")
             return
 
         # Disable all task buttons during execution
         for btn in self.task_buttons.values():
-            btn.config(state='disabled')
+            btn.setEnabled(False)
 
         # Run task in separate thread
         thread = threading.Thread(target=self.task_thread, args=(task_func, task_label), daemon=True)
@@ -889,30 +809,55 @@ class StoreAutomationGUI:
             elif task_func == handle_dser_open_and_confirm:
                 password = self.credentials.get('password', '')
                 task_func(self.driver, store_id, password)
+            elif task_func == register_shopify_account:
+                email = self.credentials.get('email', '')
+                password = self.credentials.get('password', '')
+                task_func(self.driver, email, password, store_id)
+            elif task_func == connect_domain:
+                task_func(self.driver, store_id, store_id)
             else:
                 task_func(self.driver, store_id)
 
             self.log(f"✅ Task completed: {task_label}")
             self.log(f"{'='*60}\n")
 
-            self.root.after(0, lambda: messagebox.showinfo("Success", f"Task completed:\n{task_label}"))
+            QTimer.singleShot(0, lambda: QMessageBox.information(self, "Success", f"Task completed:\n{task_label}"))
 
         except Exception as e:
             self.log(f"❌ Error in task {task_label}: {e}")
-            self.root.after(0, lambda: messagebox.showerror("Error", f"Task failed:\n{task_label}\n\nError: {e}"))
+            QTimer.singleShot(0, lambda: QMessageBox.critical(self, "Error", f"Task failed:\n{task_label}\n\nError: {e}"))
         finally:
             # Re-enable all task buttons
-            self.root.after(0, self.enable_task_buttons)
+            QTimer.singleShot(0, self.enable_task_buttons)
 
     def enable_task_buttons(self):
         """Re-enable all task buttons"""
         for btn in self.task_buttons.values():
-            btn.config(state='normal')
+            btn.setEnabled(True)
 
-    def on_closing(self):
+    def shorten_filename(self, filename, max_length=20):
+        """Shorten filename if too long"""
+        if len(filename) <= max_length:
+            return filename
+        else:
+            return filename[:7] + "..." + filename[-7:]
+
+    def browse_review_file(self, idx):
+        """Browse for reviews file"""
+        file_path, _ = QFileDialog.getOpenFileName(self, f"Select Review File {idx}", "", "Image Files (*.jpg *.jpeg *.png *.gif *.bmp *.tiff)")
+        if file_path:
+            # Store the selected file path
+            setattr(self, f'review_file_{idx}_path', file_path)
+            # Update button text to show file is selected
+            button = getattr(self, f'review_file_{idx}_browse_button')
+            button.setText(f"Selected: {self.shorten_filename(os.path.basename(file_path))}")
+
+    def closeEvent(self, event):
         """Handle window close event"""
         if self.driver:
-            if messagebox.askokcancel("Quit", "Do you want to close the browser and exit?"):
+            reply = QMessageBox.question(self, "Quit", "Do you want to close the browser and exit?",
+                                       QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if reply == QMessageBox.Yes:
                 try:
                     # Dừng captcha monitor trước khi đóng browser
                     stop_captcha_monitor()
@@ -920,21 +865,24 @@ class StoreAutomationGUI:
                     self.log("Browser closed")
                 except:
                     pass
-                self.root.destroy()
+                event.accept()
+            else:
+                event.ignore()
         else:
-            self.root.destroy()
+            event.accept()
 
 
 class TextRedirector:
-    """Redirect stdout/stderr to a text widget"""
+    """Redirect stdout/stderr to a QTextEdit widget"""
     def __init__(self, widget, tag="stdout"):
         self.widget = widget
         self.tag = tag
 
     def write(self, text):
-        self.widget.insert(tk.END, text)
-        self.widget.see(tk.END)
-        self.widget.update()
+        self.widget.append(text.rstrip())
+        # Scroll to bottom
+        scrollbar = self.widget.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
         # Also write to terminal
         sys.__stdout__.write(text)
         sys.__stdout__.flush()
@@ -945,10 +893,10 @@ class TextRedirector:
 
 def main():
     """Main entry point"""
-    root = tk.Tk()
-    app = StoreAutomationGUI(root)
-    root.protocol("WM_DELETE_WINDOW", app.on_closing)
-    root.mainloop()
+    app = QApplication(sys.argv)
+    window = StoreAutomationGUI()
+    window.show()
+    sys.exit(app.exec())
 
 
 if __name__ == "__main__":

@@ -38,8 +38,21 @@ def login_to_shopify(driver: webdriver.Chrome, email: str, password: str, storeI
         email_el = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, email_selectors)))
         email_el.clear()
         email_el.send_keys(email)
+        print(f"✅ Đã điền email: {email}")
+        delay(1)
+
+        # ===== XỬ LÝ SHOPIFY CAPTCHA SAU KHI ĐIỀN EMAIL =====
+        print("🔍 Tìm và xử lý Shopify captcha 'I am human'...")
+        captcha_handled = shopify_captcha(driver, auto_solve=True)
+        if captcha_handled:
+            print("✅ Đã xử lý Shopify captcha.")
+            delay(2)  # Đợi captcha verify
+        else:
+            print("⚠️ Không tìm thấy Shopify captcha. Có thể không cần hoặc đã được xử lý.")
+            delay(1)
 
         # Chờ button "Continue with email" visible và clickable
+        print("🔍 Đang đợi button 'Continue with email' được enable...")
         keywords_lower = ["continue with email", "tiếp tục bằng email"]
         keyword_conditions = [
             f"contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{k}')"
@@ -53,6 +66,7 @@ def login_to_shopify(driver: webdriver.Chrome, email: str, password: str, storeI
         cont_btn = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.XPATH, xpath_query))
         )
+        highlight_element(driver, cont_btn)
         print("✅ Button 'Continue with email' đã sẵn sàng, đang click...")
         cont_btn.click()
         delay(2)
@@ -281,16 +295,16 @@ def register_shopify_account(driver: webdriver.Chrome, email: str, password: str
             print(f"⚠️ Lỗi khi điền password: {e}")
 
         # 8. Find and click "I am human" checkbox (in shadow root or iframe)
-        print("🔍 Tìm và click 'I am human' checkbox...")
+        print("🔍 Tìm và xử lý 'I am human' checkbox...")
         try:
-            human_clicked = shopify_captcha(driver)
+            human_clicked = shopify_captcha(driver, verbose=True, auto_solve=True)
             if human_clicked:
-                print("✅ Đã click 'I am human' checkbox.")
+                print("✅ Đã xử lý 'I am human' checkbox.")
                 delay(3)
             else:
                 print("⚠️ Không tìm thấy 'I am human' checkbox. Có thể cần xác minh thủ công.")
         except Exception as e:
-            print(f"⚠️ Lỗi khi tìm 'I am human': {e}")
+            print(f"⚠️ Lỗi khi xử lý 'I am human': {e}")
 
         print("\n" + "*"*80)
         print("✅ Đã hoàn thành các bước tự động. Vui lòng kiểm tra và hoàn thành các bước còn lại (nếu có).")
@@ -306,34 +320,176 @@ def register_shopify_account(driver: webdriver.Chrome, email: str, password: str
         print("*"*80 + "\n")
         return False
 
-def shopify_captcha(driver: webdriver.Chrome) -> bool:
-    # 1. Thử tìm trong DOM thông thường
+def extract_hcaptcha_iframe_attributes(driver: webdriver.Chrome) -> dict:
+    """
+    Tìm và extract sitekey và origin từ hCaptcha iframe src.
+    Trả về dictionary chứa sitekey và origin hoặc None nếu không tìm thấy.
+    """
     try:
-        human_elements = driver.find_elements(
-            By.XPATH,
-            "//*[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'i am human')]"
+        print("🔍 Đang tìm hCaptcha iframe...")
+
+        # Tìm tất cả iframe có chứa hcaptcha
+        hcaptcha_iframes = driver.find_elements(
+            By.CSS_SELECTOR,
+            'iframe[src*="hcaptcha.com"], iframe[data-hcaptcha-widget-id]'
         )
-        if human_elements:
-            for elem in human_elements:
-                try:
-                    if elem.is_displayed():
-                        highlight_element(driver, elem)
-                        elem.click()
-                        return True
-                except:
+
+        if not hcaptcha_iframes:
+            print("⚠️ Không tìm thấy hCaptcha iframe.")
+            return None
+
+        print(f"✅ Tìm thấy {len(hcaptcha_iframes)} hCaptcha iframe(s).")
+
+        # Extract sitekey và origin từ iframe đầu tiên
+        for idx, iframe in enumerate(hcaptcha_iframes):
+            try:
+                # Get src attribute
+                src = iframe.get_attribute('src')
+
+                if not src or 'hcaptcha.com' not in src:
                     continue
+
+                print(f"\n{'='*60}")
+                print(f"hCaptcha iframe #{idx + 1}")
+                print(f"{'='*60}")
+
+                # Parse URL để lấy parameters
+                from urllib.parse import urlparse, parse_qs, unquote
+
+                # Tách phần fragment (sau dấu #)
+                if '#' in src:
+                    base_url, fragment = src.split('#', 1)
+                    # Parse fragment như query string
+                    params = {}
+                    for param in fragment.split('&'):
+                        if '=' in param:
+                            key, value = param.split('=', 1)
+                            params[key] = unquote(value)
+
+                    # Extract sitekey và origin
+                    sitekey = params.get('sitekey', 'N/A')
+                    origin = params.get('origin', 'N/A')
+
+                    print(f"sitekey: {sitekey}")
+                    print(f"origin: {origin}")
+                    print(f"{'='*60}\n")
+
+                    # Trả về dict với sitekey và origin
+                    return {
+                        'sitekey': sitekey,
+                        'origin': origin
+                    }
+
+            except Exception as e:
+                print(f"⚠️ Lỗi khi parse iframe #{idx + 1}: {e}")
+                continue
+
+        return None
+
     except Exception as e:
-        print(f"   Không tìm thấy trong DOM thông thường: {e}")
+        print(f"❌ Lỗi khi extract hCaptcha iframe attributes: {e}")
+        return None
+
+def shopify_captcha(driver: webdriver.Chrome, verbose: bool = True, auto_solve: bool = False) -> bool:
+    """
+    Tìm và click vào Shopify captcha 'I am human' checkbox.
+    Tìm kiếm trong DOM thông thường, iframe, và shadow root.
+    Nếu auto_solve=True, sẽ tự động giải captcha bằng Bright Data.
+    """
+    # DETECT VÀ PRINT hCaptcha iframe attributes
+    print("\n🔍 Detecting hCaptcha iframe...")
+    captcha_info = extract_hcaptcha_iframe_attributes(driver)
+    print("")
+
+    # Nếu tìm thấy hCaptcha và auto_solve được bật, giải captcha tự động
+    if captcha_info and auto_solve:
+        try:
+            import json
+            from captcha import solve_shopify_hcaptcha, BrightCaptchaSolver
+
+            # Đọc config để lấy Bright Data credentials
+            try:
+                with open('config.json', 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                    bright_config = config.get('bright_data', {})
+
+                    if bright_config.get('enabled'):
+                        api_key = bright_config.get('api_key')
+                        zone = bright_config.get('zone')
+                        origin = captcha_info.get('origin')
+
+                        if api_key and origin:
+                            print("🤖 Bright Data Web Unlocker được bật. Đang tự động bypass hCaptcha...")
+
+                            # Gọi captcha.py để lấy HTML đã bypass
+                            html_content = solve_shopify_hcaptcha(origin, api_key, zone)
+
+                            if html_content:
+                                # Inject HTML vào driver
+                                solver = BrightCaptchaSolver(api_key, zone)
+                                if solver.inject_html_to_driver(driver, html_content):
+                                    print("✅ Đã bypass và inject HTML thành công!")
+                                    return True
+                                else:
+                                    print("⚠️ Lấy được HTML nhưng inject thất bại. Chuyển sang phương thức thủ công...")
+                            else:
+                                print("⚠️ Tự động bypass captcha thất bại. Chuyển sang phương thức thủ công...")
+                        else:
+                            print("⚠️ Thiếu Bright Data API key hoặc origin URL. Chuyển sang phương thức thủ công...")
+                    else:
+                        if verbose:
+                            print("ℹ️ Bright Data không được bật. Sử dụng phương thức thủ công...")
+            except FileNotFoundError:
+                if verbose:
+                    print("⚠️ Không tìm thấy config.json. Chuyển sang phương thức thủ công...")
+            except Exception as e:
+                if verbose:
+                    print(f"⚠️ Lỗi khi đọc config: {e}. Chuyển sang phương thức thủ công...")
+        except ImportError:
+            if verbose:
+                print("⚠️ Không tìm thấy module captcha.py. Chuyển sang phương thức thủ công...")
+        except Exception as e:
+            if verbose:
+                print(f"⚠️ Lỗi khi giải captcha tự động: {e}. Chuyển sang phương thức thủ công...")
+
+    # # 1. Thử tìm trong DOM thông thường
+    # try:
+    #     if verbose:
+    #         print("   🔍 Đang tìm trong DOM thông thường...")
+
+    #     human_elements = driver.find_elements(
+    #         By.XPATH,
+    #         "//*[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'i am human')]"
+    #     )
+    #     if human_elements:
+    #         for elem in human_elements:
+    #             try:
+    #                 if elem.is_displayed():
+    #                     highlight_element(driver, elem)
+    #                     elem.click()
+    #                     if verbose:
+    #                         print("   ✅ Đã click 'I am human' trong DOM thông thường.")
+    #                     return True
+    #             except:
+    #                 continue
+    # except Exception as e:
+    #     if verbose:
+    #         print(f"   ⚠️ Không tìm thấy trong DOM thông thường: {e}")
 
     # 2. Tìm trong các iframe
     try:
+        if verbose:
+            print("   🔍 Đang tìm trong iframe...")
+
         iframes = driver.find_elements(By.TAG_NAME, "iframe")
-        print(f"   Tìm thấy {len(iframes)} iframe(s).")
+        if verbose:
+            print(f"   Tìm thấy {len(iframes)} iframe(s).")
 
         for i, iframe in enumerate(iframes):
             try:
                 driver.switch_to.frame(iframe)
-                print(f"   Đang kiểm tra iframe {i+1}/{len(iframes)}...")
+                if verbose:
+                    print(f"   Đang kiểm tra iframe {i+1}/{len(iframes)}...")
 
                 # Tìm element trong iframe
                 human_elements = driver.find_elements(
@@ -345,7 +501,8 @@ def shopify_captcha(driver: webdriver.Chrome) -> bool:
                     for elem in human_elements:
                         try:
                             if elem.is_displayed():
-                                print(f"   ✅ Tìm thấy 'I am human' trong iframe {i+1}.")
+                                if verbose:
+                                    print(f"   ✅ Tìm thấy 'I am human' trong iframe {i+1}.")
                                 elem.click()
                                 driver.switch_to.default_content()
                                 return True
@@ -363,7 +520,8 @@ def shopify_captcha(driver: webdriver.Chrome) -> bool:
                         if elem.is_displayed():
                             parent_text = driver.execute_script("return arguments[0].parentElement.textContent;", elem).lower()
                             if 'human' in parent_text or 'verify' in parent_text:
-                                print(f"   ✅ Tìm thấy checkbox xác minh trong iframe {i+1}.")
+                                if verbose:
+                                    print(f"   ✅ Tìm thấy checkbox xác minh trong iframe {i+1}.")
                                 elem.click()
                                 driver.switch_to.default_content()
                                 return True
@@ -373,14 +531,19 @@ def shopify_captcha(driver: webdriver.Chrome) -> bool:
                 driver.switch_to.default_content()
 
             except Exception as e:
-                print(f"   Lỗi khi kiểm tra iframe {i+1}: {e}")
+                if verbose:
+                    print(f"   ⚠️ Lỗi khi kiểm tra iframe {i+1}: {e}")
                 driver.switch_to.default_content()
                 continue
     except Exception as e:
-        print(f"   Lỗi khi tìm trong iframe: {e}")
+        if verbose:
+            print(f"   ⚠️ Lỗi khi tìm trong iframe: {e}")
 
     # 3. Tìm trong shadow root
     try:
+        if verbose:
+            print("   🔍 Đang tìm trong shadow root...")
+
         # Tìm tất cả elements có shadow root
         elements_with_shadow = driver.execute_script("""
             function findInShadowRoots(root = document.body) {
@@ -397,7 +560,8 @@ def shopify_captcha(driver: webdriver.Chrome) -> bool:
             return findInShadowRoots();
         """)
 
-        print(f"Tìm thấy {len(elements_with_shadow)} element(s) có shadow root.")
+        if verbose:
+            print(f"   Tìm thấy {len(elements_with_shadow)} element(s) có shadow root.")
 
         for elem in elements_with_shadow:
             try:
@@ -417,7 +581,8 @@ def shopify_captcha(driver: webdriver.Chrome) -> bool:
                     for shadow_elem in shadow_elements:
                         try:
                             if driver.execute_script("return arguments[0].offsetParent !== null;", shadow_elem):
-                                print("✅ Tìm thấy 'I am human' trong shadow root.")
+                                if verbose:
+                                    print("   ✅ Tìm thấy 'I am human' trong shadow root.")
                                 driver.execute_script("arguments[0].click();", shadow_elem)
                                 return True
                         except:
@@ -425,6 +590,9 @@ def shopify_captcha(driver: webdriver.Chrome) -> bool:
             except Exception as e:
                 continue
     except Exception as e:
-        print(f"Lỗi khi tìm trong shadow root: {e}")
+        if verbose:
+            print(f"   ⚠️ Lỗi khi tìm trong shadow root: {e}")
 
+    if verbose:
+        print("   ⚠️ Không tìm thấy Shopify captcha 'I am human' ở bất kỳ đâu.")
     return False

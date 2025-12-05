@@ -2,3 +2,5 @@ selenium
 webdriver-manager
 inquirer
 pyinstaller
+requests
+PySide6

@@ -41,7 +41,7 @@ def setup_driver() -> Optional[webdriver.Chrome]:
         options.add_argument("--disable-blink-features=AutomationControlled")
 
         driver = webdriver.Chrome(service=service, options=options)
-        driver.implicitly_wait(10)
+        driver.implicitly_wait(6)
         driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
             "source": """
                 Object.defineProperty(navigator, 'webdriver', {
