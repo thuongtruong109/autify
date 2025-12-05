@@ -17,7 +17,6 @@ if exist "dist\autify.exe" (
     echo.
     echo [4/4] Copying config.json to dist folder...
     copy config.json dist\config.json
-    copy Theme6.zip dist\Theme6.zip
     echo.
     echo ====================================
     echo BUILD SUCCESSFUL!
@@ -25,7 +24,7 @@ if exist "dist\autify.exe" (
     echo.
     echo Executable created: dist\autify.exe
     echo Config file copied: dist\config.json
-    echo Theme file copied: dist\Theme6.zip
+    echo Theme file and favicon are embedded in the exe.
     echo.
 ) else (
     echo.

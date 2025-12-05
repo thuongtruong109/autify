@@ -37,7 +37,7 @@ def setup_driver() -> Optional[webdriver.Chrome]:
         options.add_experimental_option("excludeSwitches", ["enable-logging"])
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--disable-extensions")
+        # options.add_argument("--disable-extensions")
         options.add_argument("--disable-blink-features=AutomationControlled")
 
         driver = webdriver.Chrome(service=service, options=options)

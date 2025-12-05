@@ -4,6 +4,13 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from utils import delay, highlight_element, click_save_button, find_iframe_with_element
 import os
+import sys
+
+# Determine base path for resources
+if hasattr(sys, '_MEIPASS'):
+    base_path = sys._MEIPASS
+else:
+    base_path = os.path.dirname(__file__)
 
 def setup_preferences(driver: webdriver.Chrome, storeId: str, seo_data: dict = None):
     """Vào trang online store preferences và điền thông tin Name và Description"""
