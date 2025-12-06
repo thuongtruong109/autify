@@ -23,7 +23,7 @@ from market import setup_world_market
 from policies import setup_legal_policies
 from pages import setup_contact_page
 from shipping import setup_shipping_zones
-from themes import setup_preferences
+from preference import setup_preferences
 from domain import connect_domain
 from selleasy import setup_selleasy
 from content import setup_content_menus
@@ -216,32 +216,36 @@ class StoreAutomationGUI(QMainWindow):
         layout = QVBoxLayout(container)
 
         # Credentials Input Frame
-        input_group = QGroupBox("🔑 Credentials")
-        layout.addWidget(input_group)
+        credentical_group = QGroupBox("🔑 Credentials")
+        layout.addWidget(credentical_group)
 
-        input_layout = QVBoxLayout(input_group)
+        credentical_layout = QVBoxLayout(credentical_group)
+        credentical_layout.setSpacing(3)
+        credentical_layout.setContentsMargins(4, 2, 4, 4)
 
         # Store ID
         self.store_id_entry = QLineEdit()
         self.store_id_entry.setPlaceholderText('Domain')
-        input_layout.addWidget(self.store_id_entry)
+        credentical_layout.addWidget(self.store_id_entry)
 
         # Email
         self.email_entry = QLineEdit()
         self.email_entry.setPlaceholderText('Email address')
-        input_layout.addWidget(self.email_entry)
+        credentical_layout.addWidget(self.email_entry)
 
         # Password
         self.password_entry = QLineEdit()
         self.password_entry.setEchoMode(QLineEdit.Password)
         self.password_entry.setPlaceholderText('Password')
-        input_layout.addWidget(self.password_entry)
+        credentical_layout.addWidget(self.password_entry)
 
         # SEO Frame
         seo_group = QGroupBox("⚙️ Preferences")
         layout.addWidget(seo_group)
 
         seo_layout = QVBoxLayout(seo_group)
+        seo_layout.setSpacing(3)
+        seo_layout.setContentsMargins(4, 2, 4, 4)
 
         # SEO Title
         self.seo_title_entry = QLineEdit()
@@ -258,6 +262,8 @@ class StoreAutomationGUI(QMainWindow):
         layout.addWidget(pages_group)
 
         pages_layout = QVBoxLayout(pages_group)
+        pages_layout.setSpacing(3)
+        pages_layout.setContentsMargins(4, 2, 4, 4)
 
         # Return & Refund Policy
         self.return_refund_text = QTextEdit()
@@ -292,6 +298,7 @@ class StoreAutomationGUI(QMainWindow):
         layout.addWidget(marketing_group)
 
         marketing_layout = QVBoxLayout(marketing_group)
+        marketing_layout.setContentsMargins(4, 2, 4, 4)
 
         # Marketing Subject
         self.marketing_subject_entry = QLineEdit()
@@ -303,6 +310,8 @@ class StoreAutomationGUI(QMainWindow):
         layout.addWidget(upsell_group)
 
         upsell_layout = QVBoxLayout(upsell_group)
+        upsell_layout.setSpacing(3)
+        upsell_layout.setContentsMargins(4, 2, 4, 4)
 
         # Upsell Campaign Title
         self.upsell_campaign_title_entry = QLineEdit()
@@ -319,6 +328,8 @@ class StoreAutomationGUI(QMainWindow):
         layout.addWidget(pages_content_group)
 
         pages_content_layout = QVBoxLayout(pages_content_group)
+        pages_content_layout.setSpacing(3)
+        pages_content_layout.setContentsMargins(4, 2, 4, 4)
 
         # About Us
         self.about_us_text = QTextEdit()
@@ -348,6 +359,8 @@ class StoreAutomationGUI(QMainWindow):
             product_layout.addWidget(product_widget)
 
             product_item_layout = QVBoxLayout(product_widget)
+            product_item_layout.setSpacing(3)
+            product_item_layout.setContentsMargins(2, 2, 2, 2)
 
             # Product name
             setattr(self, f'product_{i}_name_entry', QLineEdit())
@@ -391,22 +404,39 @@ class StoreAutomationGUI(QMainWindow):
         image_text_layout = QVBoxLayout(image_text_group)
         image_text_layout.setContentsMargins(2, 2, 2, 2)
 
-        for i in range(1, 4):
+        iwt_plhd = [
+            {
+                "title":  "Home title",
+                "desc": "Home description"
+            },
+            {
+                "title":  "Product title 1",
+                "desc": "Product description 1"
+            },
+            {
+                "title":  "Product title 2",
+                "desc": "Product description 2"
+            }
+        ]
+
+        for i, v in enumerate(iwt_plhd, start=1):
             image_text_widget = QWidget()
             image_text_layout.addWidget(image_text_widget)
 
             image_text_item_layout = QVBoxLayout(image_text_widget)
+            image_text_item_layout.setSpacing(3)
+            image_text_item_layout.setContentsMargins(2, 2, 2, 2)
 
             # Title
             setattr(self, f'image_text_title_{i}_entry', QLineEdit())
-            getattr(self, f'image_text_title_{i}_entry').setPlaceholderText("Title")
+            getattr(self, f'image_text_title_{i}_entry').setPlaceholderText(f"{v['title']}")
             image_text_item_layout.addWidget(getattr(self, f'image_text_title_{i}_entry'))
 
             # Description
             setattr(self, f'image_text_desc_{i}_entry', QTextEdit())
             getattr(self, f'image_text_desc_{i}_entry').setObjectName("productText")
             getattr(self, f'image_text_desc_{i}_entry').setMaximumHeight(60)
-            getattr(self, f'image_text_desc_{i}_entry').setPlaceholderText("Description...")
+            getattr(self, f'image_text_desc_{i}_entry').setPlaceholderText(f"{v['desc']}")
             image_text_item_layout.addWidget(getattr(self, f'image_text_desc_{i}_entry'))
 
             # Add separator
@@ -422,32 +452,34 @@ class StoreAutomationGUI(QMainWindow):
         layout.addWidget(slider_group)
 
         slider_layout = QGridLayout(slider_group)
+        slider_layout.setSpacing(3)
+        slider_layout.setContentsMargins(4, 2, 4, 4)
 
         slider_layout.setColumnStretch(0, 1)
         slider_layout.setColumnStretch(1, 3)
 
         # Row 1
         self.slider_name_1_entry = QLineEdit()
-        self.slider_name_1_entry.setPlaceholderText("Name")
+        self.slider_name_1_entry.setPlaceholderText("Name 1")
         slider_layout.addWidget(self.slider_name_1_entry, 0, 0)
         self.slider_link_1_entry = QLineEdit()
-        self.slider_link_1_entry.setPlaceholderText("YouTube Short Link")
+        self.slider_link_1_entry.setPlaceholderText("Short video link 1")
         slider_layout.addWidget(self.slider_link_1_entry, 0, 1)
 
         # Row 2
         self.slider_name_2_entry = QLineEdit()
-        self.slider_name_2_entry.setPlaceholderText("Name")
+        self.slider_name_2_entry.setPlaceholderText("Name 2")
         slider_layout.addWidget(self.slider_name_2_entry, 1, 0)
         self.slider_link_2_entry = QLineEdit()
-        self.slider_link_2_entry.setPlaceholderText("YouTube Short Link")
+        self.slider_link_2_entry.setPlaceholderText("Short video link 2")
         slider_layout.addWidget(self.slider_link_2_entry, 1, 1)
 
         # Row 3
         self.slider_name_3_entry = QLineEdit()
-        self.slider_name_3_entry.setPlaceholderText("Name")
+        self.slider_name_3_entry.setPlaceholderText("Name 3")
         slider_layout.addWidget(self.slider_name_3_entry, 2, 0)
         self.slider_link_3_entry = QLineEdit()
-        self.slider_link_3_entry.setPlaceholderText("YouTube Short Link")
+        self.slider_link_3_entry.setPlaceholderText("Short video link 3")
         slider_layout.addWidget(self.slider_link_3_entry, 2, 1)
 
         # Reviews Section
@@ -463,11 +495,13 @@ class StoreAutomationGUI(QMainWindow):
             reviews_layout.addWidget(review_widget)
 
             review_item_layout = QVBoxLayout(review_widget)
+            review_item_layout.setSpacing(0)
+            review_item_layout.setContentsMargins(2, 2, 2, 2)
 
-            # Review file name and browse button
             file_layout = QHBoxLayout()
+            file_layout.setSpacing(3)
             setattr(self, f'review_file_{i}_name_entry', QLineEdit())
-            getattr(self, f'review_file_{i}_name_entry').setPlaceholderText(f'Review title {i}')
+            getattr(self, f'review_file_{i}_name_entry').setPlaceholderText(f'Review text {i}')
             file_layout.addWidget(getattr(self, f'review_file_{i}_name_entry'))
             setattr(self, f'review_file_{i}_browse_button', QPushButton('Browse'))
             getattr(self, f'review_file_{i}_browse_button').clicked.connect(lambda checked, idx=i: self.browse_review_file(idx))
@@ -487,6 +521,8 @@ class StoreAutomationGUI(QMainWindow):
             faq_layout.addWidget(faq_widget)
 
             faq_item_layout = QVBoxLayout(faq_widget)
+            faq_item_layout.setSpacing(3)
+            faq_item_layout.setContentsMargins(2, 2, 2, 2)
 
             # FAQ question
             setattr(self, f'faq_{i}_question_entry', QLineEdit())
@@ -530,6 +566,8 @@ class StoreAutomationGUI(QMainWindow):
         layout.addWidget(tasks_group)
 
         tasks_layout = QGridLayout(tasks_group)
+        tasks_layout.setSpacing(3)
+        tasks_layout.setContentsMargins(4, 2, 4, 4)
 
         # Create task buttons
         self.task_buttons = {}

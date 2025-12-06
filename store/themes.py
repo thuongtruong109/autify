@@ -12,199 +12,6 @@ if hasattr(sys, '_MEIPASS'):
 else:
     base_path = os.path.dirname(__file__)
 
-def setup_preferences(driver: webdriver.Chrome, storeId: str, seo_data: dict = None):
-    """Vào trang online store preferences và điền thông tin Name và Description"""
-    print("\n" + "="*60)
-    print("⚙️  SETUP PREFERENCES...")
-    print("="*60)
-
-    # Nếu không có seo_data, load từ config.json (cho CLI mode)
-    if seo_data is None:
-        from utils import load_credentials
-        entry = load_credentials()
-        seo_data = entry.get("seo", {})
-
-    seo_title = seo_data.get("title", "")
-    seo_description = seo_data.get("description", "")
-
-    if not seo_title or not seo_description:
-        print("⚠️ Không tìm thấy seo.title hoặc seo.description")
-        return
-
-    print(f"📝 SEO Title: {seo_title}")
-    print(f"📝 SEO Description: {seo_description}")
-
-    try:
-        # Vào trang online store preferences
-        preferences_url = f"https://admin.shopify.com/store/{storeId}/online_store/preferences"
-        print(f"Đang vào trang: {preferences_url}")
-        driver.get(preferences_url)
-
-        # Đợi page load hoàn toàn
-        print("⏳ Đang chờ page load...")
-        WebDriverWait(driver, 30).until(
-            lambda d: d.execute_script("return document.readyState") == "complete"
-        )
-        delay(15)  # Đợi thêm 15 giây cho JS load hoàn toàn
-
-        # Scroll xuống để đảm bảo elements hiển thị
-        print("📜 Scroll xuống để load elements...")
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        delay(2)
-        driver.execute_script("window.scrollTo(0, 0);")
-        delay(2)
-
-        print("✅ Page đã load xong, bắt đầu tìm iframes...")
-
-        # TÌM VÀ SWITCH VÀO IFRAME (sử dụng utility function)
-        iframe_switched = find_iframe_with_element(driver, ":r5:")
-
-        if not iframe_switched:
-            print("⚠️ Không tìm thấy input trong bất kỳ iframe nào. Thử tìm ở main page...")
-
-        # Tìm input Name bằng ID
-        print("\n🔍 Tìm input Name bằng ID ':r5:'...")
-        try:
-            # Đợi element hiển thị và có thể tương tác
-            name_input = WebDriverWait(driver, 20).until(
-                EC.element_to_be_clickable((By.ID, ":r5:"))
-            )
-            highlight_element(driver, name_input)
-            print(f"✅ Tìm thấy input Name. Giá trị hiện tại: '{name_input.get_attribute('value')}'")
-
-            # Focus vào input trước
-            driver.execute_script("arguments[0].focus();", name_input)
-            delay(0.3)
-
-            # Click vào input để focus
-            driver.execute_script("arguments[0].click();", name_input)
-            delay(0.5)
-
-            # Clear và điền giá trị từ seo.title
-            driver.execute_script("arguments[0].value = '';", name_input)
-            delay(0.3)
-            driver.execute_script(f"arguments[0].value = '{seo_title}';", name_input)
-
-            # Trigger events để React nhận biết thay đổi
-            driver.execute_script("""
-                var event = new Event('input', { bubbles: true });
-                arguments[0].dispatchEvent(event);
-                var changeEvent = new Event('change', { bubbles: true });
-                arguments[0].dispatchEvent(changeEvent);
-            """, name_input)
-            delay(1)
-            print(f"✅ Đã điền '{seo_title}' vào input Name.")
-        except Exception as e:
-            print(f"❌ Không tìm thấy input Name với ID ':r5:': {e}")
-
-        # Tìm textarea Description bằng ID
-        print("\n🔍 Tìm textarea Description bằng ID ':r6:'...")
-        try:
-            # Đợi element hiển thị và có thể tương tác
-            desc_textarea = WebDriverWait(driver, 20).until(
-                EC.element_to_be_clickable((By.ID, ":r6:"))
-            )
-            highlight_element(driver, desc_textarea)
-            print(f"✅ Tìm thấy textarea Description. Giá trị hiện tại: '{desc_textarea.get_attribute('value')}'")
-
-            # Focus vào textarea trước
-            driver.execute_script("arguments[0].focus();", desc_textarea)
-            delay(0.3)
-
-            # Click vào textarea để focus
-            driver.execute_script("arguments[0].click();", desc_textarea)
-            delay(0.5)
-
-            # Clear và điền giá trị từ seo.description
-            driver.execute_script("arguments[0].value = '';", desc_textarea)
-            delay(0.3)
-            driver.execute_script(f"arguments[0].value = '{seo_description}';", desc_textarea)
-
-            # Trigger events để React nhận biết thay đổi
-            driver.execute_script("""
-                var event = new Event('input', { bubbles: true });
-                arguments[0].dispatchEvent(event);
-                var changeEvent = new Event('change', { bubbles: true });
-                arguments[0].dispatchEvent(changeEvent);
-            """, desc_textarea)
-            delay(1)
-            print(f"✅ Đã điền '{seo_description}' vào textarea Description.")
-        except Exception as e:
-            print(f"❌ Không tìm thấy textarea Description với ID ':r6:': {e}")
-
-        # Tìm button upload và upload file aa.png
-        print("\n🔍 Tìm button upload file...")
-        try:
-            upload_button = WebDriverWait(driver, 15).until(
-                EC.element_to_be_clickable((By.XPATH, "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[2]/form[1]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]/div[1]/div[1]/button[1]"))
-            )
-            highlight_element(driver, upload_button)
-            print("✅ Tìm thấy button upload.")
-
-            # Tìm input file (thường ẩn) - có thể trong cùng container với button
-            print("🔍 Tìm input type='file'...")
-            try:
-                # Thử tìm input file gần button upload
-                file_input = driver.find_element(By.XPATH, "//input[@type='file']")
-                print("✅ Tìm thấy input file")
-
-                # Lấy đường dẫn đến file aa.png trong Downloads
-                import os
-                downloads_path = os.path.join(os.path.expanduser("~"), "Downloads", "aaa.png")
-                print(f"📁 File path: {downloads_path}")
-
-                # Kiểm tra file có tồn tại không
-                if os.path.exists(downloads_path):
-                    print(f"✅ File tồn tại: {downloads_path}")
-
-                    # Upload file bằng cách send_keys vào input file
-                    file_input.send_keys(downloads_path)
-                    delay(2)
-                    print("✅ Đã upload file aa.png thành công!")
-                else:
-                    print(f"❌ File không tồn tại: {downloads_path}")
-                    print("⚠️ Vui lòng đảm bảo file aa.png có trong thư mục Downloads")
-
-            except Exception as e:
-                print(f"⚠️ Không tìm thấy input file: {e}")
-                print("🔄 Thử click vào button để mở file picker...")
-                try:
-                    driver.execute_script("arguments[0].click();", upload_button)
-                    delay(2)
-                    print("✅ Đã click vào button upload. Vui lòng chọn file thủ công nếu cần.")
-                except Exception as e2:
-                    print(f"❌ Không thể click button upload: {e2}")
-
-        except Exception as e:
-            print(f"❌ Không tìm thấy button upload: {e}")
-
-        # Switch về main content trước khi click Save
-        print("\n🔄 Switch về main content...")
-        driver.switch_to.default_content()
-        delay(1)
-
-        # Click Save button
-        print("🔍 Click Save button...")
-        save_clicked = click_save_button(driver)
-        if save_clicked:
-            print("✅ Đã click Save button thành công.")
-        else:
-            print("⚠️ Không thể click Save button.")
-
-        print("\n✅ HOÀN TẤT SETUP PREFERENCES!")
-        print("="*60)
-
-    except Exception as e:
-        print(f"❌ Lỗi khi setup preferences: {e}")
-        print("="*60)
-    finally:
-        # Đảm bảo luôn switch về default content
-        try:
-            driver.switch_to.default_content()
-        except:
-            pass
-
-
 def import_theme(driver: webdriver.Chrome, storeId: str):
     """Vào trang themes và thực hiện import theme bằng cách click Import theme (data-state="closed") rồi Upload zip file trong menu (data-state="open")"""
     print("\n" + "="*60)
@@ -212,124 +19,293 @@ def import_theme(driver: webdriver.Chrome, storeId: str):
     print("="*60)
 
     try:
-        # Vào trang themes
+        # 1. Vào trang themes
         themes_url = f"https://admin.shopify.com/store/{storeId}/themes"
         print(f"Đang vào trang: {themes_url}")
         driver.get(themes_url)
         delay(3)
 
-        # Tìm và click element "Import theme" có data-state="closed"
-        print("🔍 Tìm element 'Import theme' với data-state='closed'...")
+        # 2. Tìm iframe chứa element "Import theme" và thực hiện các thao tác
+        print("🔍 Tìm iframe chứa 'Import theme'...")
+
+        # Tìm tất cả iframes trong trang
+        iframes = driver.find_elements(By.TAG_NAME, "iframe")
+        import_theme_iframe = None
+
+        for i, iframe in enumerate(iframes):
+            try:
+                driver.switch_to.frame(iframe)
+                print(f"   Kiểm tra iframe {i+1}/{len(iframes)}...")
+
+                # Tìm element "Import theme" trong iframe
+                try:
+                    import_button = WebDriverWait(driver, 2).until(
+                        EC.presence_of_element_located((
+                            By.XPATH,
+                            "//span[@class='Polaris-Text--root Polaris-Text--bodySm Polaris-Text--medium'][normalize-space()='Import theme']"
+                        ))
+                    )
+                    print(f"✅ Tìm thấy 'Import theme' trong iframe {i+1}!")
+                    import_theme_iframe = iframe
+                    break
+                except:
+                    driver.switch_to.default_content()
+                    continue
+
+            except Exception as e:
+                print(f"   Lỗi khi kiểm tra iframe {i+1}: {e}")
+                driver.switch_to.default_content()
+                continue
+
+        if not import_theme_iframe:
+            raise Exception("Không tìm thấy iframe chứa 'Import theme'")
+
+        # Đã switch vào iframe chứa Import theme
+        print("🔍 Tìm và click 'Import theme'...")
         wait = WebDriverWait(driver, 10)
         import_button = wait.until(
             EC.element_to_be_clickable((
                 By.XPATH,
-                "//div[@data-state='closed']//div[@class='Polaris-ActionMenu-Actions__ActionsLayout']//div//span[@class='Polaris-Text--root Polaris-Text--bodySm Polaris-Text--medium'][normalize-space()='Import theme']"
+                "//span[@class='Polaris-Text--root Polaris-Text--bodySm Polaris-Text--medium'][normalize-space()='Import theme']"
             ))
         )
         highlight_element(driver, import_button)
-        print("✅ Tìm thấy 'Import theme' với data-state='closed'. Click...")
+        print("✅ Tìm thấy 'Import theme'. Click...")
         driver.execute_script("arguments[0].click();", import_button)
         delay(2)
         print("✅ Đã click 'Import theme'.")
 
-        # Chờ menu hiện ra với data-state="open" và tìm element "Upload zip file"
-        print("🔍 Chờ menu với data-state='open' và tìm 'Upload zip file'...")
+        # Chờ menu dropdown mở ra và tìm "Upload zip file" trong cùng iframe
+        print("🔍 Chờ menu dropdown và tìm 'Upload zip file'...")
         upload_zip = wait.until(
             EC.element_to_be_clickable((
                 By.XPATH,
-                "//div[@data-state='open']//span[contains(text(),'Upload zip file')]"
+                "//span[@class='Polaris-Text--root Polaris-Text--bodyMd Polaris-Text--regular'][normalize-space()='Upload zip file']"
             ))
         )
         highlight_element(driver, upload_zip)
-        print("✅ Tìm thấy 'Upload zip file' trong menu data-state='open'. Click...")
+        print("✅ Tìm thấy 'Upload zip file' trong menu. Click...")
         driver.execute_script("arguments[0].click();", upload_zip)
         delay(2)
         print("✅ Đã click 'Upload zip file'.")
+
+        # Switch về default content để tìm modal
+        driver.switch_to.default_content()
+
+        # Chờ modal mở ra
+        print("🔍 Chờ modal upload mở ra...")
+        modal = wait.until(
+            EC.presence_of_element_located((
+                By.XPATH,
+                "//div[contains(@class, '_Container_1w897_1') and contains(@class, '_visible_1w897_15')]"
+            ))
+        )
+        print("✅ Modal upload đã mở.")
+
+        # Tìm iframe trong modal
+        modal_iframe = wait.until(
+            EC.presence_of_element_located((
+                By.XPATH,
+                "//div[contains(@class, '_Container_1w897_1') and contains(@class, '_visible_1w897_15')]//iframe"
+            ))
+        )
+        print("✅ Tìm thấy iframe trong modal.")
+
+        # Switch vào iframe của modal
+        driver.switch_to.frame(modal_iframe)
+
+        # Tìm và click "Add file" trong iframe của modal
+        print("🔍 Tìm và click 'Add file' trong modal...")
+        add_file_button = wait.until(
+            EC.element_to_be_clickable((
+                By.XPATH,
+                "//span[@class='Polaris-Text--root Polaris-Text--bodySm Polaris-Text--medium'][normalize-space()='Add file']"
+            ))
+        )
+        highlight_element(driver, add_file_button)
+        print("✅ Tìm thấy 'Add file'. Click...")
+        driver.execute_script("arguments[0].click();", add_file_button)
+        delay(2)
+        print("✅ Đã click 'Add file'.")
+
+        # Tìm file input và upload Theme6.zip
+        print("🔍 Tìm file input để upload Theme6.zip...")
+        file_input = wait.until(
+            EC.presence_of_element_located((
+                By.XPATH,
+                "//input[@type='file']"
+            ))
+        )
+        theme_file_path = os.path.join(base_path, "Theme6.zip")
+        print(f"📁 Đường dẫn file: {theme_file_path}")
+        file_input.send_keys(theme_file_path)
+        print("✅ Đã chọn file Theme6.zip để upload.")
+
+        # Chờ upload hoàn thành và button "Upload file" được enable
+        print("🔍 Chờ upload hoàn thành và button 'Upload file' được enable...")
+        upload_file_button = wait.until(
+            EC.element_to_be_clickable((
+                By.XPATH,
+                "//button[contains(@class, 'Polaris-Button--variantPrimary') and @aria-disabled='false']//span[normalize-space()='Upload file']"
+            ))
+        )
+        highlight_element(driver, upload_file_button)
+        print("✅ Upload hoàn thành, button 'Upload file' đã enable. Click...")
+        driver.execute_script("arguments[0].click();", upload_file_button)
+        delay(2)
+        print("✅ Đã click 'Upload file'.")
+
+        # Switch về default content
+        driver.switch_to.default_content()
+
+        # Chờ modal đóng lại
+        print("🔍 Chờ modal upload đóng lại...")
+        wait.until(
+            EC.invisibility_of_element_located((
+                By.XPATH,
+                "//div[contains(@class, '_Container_1w897_1') and contains(@class, '_visible_1w897_15')]"
+            ))
+        )
+        print("✅ Modal đã đóng.")
+
+        # Tìm iframe chứa button "Publish"
+        print("🔍 Tìm iframe chứa button 'Publish'...")
+        iframes = driver.find_elements(By.TAG_NAME, "iframe")
+        publish_iframe = None
+
+        for i, iframe in enumerate(iframes):
+            try:
+                driver.switch_to.frame(iframe)
+                print(f"   Kiểm tra iframe {i+1}/{len(iframes)}...")
+
+                # Tìm button "Publish" trong iframe
+                try:
+                    publish_button = WebDriverWait(driver, 2).until(
+                        EC.presence_of_element_located((
+                            By.XPATH,
+                            "//button[contains(@class, 'Polaris-Button--variantSecondary')]//span[normalize-space()='Publish']"
+                        ))
+                    )
+                    print(f"✅ Tìm thấy 'Publish' trong iframe {i+1}!")
+                    publish_iframe = iframe
+                    break
+                except:
+                    driver.switch_to.default_content()
+                    continue
+
+            except Exception as e:
+                print(f"   Lỗi khi kiểm tra iframe {i+1}: {e}")
+                driver.switch_to.default_content()
+                continue
+
+        if not publish_iframe:
+            raise Exception("Không tìm thấy iframe chứa 'Publish'")
+
+        # Đã switch vào iframe chứa Publish
+        print("🔍 Tìm button 'Publish'...")
+        # Tìm button element (không phải span)
+        publish_button = wait.until(
+            EC.presence_of_element_located((
+                By.XPATH,
+                "//button[contains(@class, 'Polaris-Button--variantSecondary') and .//span[normalize-space()='Publish']]"
+            ))
+        )
+
+        # Chờ button enable - kiểm tra không còn class disabled và aria-disabled không phải "true"
+        print("🔍 Đang chờ button 'Publish' enable (chờ tới khi nào nó không còn disabled)...")
+        WebDriverWait(driver, 300).until(  # Chờ tối đa 5 phút
+            lambda d: (
+                publish_button.get_attribute("aria-disabled") != "true" and
+                "Polaris-Button--disabled" not in publish_button.get_attribute("class")
+            )
+        )
+
+        print("✅ Button 'Publish' đã enable!")
+        highlight_element(driver, publish_button)
+        print("🔍 Đang click button 'Publish'...")
+        driver.execute_script("arguments[0].click();", publish_button)
+        delay(2)
+        print("✅ Đã click 'Publish' thành công!")
+
+        # Chờ modal Publish mở ra sau khi click Publish
+        print("🔍 Chờ modal Publish mở ra...")
+        try:
+            modal_publish = wait.until(
+                EC.presence_of_element_located((
+                    By.XPATH,
+                    "//div[contains(@class, 'Polaris-Modal') and contains(@class, 'Polaris-Modal--sizeSmall')]"
+                ))
+            )
+            print("✅ Modal Publish đã mở.")
+        except:
+            print("⚠️ Không tìm thấy modal Publish, thử tìm iframe trực tiếp...")
+
+        # Tìm iframe trong modal Publish
+        print("🔍 Tìm iframe trong modal Publish...")
+        try:
+            publish_modal_iframe = wait.until(
+                EC.presence_of_element_located((
+                    By.XPATH,
+                    "//iframe[contains(@src, 'publish') or contains(@title, 'Publish')]"
+                ))
+            )
+            print("✅ Tìm thấy iframe Publish.")
+        except:
+            # Nếu không tìm thấy iframe cụ thể, tìm tất cả iframe
+            driver.switch_to.default_content()
+            iframes = driver.find_elements(By.TAG_NAME, "iframe")
+            publish_modal_iframe = None
+
+            for i, iframe in enumerate(iframes):
+                try:
+                    driver.switch_to.frame(iframe)
+                    print(f"   Kiểm tra iframe {i+1}/{len(iframes)}...")
+
+                    # Tìm button Publish trong iframe
+                    try:
+                        confirm_publish_button = WebDriverWait(driver, 2).until(
+                            EC.presence_of_element_located((
+                                By.XPATH,
+                                "//button[contains(@class, 'Polaris-Button--variantPrimary') and .//span[normalize-space()='Publish']]"
+                            ))
+                        )
+                        print(f"✅ Tìm thấy button 'Publish' trong iframe {i+1}!")
+                        publish_modal_iframe = iframe
+                        break
+                    except:
+                        driver.switch_to.default_content()
+                        continue
+
+                except Exception as e:
+                    print(f"   Lỗi khi kiểm tra iframe {i+1}: {e}")
+                    driver.switch_to.default_content()
+                    continue
+
+            if not publish_modal_iframe:
+                raise Exception("Không tìm thấy iframe chứa button 'Publish' trong modal")
+
+        # Đã switch vào iframe chứa button Publish trong modal
+        print("🔍 Tìm button 'Publish' trong modal...")
+        confirm_publish_button = wait.until(
+            EC.element_to_be_clickable((
+                By.XPATH,
+                "//button[@class='Polaris-Button Polaris-Button--pressable Polaris-Button--variantPrimary Polaris-Button--sizeMedium Polaris-Button--textAlignCenter' and @aria-disabled='false' and .//span[normalize-space()='Publish']]"
+            ))
+        )
+
+        print("✅ Tìm thấy button 'Publish' trong modal!")
+        highlight_element(driver, confirm_publish_button)
+        print("🔍 Đang click button 'Publish' trong modal...")
+        driver.execute_script("arguments[0].click();", confirm_publish_button)
+        delay(2)
+        print("✅ Đã click 'Publish' trong modal thành công!")
+
+        # Switch về default content
+        driver.switch_to.default_content()
 
         print("\n✅ HOÀN TẤT IMPORT THEME!")
         print("="*60)
 
     except Exception as e:
         print(f"❌ Lỗi khi import theme: {e}")
-        print("="*60)
-
-
-def upload_favicon(driver: webdriver.Chrome, storeId: str):
-    """Vào trang online store preferences và upload favicon (aaa.png từ Downloads folder)"""
-    print("\n" + "="*60)
-    print("🖼️ UPLOAD FAVICON...")
-    print("="*60)
-
-    try:
-        # Vào trang online store preferences
-        preferences_url = f"https://admin.shopify.com/store/{storeId}/online_store/preferences"
-        print(f"Đang vào trang: {preferences_url}")
-        driver.get(preferences_url)
-        delay(3)
-
-        # Tìm input có id=":re:" và textarea có id=":rf:"
-        print("🔍 Kiểm tra input và textarea...")
-        wait = WebDriverWait(driver, 15)
-
-        try:
-            # Tìm input với id=":re:"
-            print("🔍 Đang tìm input với id=':re:'...")
-            input_element = wait.until(
-                EC.presence_of_element_located((By.ID, ":re:"))
-            )
-            print(f"✅ Tìm thấy input với id=':re:'")
-
-            # Tìm textarea với id=":rf:"
-            print("🔍 Đang tìm textarea với id=':rf:'...")
-            textarea_element = wait.until(
-                EC.presence_of_element_located((By.ID, ":rf:"))
-            )
-            print(f"✅ Tìm thấy textarea với id=':rf:'")
-
-            # Lấy giá trị của input và textarea
-            input_value = input_element.get_attribute("value")
-            textarea_value = textarea_element.get_attribute("value")
-
-            print(f"\n📝 Input value: '{input_value}'")
-            print(f"📝 Textarea value: '{textarea_value}'")
-
-            # Kiểm tra cả 2 đều có value (không rỗng)
-            if input_value and input_value.strip() and textarea_value and textarea_value.strip():
-                print("✅ Cả 2 fields đều có value. Bắt đầu check Save button mỗi 2s...")
-
-                # Cứ 2s check save button 1 lần
-                max_checks = 30  # Tối đa 30 lần check (60 giây)
-                for check_attempt in range(max_checks):
-                    print(f"   [Attempt {check_attempt + 1}/{max_checks}] Gọi click_save_button...")
-
-                    # Gọi function click_save_button
-                    save_clicked = click_save_button(driver, timeout=1)  # Timeout ngắn để check nhanh
-
-                    if save_clicked:
-                        print("✅ Đã click Save button thành công.")
-                        break
-                    else:
-                        print(f"   ⏳ Save button chưa enabled. Đợi 2s...")
-                        delay(2)
-
-                if not save_clicked:
-                    print("⚠️ Không thể click Save button sau 60s.")
-            else:
-                print("⚠️ Một hoặc cả 2 fields đều chưa có value.")
-                if not (input_value and input_value.strip()):
-                    print(f"   - Input trống")
-                if not (textarea_value and textarea_value.strip()):
-                    print(f"   - Textarea trống")
-
-        except Exception as e:
-            print(f"❌ Lỗi khi tìm input/textarea: {e}")
-            import traceback
-            traceback.print_exc()
-
-        print("\n✅ HOÀN TẤT UPLOAD FAVICON!")
-        print("="*60)
-
-    except Exception as e:
-        print(f"❌ Lỗi khi upload favicon: {e}")
         print("="*60)

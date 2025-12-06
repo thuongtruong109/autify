@@ -14,10 +14,11 @@ from market import setup_world_market
 from policies import setup_legal_policies
 from pages import setup_contact_page
 from shipping import setup_shipping_zones
-from themes import setup_preferences
+from preference import setup_preferences
 from domain import connect_domain
 from selleasy import setup_selleasy
 from content import setup_content_menus
+from themes import import_theme
 
 def setup_driver() -> Optional[webdriver.Chrome]:
     try:
@@ -84,6 +85,7 @@ def show_interactive_menu():
         ('connect_domain', '🌐 Connect Domain'),
         ('setup_selleasy', '🎯 Selleasy'),
         ('setup_content_menus', '📋 Content Menus'),
+        ('import_themes', '🎨 Import Themes'),
     ]
 
     questions = [
@@ -187,6 +189,9 @@ def main():
 
             if 'setup_content_menus' in selected_tasks:
                 setup_content_menus(driver, storeId)
+
+            if 'import_themes' in selected_tasks:
+                import_theme(driver, storeId)
 
     except Exception as e:
         print(f"\nAn unexpected error occurred during processing: {e}")
