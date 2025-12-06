@@ -50,11 +50,17 @@ def parse_credentials_from_row(row_data: list) -> Optional[Dict[str, Any]]:
 
     domain = password.split('@')[0]
 
+    second_cell = row_data[1]
+    third_cell = row_data[2]
+
     return {
         "email": email,
         "password": password,
-        "storeId": store_id,
-        "domain": domain
+        # "storeId": store_id,
+        "storeId": "8t1mpj-p1",
+        "domain": domain,
+        "name": second_cell,
+        "info": third_cell
     }
 
 def get_credentials_from_sheet(row_index: int = 0) -> Optional[Dict[str, Any]]:
@@ -83,3 +89,22 @@ def get_credentials_from_sheet(row_index: int = 0) -> Optional[Dict[str, Any]]:
     except Exception as e:
         print(f"❌ Error loading credentials from Google Sheet: {e}")
         return None
+
+def extract_fullname(name: str):
+    parts = name.split()
+    firstname = " ".join(parts[:-1])
+    lastname = parts[-1]
+    return firstname, lastname
+
+def extract_info(info: str):
+    info_parts = info.split()
+    ssn = info_parts[0]
+    birthday = info_parts[1]
+    # sex = info_parts[3]
+
+    rest = info.split(info_parts[3])[1].strip()
+
+    address = " ".join(rest.split()[:-1])
+    zip = rest.split()[-1]
+
+    return ssn, birthday, address, zip

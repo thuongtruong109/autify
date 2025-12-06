@@ -5,8 +5,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from utils import delay, wait_for_admin, find_button, highlight_element
+from sheet import extract_fullname, extract_info
 
-# Global flag để control background thread
 _captcha_monitor_active = False
 _captcha_monitor_thread = None
 
@@ -198,127 +198,216 @@ def stop_captcha_monitor():
 
         print("✅ Captcha monitor đã dừng.")
 
-def register_shopify_account(driver: webdriver.Chrome, email: str, password: str, storeId: str) -> bool:
+def register_shopify_account(driver: webdriver.Chrome, email: str, password: str, domain: str, name: str, info: str) -> bool:
     print(f"\n{'='*50}\nStarting Shopify registration process\n{'='*50}")
 
-    # Captcha monitor sẽ được khởi động ở main() để bảo vệ TẤT CẢ các chức năng
-    # Không cần khởi động lại ở đây
+    # # 1. Navigate to Shopify admin homepage
+    # signup_url = "https://www.shopify.com/"
+    # driver.get(signup_url)
+    # delay(2)
 
-    # 1. Navigate to Shopify admin homepage
-    signup_url = "https://www.shopify.com/"
-    driver.get(signup_url)
+    # # 2. Find and click "Start for free" button
+    # print("🔍 Tìm button 'Start for free'...")
+    # try:
+    #     # Tìm button với text "Start for free" hoặc link có chứa /signup
+    #     start_button = WebDriverWait(driver, 10).until(
+    #         EC.element_to_be_clickable((
+    #             By.XPATH,
+    #             "//a[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'start for free') or @data-component-name='start-free-trial']"
+    #         ))
+    #     )
+
+    #     highlight_element(driver, start_button)
+    #     print("✅ Tìm thấy button 'Start for free'. Click...")
+    #     start_button.click()
+    #     delay(3)
+
+    #     # 3. Wait for new page to load
+    #     print("⏳ Đợi trang đăng ký load...")
+    #     WebDriverWait(driver, 15).until(
+    #         lambda d: d.execute_script("return document.readyState") == "complete"
+    #     )
+    #     delay(2)
+
+    #     # 5. Find and fill email input
+    #     print("🔍 Tìm input email và điền thông tin...")
+    #     try:
+    #         email_input = WebDriverWait(driver, 10).until(
+    #             EC.presence_of_element_located((By.CSS_SELECTOR, 'input[type="email"]#account_email, input[name="account[email]"]'))
+    #         )
+    #         highlight_element(driver, email_input)
+    #         email_input.click()
+    #         delay(0.5)
+    #         email_input.clear()
+    #         email_input.send_keys(email)
+    #         print(f"✅ Đã điền email: {email}")
+    #         delay(1)
+
+    #         # 6. Find and click "Continue with email" button
+    #         print("🔍 Tìm và click button 'Continue with email'...")
+    #         continue_btn = WebDriverWait(driver, 10).until(
+    #             EC.element_to_be_clickable((
+    #                 By.XPATH,
+    #                 "//button[contains(@class, 'login-button') and @type='submit']//span[contains(text(), 'Continue with email')]/.."
+    #             ))
+    #         )
+    #         highlight_element(driver, continue_btn)
+    #         continue_btn.click()
+    #         print("✅ Đã click 'Continue with email'.")
+    #         delay(3)
+
+    #     except Exception as e:
+    #         print(f"⚠️ Lỗi khi điền email hoặc click Continue: {e}")
+    #         # Thử cách khác
+    #         try:
+    #             cont_btn = find_button(driver, ["Continue with email", "Continue"])
+    #             if cont_btn:
+    #                 highlight_element(driver, cont_btn)
+    #                 cont_btn.click()
+    #                 print("✅ Đã click 'Continue with email' (fallback).")
+    #                 delay(3)
+    #         except Exception as e2:
+    #             print(f"⚠️ Không thể click Continue button: {e2}")
+
+    #     # 7. Wait for password input and fill it
+    #     print("🔍 Đợi input password xuất hiện...")
+    #     try:
+    #         password_input = WebDriverWait(driver, 15).until(
+    #             EC.presence_of_element_located((
+    #                 By.CSS_SELECTOR,
+    #                 'input#account_password, input[name="account[password]"], input[type="password"][autocomplete="new-password"]'
+    #             ))
+    #         )
+    #         highlight_element(driver, password_input)
+    #         password_input.click()
+    #         delay(0.5)
+    #         password_input.clear()
+    #         password_input.send_keys(password)
+    #         print(f"✅ Đã điền password.")
+    #         delay(1)
+
+    #     except Exception as e:
+    #         print(f"⚠️ Lỗi khi điền password: {e}")
+
+    #     # 8. Find and click "I am human" checkbox (in shadow root or iframe)
+    #     print("🔍 Tìm và xử lý 'I am human' checkbox...")
+    #     try:
+    #         human_clicked = shopify_captcha(driver, verbose=True, auto_solve=False)
+    #         if human_clicked:
+    #             print("✅ Đã xử lý 'I am human' checkbox.")
+    #             delay(3)
+    #         else:
+    #             print("⚠️ Không tìm thấy 'I am human' checkbox. Có thể cần xác minh thủ công.")
+    #     except Exception as e:
+    #         print(f"⚠️ Lỗi khi xử lý 'I am human': {e}")
+
+    #     # 9. Wait for "Create Shopify account" button to be enabled and visible, then click
+    #     print("🔍 Đang đợi button 'Create Shopify account' được enable và visible...")
+    #     try:
+    #         # Wait for the button to be present, enabled (no disabled attribute), and clickable
+    #         create_account_btn = WebDriverWait(driver, 60).until(
+    #             lambda d: d.find_element(By.XPATH, "//button[@type='submit' and @name='commit' and contains(@class, 'captcha__submit') and contains(., 'Create Shopify account')]")
+    #             if not d.find_element(By.XPATH, "//button[@type='submit' and @name='commit' and contains(@class, 'captcha__submit') and contains(., 'Create Shopify account')]").get_attribute('disabled')
+    #             else None
+    #         )
+
+    #         # Double check it's clickable
+    #         create_account_btn = WebDriverWait(driver, 10).until(
+    #             EC.element_to_be_clickable((By.XPATH, "//button[@type='submit' and @name='commit' and contains(@class, 'captcha__submit') and contains(., 'Create Shopify account')]"))
+    #         )
+
+    #         highlight_element(driver, create_account_btn)
+    #         print("✅ Button 'Create Shopify account' đã sẵn sàng, đang click ngay...")
+    #         create_account_btn.click()
+    #         print("✅ Đã click button 'Create Shopify account'.")
+    #         delay(3)
+
+    #     except Exception as e:
+    #         print(f"⚠️ Lỗi khi đợi hoặc click button 'Create Shopify account': {e}")
+    #         print("⚠️ Có thể cần xác minh thủ công.")
+
+    #     print("\n" + "*"*80)
+    #     print("✅ Đã hoàn thành các bước tự động. Vui lòng kiểm tra và hoàn thành các bước còn lại (nếu có).")
+    #     input("Nhấn Enter khi đã hoàn thành đăng ký...")
+    #     print("*"*80 + "\n")
+
+    #     return True
+
+    # except Exception as e:
+    #     print(f"❌ Lỗi trong quá trình đăng ký: {e}")
+    #     print("\n" + "*"*80)
+    #     input("Vui lòng hoàn thành đăng ký thủ công và nhấn Enter để tiếp tục...")
+    #     print("*"*80 + "\n")
+    #     return False
+
+    # 10. Add card info
+    setup_url = "https://admin.shopify.com/signup/38ec7dce-a620-4b94-991d-ba99758ddb12/checkout/extend-trial?locale=en&language=en&signup_page=https%3A%2F%2Fwww.shopify.com%2F&signup_types%5B%5D=paid_trial_experience&_y=8e5df360-2a32-49f6-bfb7-0a65e04750cd&_s=e6ff71a6-6b25-4ec0-ba91-6303b393ddf6&_p=9cafeb48-eeae-4916-906d-42b3055f0cec&country=VN&shopPermanentDomain=wuvx3q-0i.myshopify.com"
+
+    first_name, last_name = extract_fullname(name)
+    _, _, address, zip = extract_info(info)
+
+    # Navigate to setup URL and fill card info
+    print("🔍 Đang chuyển đến trang setup để thêm thông tin thẻ...")
+    driver.get(setup_url)
     delay(2)
 
-    # 2. Find and click "Start for free" button
-    print("🔍 Tìm button 'Start for free'...")
-    try:
-        # Tìm button với text "Start for free" hoặc link có chứa /signup
-        start_button = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((
-                By.XPATH,
-                "//a[contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'start for free') or @data-component-name='start-free-trial']"
-            ))
-        )
+    # Wait for page to load
+    WebDriverWait(driver, 15).until(
+        lambda d: d.execute_script("return document.readyState") == "complete"
+    )
+    delay(1)
 
-        highlight_element(driver, start_button)
-        print("✅ Tìm thấy button 'Start for free'. Click...")
-        start_button.click()
-        delay(3)
+    # Fill first name
+    print("🔍 Đang đợi input first name...")
+    first_name_input = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.CSS_SELECTOR, 'input[name="firstName"]'))
+    )
+    highlight_element(driver, first_name_input)
+    first_name_input.click()
+    delay(0.5)
+    first_name_input.clear()
+    first_name_input.send_keys(first_name)
+    print(f"✅ Đã điền first name: {first_name}")
 
-        # 3. Wait for new page to load
-        print("⏳ Đợi trang đăng ký load...")
-        WebDriverWait(driver, 15).until(
-            lambda d: d.execute_script("return document.readyState") == "complete"
-        )
-        delay(2)
+    # Fill last name
+    print("🔍 Đang đợi input last name...")
+    last_name_input = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.CSS_SELECTOR, 'input[name="lastName"]'))
+    )
+    highlight_element(driver, last_name_input)
+    last_name_input.click()
+    delay(0.5)
+    last_name_input.clear()
+    last_name_input.send_keys(last_name)
+    print(f"✅ Đã điền last name: {last_name}")
 
-        # 4. Captcha sẽ được tự động xử lý bởi background thread
+    # Fill address
+    print("🔍 Đang đợi input address...")
+    address_input = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.CSS_SELECTOR, 'input[name="address1"]'))
+    )
+    highlight_element(driver, address_input)
+    address_input.click()
+    delay(0.5)
+    address_input.clear()
+    address_input.send_keys(address)
+    print(f"✅ Đã điền address: {address}")
 
-        # 5. Find and fill email input
-        print("🔍 Tìm input email và điền thông tin...")
-        try:
-            email_input = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, 'input[type="email"]#account_email, input[name="account[email]"]'))
-            )
-            highlight_element(driver, email_input)
-            email_input.click()  # Focus vào input
-            delay(0.5)
-            email_input.clear()
-            email_input.send_keys(email)
-            print(f"✅ Đã điền email: {email}")
-            delay(1)
+    # Fill zip
+    print("🔍 Đang đợi input zip...")
+    zip_input = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.CSS_SELECTOR, 'input[name="zip"]'))
+    )
+    highlight_element(driver, zip_input)
+    zip_input.click()
+    delay(0.5)
+    zip_input.clear()
+    zip_input.send_keys(zip)
+    print(f"✅ Đã điền zip: {zip}")
 
-            # 6. Find and click "Continue with email" button
-            print("🔍 Tìm và click button 'Continue with email'...")
-            continue_btn = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((
-                    By.XPATH,
-                    "//button[contains(@class, 'login-button') and @type='submit']//span[contains(text(), 'Continue with email')]/.."
-                ))
-            )
-            highlight_element(driver, continue_btn)
-            continue_btn.click()
-            print("✅ Đã click 'Continue with email'.")
-            delay(3)
+    print("✅ Đã hoàn thành điền thông tin thẻ. Vui lòng kiểm tra và hoàn thành các bước còn lại.")
 
-        except Exception as e:
-            print(f"⚠️ Lỗi khi điền email hoặc click Continue: {e}")
-            # Thử cách khác
-            try:
-                cont_btn = find_button(driver, ["Continue with email", "Continue"])
-                if cont_btn:
-                    highlight_element(driver, cont_btn)
-                    cont_btn.click()
-                    print("✅ Đã click 'Continue with email' (fallback).")
-                    delay(3)
-            except Exception as e2:
-                print(f"⚠️ Không thể click Continue button: {e2}")
 
-        # 7. Wait for password input and fill it
-        print("🔍 Đợi input password xuất hiện...")
-        try:
-            password_input = WebDriverWait(driver, 15).until(
-                EC.presence_of_element_located((
-                    By.CSS_SELECTOR,
-                    'input#account_password, input[name="account[password]"], input[type="password"][autocomplete="new-password"]'
-                ))
-            )
-            highlight_element(driver, password_input)
-            password_input.click()  # Focus vào input
-            delay(0.5)
-            password_input.clear()
-            password_input.send_keys(password)
-            print(f"✅ Đã điền password.")
-            delay(1)
-
-        except Exception as e:
-            print(f"⚠️ Lỗi khi điền password: {e}")
-
-        # 8. Find and click "I am human" checkbox (in shadow root or iframe)
-        print("🔍 Tìm và xử lý 'I am human' checkbox...")
-        try:
-            human_clicked = shopify_captcha(driver, verbose=True, auto_solve=True)
-            if human_clicked:
-                print("✅ Đã xử lý 'I am human' checkbox.")
-                delay(3)
-            else:
-                print("⚠️ Không tìm thấy 'I am human' checkbox. Có thể cần xác minh thủ công.")
-        except Exception as e:
-            print(f"⚠️ Lỗi khi xử lý 'I am human': {e}")
-
-        print("\n" + "*"*80)
-        print("✅ Đã hoàn thành các bước tự động. Vui lòng kiểm tra và hoàn thành các bước còn lại (nếu có).")
-        input("Nhấn Enter khi đã hoàn thành đăng ký...")
-        print("*"*80 + "\n")
-
-        return True
-
-    except Exception as e:
-        print(f"❌ Lỗi trong quá trình đăng ký: {e}")
-        print("\n" + "*"*80)
-        input("Vui lòng hoàn thành đăng ký thủ công và nhấn Enter để tiếp tục...")
-        print("*"*80 + "\n")
-        return False
 
 def extract_hcaptcha_iframe_attributes(driver: webdriver.Chrome) -> dict:
     """
@@ -451,30 +540,6 @@ def shopify_captcha(driver: webdriver.Chrome, verbose: bool = True, auto_solve: 
         except Exception as e:
             if verbose:
                 print(f"⚠️ Lỗi khi giải captcha tự động: {e}. Chuyển sang phương thức thủ công...")
-
-    # # 1. Thử tìm trong DOM thông thường
-    # try:
-    #     if verbose:
-    #         print("   🔍 Đang tìm trong DOM thông thường...")
-
-    #     human_elements = driver.find_elements(
-    #         By.XPATH,
-    #         "//*[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'i am human')]"
-    #     )
-    #     if human_elements:
-    #         for elem in human_elements:
-    #             try:
-    #                 if elem.is_displayed():
-    #                     highlight_element(driver, elem)
-    #                     elem.click()
-    #                     if verbose:
-    #                         print("   ✅ Đã click 'I am human' trong DOM thông thường.")
-    #                     return True
-    #             except:
-    #                 continue
-    # except Exception as e:
-    #     if verbose:
-    #         print(f"   ⚠️ Không tìm thấy trong DOM thông thường: {e}")
 
     # 2. Tìm trong các iframe
     try:

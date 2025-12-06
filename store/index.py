@@ -41,7 +41,7 @@ def setup_driver() -> Optional[webdriver.Chrome]:
         options.add_argument("--disable-blink-features=AutomationControlled")
 
         driver = webdriver.Chrome(service=service, options=options)
-        driver.implicitly_wait(6)
+        driver.implicitly_wait(4)
         driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
             "source": """
                 Object.defineProperty(navigator, 'webdriver', {
@@ -122,7 +122,7 @@ def main():
         print("No valid credentials found. Exiting.")
         return
 
-    email, password, storeId, domain = entry["email"], entry["password"], entry["storeId"], entry["domain"]
+    email, password, storeId, domain, name, info = entry["email"], entry["password"], entry["storeId"], entry["domain"], entry["name"], entry["info"]
 
     selected_tasks = show_interactive_menu()
     if not selected_tasks:
@@ -136,11 +136,11 @@ def main():
 
     try:
         if 'register_shopify_account' in selected_tasks:
-                registered = register_shopify_account(driver, email, password, storeId)
+                registered = register_shopify_account(driver, email, password, storeId, name, info)
                 if not registered:
                     print("🚫 Registration failed. Cannot proceed.")
                     return
-                print("\n✅ Registration successful!")
+                print(f"\n✅ Registration successful for {name}!")
                 print("="*60)
 
         if 'login' in selected_tasks or len(selected_tasks) > 0:
