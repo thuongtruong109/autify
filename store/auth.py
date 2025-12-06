@@ -14,9 +14,6 @@ def login_to_shopify(driver: webdriver.Chrome, email: str, password: str, storeI
     """Đăng nhập vào Shopify Admin"""
     print(f"\n{'='*50}\nProcessing store ID: {storeId}\n{'='*50}")
 
-    # Captcha monitor sẽ được khởi động ở main() để bảo vệ TẤT CẢ các chức năng
-    # Không cần khởi động lại ở đây
-
     # 1. Navigate to store admin URL
     login_url = f"https://admin.shopify.com/store/{storeId}"
     driver.get(login_url)
@@ -32,7 +29,6 @@ def login_to_shopify(driver: webdriver.Chrome, email: str, password: str, storeI
 
     print("⚠️ Not logged in. Starting login process...")
 
-    # --- Handle Login Screens ---
     email_selectors = 'input[type="email"], input#account_email'
     try:
         email_el = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, email_selectors)))

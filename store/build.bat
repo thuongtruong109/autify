@@ -15,9 +15,9 @@ echo.
 echo [3/4] Checking build result...
 if exist "dist\autify.exe" (
     echo.
-    echo [4/4] Copying config.json to dist folder...
-    copy config.json dist\config.json
-    echo.
+    @REM echo [4/4] Copying config.json to dist folder...
+    @REM copy config.json dist\config.json
+    @REM echo.
     echo ====================================
     echo BUILD SUCCESSFUL!
     echo ====================================

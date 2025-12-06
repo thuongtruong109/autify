@@ -1,4 +1,4 @@
-import json, os, time
+import os
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
@@ -18,7 +18,8 @@ from preference import setup_preferences
 from domain import connect_domain
 from selleasy import setup_selleasy
 from content import setup_content_menus
-from themes import import_theme
+from themes.import_theme import import_theme
+from themes.edit_theme import edit_theme
 
 def setup_driver() -> Optional[webdriver.Chrome]:
     try:
@@ -64,13 +65,10 @@ def setup_driver() -> Optional[webdriver.Chrome]:
         return None
 
 def show_interactive_menu():
-    print("\n" + "="*80)
-    print("🎯 SELECT THE TASKS YOU WANT TO RUN")
-    print("="*80)
+    print("\n" + "="*80 + "\n")
     print("📌 Use ↑/↓ keys to navigate")
     print("📌 Press SPACE to select/deselect")
-    print("📌 Press ENTER to confirm and run")
-    print("="*80 + "\n")
+    print("📌 Press ENTER to confirm and run\n")
 
     task_options = [
         ('register_shopify_account', '🆕 Register'),
@@ -86,6 +84,7 @@ def show_interactive_menu():
         ('setup_selleasy', '🎯 Selleasy'),
         ('setup_content_menus', '📋 Content Menus'),
         ('import_themes', '🎨 Import Themes'),
+        # ('edit_themes', '🖌️ Edit Themes (progress)'),
     ]
 
     questions = [
@@ -192,6 +191,9 @@ def main():
 
             if 'import_themes' in selected_tasks:
                 import_theme(driver, storeId)
+
+            if 'edit_themes' in selected_tasks:
+                edit_theme(driver, storeId)
 
     except Exception as e:
         print(f"\nAn unexpected error occurred during processing: {e}")
