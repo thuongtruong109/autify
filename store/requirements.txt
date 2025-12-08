@@ -4,3 +4,4 @@ inquirer
 pyinstaller
 requests
 PySide6
+selenium_stealth

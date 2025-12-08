@@ -1,15 +1,13 @@
-import os
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
-from typing import Optional
 import inquirer
-from fake_useragent import UserAgent
+import pickle
+
+from configs.driver import setup_driver
+from configs.anti_freeze import AntiFreeze
 
 from utils import load_credentials
 from auth import login_to_shopify, register_shopify_account, start_captcha_monitor, stop_captcha_monitor
 from install import install_apps
-from dsers import handle_dser_open_and_confirm
+from dsers.link_account import link_dser_account
 from market import setup_world_market
 from policies import setup_legal_policies
 from pages import setup_contact_page
@@ -19,50 +17,6 @@ from domain import connect_domain
 from selleasy import setup_selleasy
 from content import setup_content_menus
 from themes.import_theme import import_theme
-from themes.edit_theme import edit_theme
-
-def setup_driver() -> Optional[webdriver.Chrome]:
-    try:
-        print("Setting up Chrome WebDriver...")
-        service = Service(ChromeDriverManager().install())
-
-        options = webdriver.ChromeOptions()
-        options.add_argument("--start-maximized")
-        options.add_argument(f"user-agent={UserAgent.random}")
-
-        user_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "selenium_data")
-        options.add_argument(f"--user-data-dir={user_data_dir}")
-
-        # options.add_argument("user-data-dir=C:/Users/you/AppData/Local/Google/Chrome/User Data")
-        # options.add_argument("profile-directory=Profile 1")
-
-        options.add_experimental_option("excludeSwitches", ["enable-logging"])
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        # options.add_argument("--disable-extensions")
-        options.add_argument("--disable-blink-features=AutomationControlled")
-
-        driver = webdriver.Chrome(service=service, options=options)
-        driver.implicitly_wait(4)
-        driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
-            "source": """
-                Object.defineProperty(navigator, 'webdriver', {
-                    get: () => undefined
-                })
-            """
-        })
-        driver.execute_script(
-            "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
-        )
-        driver.execute_script("""
-            Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 4});
-            Object.defineProperty(navigator, 'deviceMemory', {get: () => 4});
-        """)
-        return driver
-    except Exception as e:
-        print(f"❌ Critical error initializing WebDriver. Details: {e}")
-        print("Please check if Chrome is installed and no Selenium sessions are running in the background.")
-        return None
 
 def show_interactive_menu():
     print("\n" + "="*80 + "\n")
@@ -74,7 +28,7 @@ def show_interactive_menu():
         ('register_shopify_account', '🆕 Register'),
         ('login', '🔐 Login'),
         ('install_apps', '📦 Install Apps'),
-        ('handle_dser_open_and_confirm', '🛠️  DSers (progress)'),
+        ('link_dser_account', '🛠️  DSers (link account)'),
         ('setup_world_market', '🌍 Markets'),
         ('setup_legal_policies', '📜 Policies'),
         ('setup_contact_page', '📄 Pages'),
@@ -84,7 +38,6 @@ def show_interactive_menu():
         ('setup_selleasy', '🎯 Selleasy'),
         ('setup_content_menus', '📋 Content Menus'),
         ('import_themes', '🎨 Import Themes'),
-        # ('edit_themes', '🖌️ Edit Themes (progress)'),
     ]
 
     questions = [
@@ -133,6 +86,9 @@ def main():
     if not driver:
         return
 
+    heartbeat = AntiFreeze(driver, interval=15)
+    heartbeat.start()
+
     start_captcha_monitor(driver, check_interval=2.0)
 
     try:
@@ -162,8 +118,8 @@ def main():
             if 'install_apps' in selected_tasks:
                 install_apps(driver, storeId)
 
-            if 'handle_dser_open_and_confirm' in selected_tasks:
-                handle_dser_open_and_confirm(driver, storeId, password)
+            if 'link_dser_account' in selected_tasks:
+                link_dser_account(driver, storeId, password)
 
             if 'setup_world_market' in selected_tasks:
                 setup_world_market(driver, storeId)
@@ -192,8 +148,13 @@ def main():
             if 'import_themes' in selected_tasks:
                 import_theme(driver, storeId)
 
-            if 'edit_themes' in selected_tasks:
-                edit_theme(driver, storeId)
+        try:
+            cookies = driver.get_cookies()
+            with open("cookies.pkl", "wb") as f:
+                pickle.dump(cookies, f)
+            print(f"Saved {len(cookies)} cookies")
+        except Exception as e:
+            print("Cookie save error:", e)
 
     except Exception as e:
         print(f"\nAn unexpected error occurred during processing: {e}")
@@ -208,6 +169,7 @@ def main():
         input()
 
         try:
+            heartbeat.stop()
             driver.quit()
             print("✅ Browser has been closed successfully.")
         except:

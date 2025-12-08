@@ -1,7 +1,6 @@
-selenium_data
+profile
+cookies.pkl
 __pycache__
-dns.js
-dns.txt
 build
 dist
 service_account.json

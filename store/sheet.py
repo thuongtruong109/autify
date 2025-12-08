@@ -1,3 +1,4 @@
+import re
 import gspread
 from google.oauth2.service_account import Credentials
 from typing import Dict, Any, Optional
@@ -31,7 +32,7 @@ def parse_credentials_from_row(row_data: list) -> Optional[Dict[str, Any]]:
         return None
 
     first_cell = row_data[0]
-    parts = first_cell.split('/')
+    parts = re.split(r"[\/|]", first_cell)
 
     if len(parts) < 3:
         print(f"⚠️ Invalid format in first cell: {first_cell}")

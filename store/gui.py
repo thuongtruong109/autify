@@ -18,7 +18,7 @@ from PySide6.QtGui import *
 
 from auth import login_to_shopify, register_shopify_account, start_captcha_monitor, stop_captcha_monitor
 from install import install_apps
-from dsers import handle_dser_open_and_confirm
+from store.dsers.import_product import handle_dser_open_and_confirm
 from market import setup_world_market
 from policies import setup_legal_policies
 from pages import setup_contact_page
