@@ -121,22 +121,19 @@ async def connect_domain(driver: webdriver.Chrome, storeId: str, domain: str):
             rows = tbody.find_elements(By.TAG_NAME, "tr")
 
             a_row = rows[0].find_elements(By.TAG_NAME, "td")
-            # for i, cell in enumerate(a_row):
-            #     text = cell.text.strip()
-            #     print(f"  TD {i+1}: {text}")
+            a_record = a_row[4].text.strip()
 
             cname_row = rows[1].find_elements(By.TAG_NAME, "td")
-            # for i, cell in enumerate(cname_row):
-            #     text = cell.text.strip()
-            #     print(f"  TD {i+1}: {text}")
-
-            a_record = a_row[4].text.strip()
             cname_record = cname_row[4].text.strip()
 
             from libs.cloudflare import CloudflareAsyncClient
             dns_records = [
-                {"type": "A", "name": "@", "content": a_record, "ttl": 1, "proxied": False},
-                {"type": "CNAME", "name": "www", "content": cname_record, "ttl": 1, "proxied": False},
+                { "type": "A", "name": "@", "content": a_record, "ttl": 1, "proxied": False },
+                { "type": "CNAME", "name": "www", "content": cname_record, "ttl": 1, "proxied": False },
+
+                { "type": "TXT", "name": domain, "content": "v=spf1 -all", "ttl": 1},
+                { "type": "TXT", "name": "*._domainkey", "content": "v=DKIM1; p=", "ttl": 1},
+                { "type": "TXT", "name": "_dmarc", "content": "v=DMARC1; p=reject; sp=reject; adkim=s; aspf=s;", "ttl": 1}
             ]
 
             client = CloudflareAsyncClient()

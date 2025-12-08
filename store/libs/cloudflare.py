@@ -41,9 +41,9 @@ class CloudflareAsyncClient:
 # async def main():
 #     domain = "gunova.site"
 #     dns_records = [
-#         {"type": "A", "name": "www.gunova.site", "content": "198.51.100.4", "ttl": 1, "proxied": False},
-#         {"type": "A", "name": "api.gunova.site", "content": "198.51.100.5", "ttl": 1, "proxied": False},
-#         {"type": "CNAME", "name": "blog.gunova.site", "content": "gunova.site", "ttl": 1, "proxied": False},
+#         { "type": "TXT", "name": domain, "content": "\"v=spf1 -all\"", "ttl": 1},
+#         { "type": "TXT", "name": "*._domainkey", "content": "\"v=DKIM1; p=\"", "ttl": 1},
+#         { "type": "TXT", "name": "_dmarc", "content": "\"v=DMARC1; p=reject; sp=reject; adkim=s; aspf=s;\"", "ttl": 1}
 #     ]
 
 #     client = CloudflareAsyncClient()
