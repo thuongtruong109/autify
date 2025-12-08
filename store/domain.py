@@ -5,7 +5,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from utils.element import delay, highlight_element
 from utils.toast import show_toast
 
-async def connect_domain(driver: webdriver.Chrome, storeId: str, domain: str):
+async def connect_domain(driver: webdriver.Chrome, storeId: str, domain: str, cloudflare_token: str):
     print("\n" + "="*60)
     print("🌐 CONNECT EXISTING DOMAIN...")
     print("="*60)
@@ -126,7 +126,7 @@ async def connect_domain(driver: webdriver.Chrome, storeId: str, domain: str):
             cname_row = rows[1].find_elements(By.TAG_NAME, "td")
             cname_record = cname_row[4].text.strip()
 
-            from libs.cloudflare import CloudflareAsyncClient
+            from libs.cloudflare import CloudflareClient
             dns_records = [
                 { "type": "A", "name": "@", "content": a_record, "ttl": 1, "proxied": False },
                 { "type": "CNAME", "name": "www", "content": cname_record, "ttl": 1, "proxied": False },
@@ -136,12 +136,16 @@ async def connect_domain(driver: webdriver.Chrome, storeId: str, domain: str):
                 { "type": "TXT", "name": "_dmarc", "content": "v=DMARC1; p=reject; sp=reject; adkim=s; aspf=s;", "ttl": 1}
             ]
 
-            client = CloudflareAsyncClient()
-            await client.add_multiple_dns_records(domain, dns_records)
+            async with CloudflareClient(cloudflare_token) as cf:
+                results = await cf.add_multiple_dns_records(domain, dns_records)
+                print(results)
+                show_toast(driver, "✅ Đã thêm DNS records vào Cloudflare!")
+                result = await cf.enable_dnssec(domain)
+                print("Enable DNSSEC result:", result)
+                show_toast(driver, "✅ Đã bật DNSSEC trên Cloudflare!")
 
             print("\n" + "="*60)
             print("✅ Đã in xong thông tin DNS records!")
-            show_toast(driver, "✅ Đã lấy được DNS records!")
 
         except Exception as e:
             print(f"❌ Không tìm thấy table hoặc không đọc được dữ liệu: {e}")

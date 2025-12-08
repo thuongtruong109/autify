@@ -92,6 +92,8 @@ async def main():
 
     start_captcha_monitor(driver, check_interval=2.0)
 
+    cloudflare_token = "D0LRG-crTGRTqMn9udddaRCkzfw919PON0e2YpcP"
+
     try:
         if 'register_shopify_account' in selected_tasks:
                 registered = register_shopify_account(driver, email, password, storeId, name, info)
@@ -138,7 +140,7 @@ async def main():
                 setup_preferences(driver, storeId)
 
             if 'connect_domain' in selected_tasks:
-                await connect_domain(driver, storeId, domain)
+                await connect_domain(driver, storeId, domain, cloudflare_token)
 
             if 'setup_selleasy' in selected_tasks:
                 setup_selleasy(driver, storeId)
