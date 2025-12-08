@@ -79,7 +79,7 @@ pyinstaller build.spec --clean
 
 2. The exe file will be created in the `dist/autify.exe` directory
 
-3. Copy the `config.json` file to the same directory as the exe file (if not already present)
+3. Copy the `configs/config.json` file to the same directory as the exe file (if not already present)
 
 ##### Start
 
@@ -99,7 +99,7 @@ python index.py
 
 1. **Start application**: Double click to `autify.exe`
 
-2. **Check infomation**: The application will automatically load store information from the `config.json` file
+2. **Check infomation**: The application will automatically load store information from the `configs/config.json` file
 
 3. **Login**: Click to button "🔐 Login to Shopify" to login
 
@@ -117,7 +117,7 @@ python index.py
 
 ##### Notes
 
-- The `config.json` file must be in the same folder as the exe file
+- The `configs/config.json` file must be in the same folder as the exe file
 - The Chrome browser will automatically open upon login
 - The session is saved in the `selenium_data` folder
 - You can run multiple tasks consecutively after logging in
@@ -126,7 +126,7 @@ python index.py
 
 **Error "No credentials found":**
 
-- Check if the `config.json` file exists and ensure that it has the correct format with the fields: email, password, storeId
+- Check if the `configs/config.json` file exists and ensure that it has the correct format with the fields: email, password, storeId
 
 **WebDriver Error:**
 

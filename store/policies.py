@@ -1,7 +1,7 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from typing import Dict, Any
-from utils import delay, highlight_element
+from utils.element import delay, highlight_element
 
 def setup_legal_policies(driver: webdriver.Chrome, storeId: str, policies: Dict[str, Any]):
     """Setup legal policies cho store"""

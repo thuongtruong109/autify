@@ -6,7 +6,7 @@ a = Analysis(
     ['gui.py'],
     pathex=[],
     binaries=[],
-    datas=[('config.json', '.'), ('favicon.ico', '.'), ('themes/Theme6.zip', '.')],
+    datas=[('configs/config.json', '.'), ('favicon.ico', '.'), ('themes/Theme6.zip', '.')],
     hiddenimports=[
         'selenium',
         'selenium.webdriver',

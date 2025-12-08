@@ -2,7 +2,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from utils import delay, highlight_element, click_save_button
+from utils.element import delay, highlight_element, click_save_button
 from typing import List, Tuple
 
 def add_menu_item(driver: webdriver.Chrome, wait: WebDriverWait, menu_item_name: str, sub_option_name: str = None) -> bool:

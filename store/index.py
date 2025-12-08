@@ -4,7 +4,7 @@ import pickle
 from configs.driver import setup_driver
 from configs.anti_freeze import AntiFreeze
 
-from utils import load_credentials
+from utils.app import load_credentials
 from auth import login_to_shopify, register_shopify_account, start_captcha_monitor, stop_captcha_monitor
 from install import install_apps
 from dsers.link_account import link_dser_account
@@ -70,7 +70,7 @@ def show_interactive_menu():
 
 def main():
     # Mặc định sử dụng Google Sheet, lấy từ row đầu tiên (index 0)
-    # Nếu muốn dùng config.json, đổi use_sheet=False
+    # Nếu muốn dùng configs/config.json, đổi use_sheet=False
     entry = load_credentials(use_sheet=True, row_index=0)
     if not entry:
         print("No valid credentials found. Exiting.")

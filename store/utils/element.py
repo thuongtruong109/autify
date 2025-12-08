@@ -1,77 +1,12 @@
-import json
-import os
-import sys
 import time
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from typing import List, Dict, Any
-
-def get_config_path():
-    """Get the correct path to config.json whether running as script or exe"""
-    if getattr(sys, 'frozen', False):
-        # Running as exe - config.json should be in the same folder as exe
-        exe_dir = os.path.dirname(sys.executable)
-        return os.path.join(exe_dir, "./config.json")
-    else:
-        # Running as script - config.json is in the same folder as utils.py
-        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "./config.json")
-
-CRED_PATH = get_config_path()
+from typing import List
 
 def delay(seconds: float):
     time.sleep(seconds)
-
-def load_credentials_from_json() -> Dict[str, Any]:
-    """Load credentials from config.json file"""
-    print(f"Attempting to load credentials from: {CRED_PATH}")
-    if not os.path.exists(CRED_PATH):
-        print(f"Error: {CRED_PATH} not found.")
-        return {}
-
-    with open(CRED_PATH, "r", encoding="utf-8") as f:
-        content = f.read()
-
-    try:
-        data = json.loads(content)
-    except json.JSONDecodeError as e:
-        print(f"Error: JSON parse error in config.json: {e}")
-        return {}
-
-    if not isinstance(data, dict):
-        print(f"Error: config.json must be a single object, not an array or other type.")
-        return {}
-
-    if not (data.get("email") and data.get("password") and data.get("storeId")):
-        print(f"Error: config.json missing required fields: email, password, storeId")
-        return {}
-
-    print(f"Loaded credentials for store: {data['storeId']}")
-    return data
-
-def load_credentials(use_sheet: bool = True, row_index: int = 0) -> Dict[str, Any]:
-    """
-    Load credentials from Google Sheet or JSON config file.
-    Args:
-        use_sheet: If True, load from Google Sheet; if False, load from config.json
-        row_index: Row index to load from Google Sheet (default: 0 = first row)
-    """
-    if use_sheet:
-        try:
-            from sheet import get_credentials_from_sheet
-            print("📊 Loading credentials from Google Sheet...")
-            credentials = get_credentials_from_sheet(row_index)
-            if credentials:
-                return credentials
-            print("⚠️ Failed to load from Google Sheet. Falling back to config.json...")
-        except ImportError:
-            print("⚠️ sheet.py not found. Falling back to config.json...")
-        except Exception as e:
-            print(f"⚠️ Error loading from Google Sheet: {e}. Falling back to config.json...")
-
-    # Fallback to JSON config
-    return load_credentials_from_json()
 
 def highlight_element(driver: webdriver.Chrome, element):
     driver.execute_script(

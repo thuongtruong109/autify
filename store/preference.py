@@ -2,7 +2,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from utils import delay, highlight_element, click_save_button, find_iframe_with_element
+from utils.element import delay, highlight_element, click_save_button, find_iframe_with_element
 import os
 import sys
 
@@ -18,9 +18,9 @@ def setup_preferences(driver: webdriver.Chrome, storeId: str, seo_data: dict = N
     print("⚙️  SETUP PREFERENCES...")
     print("="*60)
 
-    # Nếu không có seo_data, load từ config.json (cho CLI mode)
+    # Nếu không có seo_data, load từ configs/config.json (cho CLI mode)
     if seo_data is None:
-        from utils import load_credentials
+        from utils.app import load_credentials
         entry = load_credentials()
         seo_data = entry.get("seo", {})
 

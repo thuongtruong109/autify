@@ -4,8 +4,8 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from utils import delay, wait_for_admin, find_button, highlight_element
-from sheet import extract_fullname, extract_info
+from utils.element import delay, wait_for_admin, find_button, highlight_element
+from libs.sheet import extract_fullname, extract_info
 
 _captcha_monitor_active = False
 _captcha_monitor_thread = None
@@ -494,7 +494,7 @@ def shopify_captcha(driver: webdriver.Chrome, verbose: bool = True, auto_solve: 
 
             # Đọc config để lấy Bright Data credentials
             try:
-                with open('config.json', 'r', encoding='utf-8') as f:
+                with open('configs/config.json', 'r', encoding='utf-8') as f:
                     config = json.load(f)
                     bright_config = config.get('bright_data', {})
 
@@ -526,7 +526,7 @@ def shopify_captcha(driver: webdriver.Chrome, verbose: bool = True, auto_solve: 
                             print("ℹ️ Bright Data không được bật. Sử dụng phương thức thủ công...")
             except FileNotFoundError:
                 if verbose:
-                    print("⚠️ Không tìm thấy config.json. Chuyển sang phương thức thủ công...")
+                    print("⚠️ Không tìm thấy configs/config.json. Chuyển sang phương thức thủ công...")
             except Exception as e:
                 if verbose:
                     print(f"⚠️ Lỗi khi đọc config: {e}. Chuyển sang phương thức thủ công...")

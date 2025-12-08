@@ -12,7 +12,7 @@ def get_sheet_data():
     ]
 
     creds = Credentials.from_service_account_file(
-        "service_account.json", scopes=scopes
+        "configs/service_account.json", scopes=scopes
     )
     client = gspread.authorize(creds)
     sheet = client.open_by_key(SPREADSHEET_ID)

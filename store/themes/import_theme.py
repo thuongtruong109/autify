@@ -2,7 +2,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from utils import delay, highlight_element, click_save_button, find_iframe_with_element
+from utils.element import delay, highlight_element, click_save_button, find_iframe_with_element
 import os
 import sys
 
@@ -13,7 +13,6 @@ else:
     base_path = os.path.dirname(__file__)
 
 def import_theme(driver: webdriver.Chrome, storeId: str):
-    """Vào trang themes và thực hiện import theme bằng cách click Import theme (data-state="closed") rồi Upload zip file trong menu (data-state="open")"""
     print("\n" + "="*60)
     print("🎨 IMPORT THEME...")
     print("="*60)

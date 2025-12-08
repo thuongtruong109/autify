@@ -2,7 +2,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from utils import delay, highlight_element
+from utils.element import delay, highlight_element
 
 def connect_domain(driver: webdriver.Chrome, storeId: str, domain: str):
     """Connect an existing domain to the Shopify store"""

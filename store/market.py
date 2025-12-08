@@ -2,7 +2,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from utils import delay, highlight_element, click_save_button, find_button
+from utils.element import delay, highlight_element, click_save_button, find_button
 
 def setup_world_market(driver: webdriver.Chrome, storeId: str):
     print("\n" + "="*60)

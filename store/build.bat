@@ -15,15 +15,15 @@ echo.
 echo [3/4] Checking build result...
 if exist "dist\autify.exe" (
     echo.
-    @REM echo [4/4] Copying config.json to dist folder...
-    @REM copy config.json dist\config.json
+    @REM echo [4/4] Copying configs/config.json to dist folder...
+    @REM copy configs/config.json dist\configs/config.json
     @REM echo.
     echo ====================================
     echo BUILD SUCCESSFUL!
     echo ====================================
     echo.
     echo Executable created: dist\autify.exe
-    echo Config file copied: dist\config.json
+    echo Config file copied: dist\configs/config.json
     echo Theme file and favicon are embedded in the exe.
     echo.
 ) else (

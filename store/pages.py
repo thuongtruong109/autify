@@ -2,7 +2,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from utils import delay, highlight_element, click_save_button
+from utils.element import delay, highlight_element, click_save_button
 
 def setup_contact_page(driver: webdriver.Chrome, storeId: str):
     """Setup Contact page - Đổi title từ 'Contact' thành 'Contact Us'"""

@@ -3,7 +3,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from utils import delay, highlight_element, click_save_button
+from utils.element import delay, highlight_element, click_save_button
 
 def setup_shipping_zones(driver: webdriver.Chrome, storeId: str):
     print("\n" + "="*60)
