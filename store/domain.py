@@ -3,15 +3,16 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from utils.element import delay, highlight_element
+from utils.toast import show_toast
 
-def connect_domain(driver: webdriver.Chrome, storeId: str, domain: str):
-    """Connect an existing domain to the Shopify store"""
+async def connect_domain(driver: webdriver.Chrome, storeId: str, domain: str):
     print("\n" + "="*60)
     print("🌐 CONNECT EXISTING DOMAIN...")
     print("="*60)
 
+    show_toast(driver, "🌐 Bắt đầu connect domain...")
+
     try:
-        # 1. Navigate to domains settings page
         domains_url = f"https://admin.shopify.com/store/{storeId}/settings/domains"
         print(f"Đang vào trang: {domains_url}")
         driver.get(domains_url)
@@ -19,6 +20,7 @@ def connect_domain(driver: webdriver.Chrome, storeId: str, domain: str):
 
         # 2. Wait for page to load completely
         print("⏳ Đợi trang load xong...")
+        show_toast(driver, "⏳ Đợi trang load xong...")
         WebDriverWait(driver, 15).until(
             lambda d: d.execute_script("return document.readyState") == "complete"
         )
@@ -26,6 +28,7 @@ def connect_domain(driver: webdriver.Chrome, storeId: str, domain: str):
 
         # 3. Find and click "Connect existing" button
         print("🔍 Tìm và click button 'Connect existing'...")
+        show_toast(driver, "🔍 Tìm và click button 'Connect existing'...")
         try:
             connect_btn = WebDriverWait(driver, 10).until(
                 EC.presence_of_element_located((
@@ -67,6 +70,7 @@ def connect_domain(driver: webdriver.Chrome, storeId: str, domain: str):
 
         # 5. Find and click "Next" button in modal
         print("🔍 Tìm và click button 'Next'...")
+        show_toast(driver, "🔍 Tìm và click button 'Next'...")
         try:
             next_btn = modal.find_element(
                 By.XPATH,
@@ -81,6 +85,92 @@ def connect_domain(driver: webdriver.Chrome, storeId: str, domain: str):
 
         except Exception as e:
             print(f"❌ Không tìm thấy button 'Next': {e}")
+            return
+
+        # 6. Manual setup
+        show_toast(driver, "🌐 Đang tìm DNS...")
+
+        print("🔍 Tìm và click 'Manual setup'...")
+        try:
+            manual_setup_span = WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((
+                    By.XPATH,
+                    "//span[contains(@class, 'Polaris-Text--root') and contains(@class, 'Polaris-Text--bodyMd') and contains(text(), 'Manual setup')]"
+                ))
+            )
+            highlight_element(driver, manual_setup_span)
+            driver.execute_script("arguments[0].click();", manual_setup_span)
+            print("✅ Đã click vào 'Manual setup'")
+            delay(2)
+        except Exception as e:
+            print(f"❌ Không tìm thấy 'Manual setup': {e}")
+            return
+
+        print("🔍 Tìm table DNS records...")
+        try:
+            table = WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((
+                    By.CSS_SELECTOR,
+                    "table.Polaris-IndexTable__Table.Polaris-IndexTable__Table--unselectable.Polaris-IndexTable__Table--sticky"
+                ))
+            )
+            print("✅ Đã tìm thấy table DNS records")
+            delay(1)
+
+            tbody = table.find_element(By.TAG_NAME, "tbody")
+            rows = tbody.find_elements(By.TAG_NAME, "tr")
+
+            a_row = rows[0].find_elements(By.TAG_NAME, "td")
+            # for i, cell in enumerate(a_row):
+            #     text = cell.text.strip()
+            #     print(f"  TD {i+1}: {text}")
+
+            cname_row = rows[1].find_elements(By.TAG_NAME, "td")
+            # for i, cell in enumerate(cname_row):
+            #     text = cell.text.strip()
+            #     print(f"  TD {i+1}: {text}")
+
+            a_record = a_row[4].text.strip()
+            cname_record = cname_row[4].text.strip()
+
+            from libs.cloudflare import CloudflareAsyncClient
+            dns_records = [
+                {"type": "A", "name": "@", "content": a_record, "ttl": 1, "proxied": False},
+                {"type": "CNAME", "name": "www", "content": cname_record, "ttl": 1, "proxied": False},
+            ]
+
+            client = CloudflareAsyncClient()
+            await client.add_multiple_dns_records(domain, dns_records)
+
+            print("\n" + "="*60)
+            print("✅ Đã in xong thông tin DNS records!")
+            show_toast(driver, "✅ Đã lấy được DNS records!")
+
+        except Exception as e:
+            print(f"❌ Không tìm thấy table hoặc không đọc được dữ liệu: {e}")
+            import traceback
+            traceback.print_exc()
+            return
+
+        # 7. Find and click "I updated DNS records" button
+        print("\n🔍 Tìm và click 'I updated DNS records'...")
+        show_toast(driver, "🔍 Tìm button 'I updated DNS records'...")
+        try:
+            updated_dns_btn = WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((
+                    By.XPATH,
+                    "//span[contains(@class, 'Polaris-Text--root') and contains(@class, 'Polaris-Text--bodySm') and contains(@class, 'Polaris-Text--medium') and contains(text(), 'I updated DNS records')]"
+                ))
+            )
+            highlight_element(driver, updated_dns_btn)
+            driver.execute_script("arguments[0].click();", updated_dns_btn)
+            print("✅ Đã click vào 'I updated DNS records'")
+            show_toast(driver, "✅ Đã click 'I updated DNS records'!")
+            delay(2)
+        except Exception as e:
+            print(f"❌ Không tìm thấy button 'I updated DNS records': {e}")
+            import traceback
+            traceback.print_exc()
             return
 
     except Exception as e:

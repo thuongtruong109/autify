@@ -1,5 +1,6 @@
 import inquirer
 import pickle
+import asyncio
 
 from configs.driver import setup_driver
 from configs.anti_freeze import AntiFreeze
@@ -34,7 +35,7 @@ def show_interactive_menu():
         ('setup_contact_page', '📄 Pages'),
         ('setup_shipping_zones', '🚚 Shipping'),
         ('setup_preferences', '⚙️  Preferences'),
-        ('connect_domain', '🌐 Connect Domain'),
+        ('connect_domain', '🌐 Domain'),
         ('setup_selleasy', '🎯 Selleasy'),
         ('setup_content_menus', '📋 Content Menus'),
         ('import_themes', '🎨 Import Themes'),
@@ -68,7 +69,7 @@ def show_interactive_menu():
         print("\n\n⚠️  Cancelled by user. Exiting program.")
         return []
 
-def main():
+async def main():
     # Mặc định sử dụng Google Sheet, lấy từ row đầu tiên (index 0)
     # Nếu muốn dùng configs/config.json, đổi use_sheet=False
     entry = load_credentials(use_sheet=True, row_index=0)
@@ -137,7 +138,7 @@ def main():
                 setup_preferences(driver, storeId)
 
             if 'connect_domain' in selected_tasks:
-                connect_domain(driver, storeId, domain)
+                await connect_domain(driver, storeId, domain)
 
             if 'setup_selleasy' in selected_tasks:
                 setup_selleasy(driver, storeId)
@@ -176,4 +177,4 @@ def main():
             print("⚠️ Browser may have been closed manually.")
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
