@@ -57,8 +57,7 @@ def parse_credentials_from_row(row_data: list) -> Optional[Dict[str, Any]]:
     return {
         "email": email,
         "password": password,
-        # "storeId": store_id,
-        "storeId": "8t1mpj-p1",
+        "storeId": store_id,
         "domain": domain,
         "name": second_cell,
         "info": third_cell

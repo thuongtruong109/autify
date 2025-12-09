@@ -452,6 +452,5 @@ def check_installed_apps(driver: webdriver.Chrome, storeId: str, force_reload: b
     return installed_apps
 
 def install_apps(driver: webdriver.Chrome, storeId: str):
-    """Chỉ xử lý install apps (không login)"""
     semi_auto_install_and_pin(driver, storeId)
     print(f"Finished installing apps for store: {storeId}")

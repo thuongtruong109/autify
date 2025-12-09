@@ -139,10 +139,10 @@ async def connect_domain(driver: webdriver.Chrome, storeId: str, domain: str, cl
             async with CloudflareClient(cloudflare_token) as cf:
                 results = await cf.add_multiple_dns_records(domain, dns_records)
                 print(results)
-                show_toast(driver, "✅ Đã thêm DNS records vào Cloudflare!")
+                show_toast(driver, "✅ Đã thêm DNS records")
                 result = await cf.enable_dnssec(domain)
                 print("Enable DNSSEC result:", result)
-                show_toast(driver, "✅ Đã bật DNSSEC trên Cloudflare!")
+                show_toast(driver, "✅ Đã bật DNSSEC")
 
             print("\n" + "="*60)
             print("✅ Đã in xong thông tin DNS records!")

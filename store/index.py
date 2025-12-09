@@ -5,7 +5,8 @@ import asyncio
 from configs.driver import setup_driver
 from configs.anti_freeze import AntiFreeze
 
-from utils.app import load_credentials
+from configs.app import load_credentials
+from utils.element import detect_store_id
 from auth import login_to_shopify, register_shopify_account, start_captcha_monitor, stop_captcha_monitor
 from install import install_apps
 from dsers.link_account import link_dser_account
@@ -18,6 +19,7 @@ from domain import connect_domain
 from selleasy import setup_selleasy
 from content import setup_content_menus
 from themes.import_theme import import_theme
+from notification import setup_notifications
 
 def show_interactive_menu():
     print("\n" + "="*80 + "\n")
@@ -30,15 +32,16 @@ def show_interactive_menu():
         ('login', '🔐 Login'),
         ('install_apps', '📦 Install Apps'),
         ('link_dser_account', '🛠️  DSers (link account)'),
+        ('connect_domain', '🌐 Domain'),
         ('setup_world_market', '🌍 Markets'),
         ('setup_legal_policies', '📜 Policies'),
         ('setup_contact_page', '📄 Pages'),
         ('setup_shipping_zones', '🚚 Shipping'),
         ('setup_preferences', '⚙️  Preferences'),
-        ('connect_domain', '🌐 Domain'),
         ('setup_selleasy', '🎯 Selleasy'),
         ('setup_content_menus', '📋 Content Menus'),
         ('import_themes', '🎨 Import Themes'),
+        ('setup_notifications', '🔔 Notifications'),
     ]
 
     questions = [
@@ -71,13 +74,13 @@ def show_interactive_menu():
 
 async def main():
     # Mặc định sử dụng Google Sheet, lấy từ row đầu tiên (index 0)
-    # Nếu muốn dùng configs/config.json, đổi use_sheet=False
+    # Nếu muốn dùng env.json, đổi use_sheet=False
     entry = load_credentials(use_sheet=True, row_index=0)
     if not entry:
         print("No valid credentials found. Exiting.")
         return
 
-    email, password, storeId, domain, name, info = entry["email"], entry["password"], entry["storeId"], entry["domain"], entry["name"], entry["info"]
+    email, password, _, domain, name, info = entry["email"], entry["password"], entry["storeId"], entry["domain"], entry["name"], entry["info"]
 
     selected_tasks = show_interactive_menu()
     if not selected_tasks:
@@ -93,6 +96,9 @@ async def main():
     start_captcha_monitor(driver, check_interval=2.0)
 
     cloudflare_token = "D0LRG-crTGRTqMn9udddaRCkzfw919PON0e2YpcP"
+    storeId = detect_store_id(driver)
+    if not storeId:
+        login_to_shopify(driver, email, password, storeId)
 
     try:
         if 'register_shopify_account' in selected_tasks:
@@ -150,6 +156,9 @@ async def main():
 
             if 'import_themes' in selected_tasks:
                 import_theme(driver, storeId)
+
+            if 'setup_notifications' in selected_tasks:
+                await setup_notifications(driver, storeId, domain, cloudflare_token)
 
         try:
             cookies = driver.get_cookies()

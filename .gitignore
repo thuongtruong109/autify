@@ -4,3 +4,4 @@ __pycache__
 build
 dist
 service_account.json
+env.json

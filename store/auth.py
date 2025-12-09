@@ -11,9 +11,6 @@ _captcha_monitor_active = False
 _captcha_monitor_thread = None
 
 def login_to_shopify(driver: webdriver.Chrome, email: str, password: str, storeId: str) -> bool:
-    """Đăng nhập vào Shopify Admin"""
-    print(f"\n{'='*50}\nProcessing store ID: {storeId}\n{'='*50}")
-
     # 1. Navigate to store admin URL
     login_url = f"https://admin.shopify.com/store/{storeId}"
     driver.get(login_url)
@@ -494,7 +491,7 @@ def shopify_captcha(driver: webdriver.Chrome, verbose: bool = True, auto_solve: 
 
             # Đọc config để lấy Bright Data credentials
             try:
-                with open('configs/config.json', 'r', encoding='utf-8') as f:
+                with open('env.json', 'r', encoding='utf-8') as f:
                     config = json.load(f)
                     bright_config = config.get('bright_data', {})
 
@@ -526,7 +523,7 @@ def shopify_captcha(driver: webdriver.Chrome, verbose: bool = True, auto_solve: 
                             print("ℹ️ Bright Data không được bật. Sử dụng phương thức thủ công...")
             except FileNotFoundError:
                 if verbose:
-                    print("⚠️ Không tìm thấy configs/config.json. Chuyển sang phương thức thủ công...")
+                    print("⚠️ Không tìm thấy env.json. Chuyển sang phương thức thủ công...")
             except Exception as e:
                 if verbose:
                     print(f"⚠️ Lỗi khi đọc config: {e}. Chuyển sang phương thức thủ công...")

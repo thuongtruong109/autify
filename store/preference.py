@@ -18,9 +18,9 @@ def setup_preferences(driver: webdriver.Chrome, storeId: str, seo_data: dict = N
     print("⚙️  SETUP PREFERENCES...")
     print("="*60)
 
-    # Nếu không có seo_data, load từ configs/config.json (cho CLI mode)
+    # Nếu không có seo_data, load từ env.json (cho CLI mode)
     if seo_data is None:
-        from utils.app import load_credentials
+        from configs.app import load_credentials
         entry = load_credentials()
         seo_data = entry.get("seo", {})
 

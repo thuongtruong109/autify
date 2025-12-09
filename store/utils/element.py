@@ -5,6 +5,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from typing import List
 
+from utils.toast import show_toast
+
 def delay(seconds: float):
     time.sleep(seconds)
 
@@ -146,3 +148,25 @@ def find_iframe_with_element(driver: webdriver.Chrome, element_id: str, timeout:
         print(f"⚠️ Lỗi khi tìm iframe: {e}")
         driver.switch_to.default_content()
         return False
+
+def detect_store_id(driver: webdriver.Chrome) -> str:
+    show_toast(driver, "🔍 Đang lấy store id...")
+    driver.get("https://admin.shopify.com")
+
+    try:
+        WebDriverWait(driver, 30).until(
+            lambda d: "admin.shopify.com/store/" in d.current_url
+        )
+
+        current_url = driver.current_url
+        if "/store/" in current_url:
+            store_id = current_url.split("/store/")[1].split("/")[0]
+            print(f"✅ Detected store_id: {store_id}")
+            return store_id
+        else:
+            print("⚠️ Redirected but store_id not found in URL.")
+            return None
+
+    except Exception as e:
+        print(f"⚠️ Failed to detect store_id: {e}")
+        return None
