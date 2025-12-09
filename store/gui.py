@@ -1,6 +1,8 @@
 import sys
 import os
 import re
+import asyncio
+import traceback
 
 if hasattr(sys, '_MEIPASS'):
     base_path = sys._MEIPASS
@@ -28,6 +30,9 @@ from preference import setup_preferences
 from domain import connect_domain
 from selleasy import setup_selleasy
 from content import setup_content_menus
+from themes.import_theme import import_theme
+from notification import setup_notifications
+from configs.app import get_config_json
 
 class ClickableGroupBox(QGroupBox):
     def __init__(self, title, parent=None):
@@ -844,36 +849,10 @@ class StoreAutomationGUI(QMainWindow):
         return scroll_area
 
     def toggle_credentials(self):
-        """Toggle between Info sheet and Info views"""
-        self.is_info_sheet = not self.is_info_sheet
-        if self.is_info_sheet:
-            self.credentical_group.setTitle("🔑 Credentials")
-            self.credentical_group.setStyleSheet("QGroupBox::title { color: #2c3e50; }")
-            self.store_id_entry.setVisible(False)
-            self.email_entry.setVisible(False)
-            self.password_entry.setVisible(False)
-            self.account_text.setVisible(True)
-            self.hotmail_id_entry.setVisible(False)
-            self.hotmail_password_entry.setVisible(False)
-            self.shopify_password_entry.setVisible(False)
-            self.domain_entry.setVisible(False)
-            self.info_text.setVisible(True)
-        else:
-            self.credentical_group.setTitle("🔑 Credentials")
-            self.credentical_group.setStyleSheet("QGroupBox::title { color: #007bff; }")
-            self.store_id_entry.setVisible(True)
-            self.email_entry.setVisible(True)
-            self.password_entry.setVisible(True)
-            self.account_text.setVisible(False)
-            # Show detailed account inputs if they have content, otherwise show single input
-            if self.hotmail_id_entry.text().strip() or self.hotmail_password_entry.text().strip() or self.shopify_password_entry.text().strip() or self.domain_entry.text().strip():
-                self.hotmail_id_entry.setVisible(True)
-                self.hotmail_password_entry.setVisible(True)
-                self.shopify_password_entry.setVisible(True)
-                self.domain_entry.setVisible(True)
-            else:
-                self.account_text.setVisible(True)
-            self.info_text.setVisible(False)
+        """Toggle between compact and detailed view"""
+        # Không cần toggle giữa sheet và input nữa vì chỉ dùng GUI fields
+        # Chỉ toggle giữa compact view và detailed view
+        pass
 
     def create_tasks_tab(self):
         """Create the Tasks tab"""
@@ -910,6 +889,8 @@ class StoreAutomationGUI(QMainWindow):
             ('connect_domain', '🌐 Connect Domain', connect_domain),
             ('setup_selleasy', '🎯 Selleasy', setup_selleasy),
             ('setup_content_menus', '📋 Content Menus', setup_content_menus),
+            ('import_theme', '🎨 Import Themes', import_theme),
+            ('setup_notifications', '🔔 Notifications', setup_notifications),
         ]
 
         row = 0
@@ -933,21 +914,34 @@ class StoreAutomationGUI(QMainWindow):
 
     def validate_inputs(self):
         """Validate input fields"""
-        store_id = self.store_id_entry.text().strip()
-        email = self.email_entry.text().strip()
-        password = self.password_entry.text()
-        seo_title = self.seo_title_entry.text().strip()
-        seo_description = self.seo_description_entry.text().strip()
+        # Validate email (từ hotmail_id_entry)
+        email = self.hotmail_id_entry.text().strip() if self.hotmail_id_entry.isVisible() else ""
+        if not email:
+            QMessageBox.critical(self, "Error", "Hotmail ID (Email) is required!")
+            return False
 
-        if not store_id:
+        # Validate password (từ shopify_password_entry)
+        password = self.shopify_password_entry.text().strip() if self.shopify_password_entry.isVisible() else ""
+        if not password:
+            QMessageBox.critical(self, "Error", "Shopify Password is required!")
+            return False
+
+        # Validate domain
+        domain = self.domain_entry.text().strip() if self.domain_entry.isVisible() else ""
+        if not domain:
             QMessageBox.critical(self, "Error", "Domain is required!")
             return False
-        if not email:
-            QMessageBox.critical(self, "Error", "Email is required!")
+
+        # Validate firstname và lastname
+        firstname = self.first_name_entry.text().strip() if self.first_name_entry.isVisible() else ""
+        lastname = self.last_name_entry.text().strip() if self.last_name_entry.isVisible() else ""
+        if not firstname or not lastname:
+            QMessageBox.critical(self, "Error", "First Name and Last Name are required!")
             return False
-        if not password:
-            QMessageBox.critical(self, "Error", "Password is required!")
-            return False
+
+        # Validate SEO
+        seo_title = self.seo_title_entry.text().strip()
+        seo_description = self.seo_description_entry.text().strip()
         if not seo_title:
             QMessageBox.critical(self, "Error", "SEO Title is required!")
             return False
@@ -959,10 +953,39 @@ class StoreAutomationGUI(QMainWindow):
 
     def get_credentials_from_inputs(self):
         """Get credentials from input fields"""
+        # Lấy email từ hotmail_id_entry
+        email = self.hotmail_id_entry.text().strip() if self.hotmail_id_entry.isVisible() and self.hotmail_id_entry.text().strip() else ""
+
+        # Lấy password từ shopify_password_entry
+        password = self.shopify_password_entry.text().strip() if self.shopify_password_entry.isVisible() and self.shopify_password_entry.text().strip() else ""
+
+        # Lấy domain từ domain_entry
+        domain = self.domain_entry.text().strip() if self.domain_entry.isVisible() and self.domain_entry.text().strip() else ""
+
+        # Lấy storeId từ domain (chuyển đổi dấu . thành -)
+        store_id = domain.replace('.', '-').replace('_', '-') if domain else ""
+
+        # Lấy firstname và lastname
+        firstname = self.first_name_entry.text().strip() if self.first_name_entry.isVisible() and self.first_name_entry.text().strip() else ""
+        lastname = self.last_name_entry.text().strip() if self.last_name_entry.isVisible() and self.last_name_entry.text().strip() else ""
+
+        # Lấy thông tin từ các field info
+        ssn = self.ssn_entry.text().strip() if self.ssn_entry.isVisible() and self.ssn_entry.text().strip() else ""
+        birthday = self.birthday_entry.text().strip() if self.birthday_entry.isVisible() and self.birthday_entry.text().strip() else ""
+        address = self.address_entry.text().strip() if self.address_entry.isVisible() and self.address_entry.text().strip() else ""
+        zip_code = self.zip_entry.text().strip() if self.zip_entry.isVisible() and self.zip_entry.text().strip() else ""
+
         return {
-            'storeId': self.store_id_entry.text().strip(),
-            'email': self.email_entry.text().strip(),
-            'password': self.password_entry.text(),
+            'storeId': store_id,
+            'email': email,
+            'password': password,
+            'domain': domain,
+            'firstname': firstname,
+            'lastname': lastname,
+            'ssn': ssn,
+            'birthday': birthday,
+            'address': address,
+            'zip': zip_code,
             'seo': {
                 'title': self.seo_title_entry.text().strip(),
                 'description': self.seo_description_entry.text().strip()
@@ -1059,12 +1082,16 @@ class StoreAutomationGUI(QMainWindow):
         self.credentials = self.get_credentials_from_inputs()
 
         self.log(f"📝 Credentials validated for store: {self.credentials['storeId']}")
+        self.log(f"📧 Email: {self.credentials['email']}")
+        self.log(f"👤 Name: {self.credentials['firstname']} {self.credentials['lastname']}")
 
         # Disable login button and input fields
         self.login_button.setEnabled(False)
-        self.store_id_entry.setEnabled(False)
-        self.email_entry.setEnabled(False)
-        self.password_entry.setEnabled(False)
+        self.hotmail_id_entry.setEnabled(False)
+        self.shopify_password_entry.setEnabled(False)
+        self.domain_entry.setEnabled(False)
+        self.first_name_entry.setEnabled(False)
+        self.last_name_entry.setEnabled(False)
         self.seo_title_entry.setEnabled(False)
         self.seo_description_entry.setEnabled(False)
 
@@ -1080,10 +1107,12 @@ class StoreAutomationGUI(QMainWindow):
             store_id = self.credentials['storeId']
 
             self.log(f"🔐 Starting login for {email}...")
+            self.log(f"📦 Store ID: {store_id}")
+            self.log(f"🌐 Domain: {self.credentials['domain']}")
 
             self.driver = self.setup_driver()
             if not self.driver:
-                self.root.after(0, lambda: self.login_button.config(state='normal'))
+                QTimer.singleShot(0, lambda: self.login_button.setEnabled(True))
                 return
 
             self.log("Attempting to login to Shopify...")
@@ -1120,9 +1149,11 @@ class StoreAutomationGUI(QMainWindow):
     def enable_inputs(self):
         """Re-enable input fields and login button"""
         self.login_button.setEnabled(True)
-        self.store_id_entry.setEnabled(True)
-        self.email_entry.setEnabled(True)
-        self.password_entry.setEnabled(True)
+        self.hotmail_id_entry.setEnabled(True)
+        self.shopify_password_entry.setEnabled(True)
+        self.domain_entry.setEnabled(True)
+        self.first_name_entry.setEnabled(True)
+        self.last_name_entry.setEnabled(True)
         self.seo_title_entry.setEnabled(True)
         self.seo_description_entry.setEnabled(True)
         self.status_icon.setText("⚪")
@@ -1135,36 +1166,39 @@ class StoreAutomationGUI(QMainWindow):
         self.login_button.setText("✅ Logged In")
         self.login_button.setEnabled(False)
 
-        # Enable all task buttons
         for btn in self.task_buttons.values():
             btn.setEnabled(True)
 
         QMessageBox.information(self, "Success", "Login successful! You can now run tasks.")
 
     def run_task(self, task_func, task_label):
-        """Run a specific task"""
         if not self.is_logged_in:
             QMessageBox.warning(self, "Warning", "Please login first!")
             return
 
-        # Disable all task buttons during execution
         for btn in self.task_buttons.values():
             btn.setEnabled(False)
 
-        # Run task in separate thread
         thread = threading.Thread(target=self.task_thread, args=(task_func, task_label), daemon=True)
         thread.start()
 
     def task_thread(self, task_func, task_label):
-        """Task execution thread"""
         try:
             self.log(f"\n{'='*60}")
             self.log(f"🚀 Starting task: {task_label}")
             self.log(f"{'='*60}")
 
             store_id = self.credentials['storeId']
+            email = self.credentials['email']
+            password = self.credentials['password']
+            domain = self.credentials['domain']
+            firstname = self.credentials['firstname']
+            lastname = self.credentials['lastname']
+            ssn = self.credentials['ssn']
+            birthday = self.credentials['birthday']
+            address = self.credentials['address']
+            zip_code = self.credentials['zip']
 
-            # Check if task requires special parameters
             if task_func == setup_legal_policies:
                 policies = self.credentials.get('policies', {})
                 task_func(self.driver, store_id, policies)
@@ -1172,25 +1206,27 @@ class StoreAutomationGUI(QMainWindow):
                 seo_data = self.credentials.get('seo', {})
                 task_func(self.driver, store_id, seo_data)
             elif task_func == link_dser_account:
-                password = self.credentials.get('password', '')
                 task_func(self.driver, store_id, password)
             elif task_func == register_shopify_account:
-                email = self.credentials.get('email', '')
-                password = self.credentials.get('password', '')
-                name = self.name_entry.text().strip() or self.first_name_entry.text().strip() + ' ' + self.last_name_entry.text().strip()
-                info = self.info_text.text().strip()
-                if not info and self.ssn_entry.isVisible():
-                    # Reconstruct info from detailed fields
-                    ssn = self.ssn_entry.text().strip()
-                    birthday = self.birthday_entry.text().strip()
-                    address = self.address_entry.text().strip()
-                    zip_code = self.zip_entry.text().strip()
-                    if ssn and birthday and address and zip_code:
-                        info = f"{ssn} {birthday} F {address} {zip_code}"
+                # Tạo full name từ firstname và lastname
+                name = f"{firstname} {lastname}"
+                # Tạo info string từ các field riêng lẻ
+                info = f"{ssn} {birthday} F {address} {zip_code}" if ssn and birthday and address and zip_code else ""
+                self.log(f"👤 Registering with name: {name}")
+                self.log(f"📋 Info: {info}")
                 task_func(self.driver, email, password, store_id, name, info)
             elif task_func == connect_domain:
-                task_func(self.driver, store_id, store_id)
+                task_func(self.driver, store_id, domain)
+            elif task_func == setup_notifications:
+                # setup_notifications là async function, cần chạy với asyncio
+                clf_token = get_config_json("cloudflare", "8", "token")
+                clf_email = get_config_json("cloudflare", "8", "email")
+                clf_key = get_config_json("cloudflare", "8", "key")
+                self.log(f"🔔 Setting up notifications for domain: {domain}")
+                asyncio.run(task_func(self.driver, store_id, domain, clf_token, clf_email, clf_key))
             else:
+                # Các task còn lại: install_apps, setup_world_market, setup_contact_page,
+                # setup_shipping_zones, setup_selleasy, setup_content_menus, import_theme
                 task_func(self.driver, store_id)
 
             self.log(f"✅ Task completed: {task_label}")
@@ -1200,28 +1236,24 @@ class StoreAutomationGUI(QMainWindow):
 
         except Exception as e:
             self.log(f"❌ Error in task {task_label}: {e}")
+            self.log(f"📋 Traceback: {traceback.format_exc()}")
             QTimer.singleShot(0, lambda: QMessageBox.critical(self, "Error", f"Task failed:\n{task_label}\n\nError: {e}"))
         finally:
-            # Re-enable all task buttons
             QTimer.singleShot(0, self.enable_task_buttons)
 
     def enable_task_buttons(self):
-        """Re-enable all task buttons"""
         for btn in self.task_buttons.values():
             btn.setEnabled(True)
 
     def toggle_card_inputs(self):
-        """Toggle between single card input and detailed card inputs"""
         if self.is_toggling_card:
             return
         self.is_toggling_card = True
 
         text = self.card_text.text().strip()
         if text:
-            # Try to extract card details from pasted text
             extracted = self.extract_generic_patterns(text)
             if extracted["number"] or extracted["expired"] or extracted["cvc"]:
-                # Switch to detailed inputs and fill them
                 self.card_number.setText(extracted["number"] or "")
                 self.expired.setText(extracted["expired"] or "")
                 self.cvc.setText(extracted["cvc"] or "")
@@ -1232,7 +1264,6 @@ class StoreAutomationGUI(QMainWindow):
                 self.cvc.setVisible(True)
                 self.card_number.setFocus()
             else:
-                # If no pattern found, treat as before
                 self.card_number.setText(text)
                 self.card_text.clear()
                 self.card_text.setVisible(False)
@@ -1241,7 +1272,6 @@ class StoreAutomationGUI(QMainWindow):
                 self.cvc.setVisible(True)
                 self.card_number.setFocus()
         else:
-            # Switch back to single input only if all detailed inputs are empty
             if not self.card_number.text().strip() and not self.expired.text().strip() and not self.cvc.text().strip():
                 self.card_text.setVisible(True)
                 self.card_number.setVisible(False)
@@ -1251,17 +1281,14 @@ class StoreAutomationGUI(QMainWindow):
         self.is_toggling_card = False
 
     def toggle_info_inputs(self):
-        """Toggle between single info input and detailed info inputs"""
         if self.is_toggling_info:
             return
         self.is_toggling_info = True
 
         text = self.info_text.text().strip()
         if text:
-            # Try to extract info details from pasted text
             extracted = self.extract_info(text)
             if extracted and (extracted["ssn"] or extracted["birthday"] or extracted["address"] or extracted["zip"]):
-                # Switch to detailed inputs and fill them
                 self.ssn_entry.setText(extracted["ssn"] or "")
                 self.birthday_entry.setText(extracted["birthday"] or "")
                 self.address_entry.setText(extracted["address"] or "")
@@ -1274,10 +1301,8 @@ class StoreAutomationGUI(QMainWindow):
                 self.zip_entry.setVisible(True)
                 self.ssn_entry.setFocus()
             else:
-                # If no pattern found, do nothing or handle differently
                 pass
         else:
-            # Switch back to single input only if all detailed inputs are empty
             if not self.ssn_entry.text().strip() and not self.birthday_entry.text().strip() and not self.address_entry.text().strip() and not self.zip_entry.text().strip():
                 self.info_text.setVisible(True)
                 self.ssn_entry.setVisible(False)
@@ -1288,17 +1313,14 @@ class StoreAutomationGUI(QMainWindow):
         self.is_toggling_info = False
 
     def toggle_name_inputs(self):
-        """Toggle between single name input and detailed name inputs"""
         if self.is_toggling_name:
             return
         self.is_toggling_name = True
 
         text = self.name_entry.text().strip()
         if text:
-            # Split name into first and last
             split = self.split_name(text)
             if split["first_name"] or split["last_name"]:
-                # Switch to detailed inputs and fill them
                 self.first_name_entry.setText(split["first_name"])
                 self.last_name_entry.setText(split["last_name"])
                 self.name_entry.clear()
@@ -1307,7 +1329,6 @@ class StoreAutomationGUI(QMainWindow):
                 self.last_name_entry.setVisible(True)
                 self.first_name_entry.setFocus()
         else:
-            # Switch back to single input only if both detailed inputs are empty
             if not self.first_name_entry.text().strip() and not self.last_name_entry.text().strip():
                 self.name_entry.setVisible(True)
                 self.first_name_entry.setVisible(False)
@@ -1316,18 +1337,15 @@ class StoreAutomationGUI(QMainWindow):
         self.is_toggling_name = False
 
     def toggle_account_inputs(self):
-        """Toggle between single account input and detailed account inputs"""
         if self.is_toggling_account:
             return
         self.is_toggling_account = True
 
         text = self.account_text.text().strip()
         if text:
-            # Try to parse account details from pasted text
             try:
                 parsed = self.parse_account_string(text)
                 if parsed["hotmail_id"] or parsed["hotmail_password"] or parsed["shopify_password"] or parsed["domain"]:
-                    # Switch to detailed inputs and fill them
                     self.hotmail_id_entry.setText(parsed["hotmail_id"] or "")
                     self.hotmail_password_entry.setText(parsed["hotmail_password"] or "")
                     self.shopify_password_entry.setText(parsed["shopify_password"] or "")
@@ -1340,7 +1358,6 @@ class StoreAutomationGUI(QMainWindow):
                     self.domain_entry.setVisible(True)
                     self.hotmail_id_entry.setFocus()
             except ValueError:
-                # If parsing fails, treat as before
                 self.hotmail_id_entry.setText(text)
                 self.account_text.clear()
                 self.account_text.setVisible(False)
@@ -1350,7 +1367,6 @@ class StoreAutomationGUI(QMainWindow):
                 self.domain_entry.setVisible(True)
                 self.hotmail_id_entry.setFocus()
         else:
-            # Switch back to single input only if all detailed inputs are empty
             if not self.hotmail_id_entry.text().strip() and not self.hotmail_password_entry.text().strip() and not self.shopify_password_entry.text().strip() and not self.domain_entry.text().strip():
                 self.account_text.setVisible(True)
                 self.hotmail_id_entry.setVisible(False)
@@ -1361,30 +1377,24 @@ class StoreAutomationGUI(QMainWindow):
         self.is_toggling_account = False
 
     def shorten_filename(self, filename, max_length=20):
-        """Shorten filename if too long"""
         if len(filename) <= max_length:
             return filename
         else:
             return filename[:7] + "..." + filename[-7:]
 
     def browse_review_file(self, idx):
-        """Browse for reviews file"""
         file_path, _ = QFileDialog.getOpenFileName(self, f"Select Review File {idx}", "", "Image Files (*.jpg *.jpeg *.png *.gif *.bmp *.tiff)")
         if file_path:
-            # Store the selected file path
             setattr(self, f'review_file_{idx}_path', file_path)
-            # Update button text to show file is selected
             button = getattr(self, f'review_file_{idx}_browse_button')
             button.setText(f"Selected: {self.shorten_filename(os.path.basename(file_path))}")
 
     def closeEvent(self, event):
-        """Handle window close event"""
         if self.driver:
             reply = QMessageBox.question(self, "Quit", "Do you want to close the browser and exit?",
                                        QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
             if reply == QMessageBox.Yes:
                 try:
-                    # Dừng captcha monitor trước khi đóng browser
                     stop_captcha_monitor()
                     self.driver.quit()
                     self.log("Browser closed")
@@ -1396,33 +1406,26 @@ class StoreAutomationGUI(QMainWindow):
         else:
             event.accept()
 
-
 class TextRedirector:
-    """Redirect stdout/stderr to a QTextEdit widget"""
     def __init__(self, widget, tag="stdout"):
         self.widget = widget
         self.tag = tag
 
     def write(self, text):
         self.widget.append(text.rstrip())
-        # Scroll to bottom
         scrollbar = self.widget.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
-        # Also write to terminal
         sys.__stdout__.write(text)
         sys.__stdout__.flush()
 
     def flush(self):
         sys.__stdout__.flush()
 
-
 def main():
-    """Main entry point"""
     app = QApplication(sys.argv)
     window = StoreAutomationGUI()
     window.show()
     sys.exit(app.exec())
-
 
 if __name__ == "__main__":
     main()
