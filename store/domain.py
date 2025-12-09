@@ -133,7 +133,10 @@ async def connect_domain(driver: webdriver.Chrome, storeId: str, domain: str, cl
 
                 { "type": "TXT", "name": domain, "content": "v=spf1 -all", "ttl": 1},
                 { "type": "TXT", "name": "*._domainkey", "content": "v=DKIM1; p=", "ttl": 1},
-                { "type": "TXT", "name": "_dmarc", "content": "v=DMARC1; p=reject; sp=reject; adkim=s; aspf=s;", "ttl": 1}
+                { "type": "TXT", "name": "_dmarc", "content": "v=DMARC1; p=reject; sp=reject; adkim=s; aspf=s;", "ttl": 1},
+
+                { "type": "TXT", "name": f"_dmarc.{domain}", "content": f"\"v=DMARC1; p=reject; sp=reject; adkim=s; aspf=s; rua=mailto:dmarc@{domain}\"", "ttl": 1},
+                { "type": "TXT", "name": domain, "content": "\"v=spf1 include:_spf.mx.cloudflare.net ~all\"", "ttl": 1}
             ]
 
             async with CloudflareClient(clf_token) as cf:
