@@ -5,7 +5,7 @@ import asyncio
 from configs.driver import setup_driver
 from configs.anti_freeze import AntiFreeze
 
-from configs.app import load_credentials
+from configs.app import load_credentials, get_config_json
 from utils.element import detect_store_id
 from auth import login_to_shopify, register_shopify_account, start_captcha_monitor, stop_captcha_monitor
 from install import install_apps
@@ -95,7 +95,6 @@ async def main():
 
     start_captcha_monitor(driver, check_interval=2.0)
 
-    cloudflare_token = "D0LRG-crTGRTqMn9udddaRCkzfw919PON0e2YpcP"
     storeId = detect_store_id(driver)
     if not storeId:
         login_to_shopify(driver, email, password, storeId)
@@ -134,7 +133,7 @@ async def main():
                 setup_world_market(driver, storeId)
 
             if 'setup_legal_policies' in selected_tasks:
-                setup_legal_policies(driver, storeId, entry.get("policies", {}))
+                setup_legal_policies(driver, storeId, {})
 
             if 'setup_contact_page' in selected_tasks:
                 setup_contact_page(driver, storeId)
@@ -146,7 +145,7 @@ async def main():
                 setup_preferences(driver, storeId)
 
             if 'connect_domain' in selected_tasks:
-                await connect_domain(driver, storeId, domain, cloudflare_token)
+                await connect_domain(driver, storeId, domain, get_config_json("cloudflare", "8", "token"))
 
             if 'setup_selleasy' in selected_tasks:
                 setup_selleasy(driver, storeId)
@@ -158,8 +157,7 @@ async def main():
                 import_theme(driver, storeId)
 
             if 'setup_notifications' in selected_tasks:
-                await setup_notifications(driver, storeId, domain, cloudflare_token)
-
+                await setup_notifications(driver, storeId, domain, get_config_json("cloudflare", "8", "token"), get_config_json("cloudflare", "8", "email"), get_config_json("cloudflare", "8", "key"))
         try:
             cookies = driver.get_cookies()
             with open("cookies.pkl", "wb") as f:

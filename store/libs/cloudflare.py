@@ -22,6 +22,9 @@ class CloudflareClient:
         if self.session:
             await self.session.close()
 
+    def update_headers(self, new_headers: dict):
+        self.headers.update(new_headers)
+
     async def _request(self, method: str, endpoint: str, json=None, params=None):
         if self.session is None:
             raise RuntimeError("Session is not initialized. Use 'async with CloudflareClient(...)'.")
@@ -90,3 +93,64 @@ class CloudflareClient:
             f"/zones/{zone_id}/dnssec",
             json={"status": "active"}
         )
+
+    async def get_accounts(self):
+        resp = await self._request("GET", "/accounts")
+        if resp and resp.get("result"):
+            return resp["result"]
+        return []
+
+    async def enable_email_routing(self, domain: str, email: str, api_key: str):
+        zone_id = await self.get_zone_id(domain)
+        if not zone_id:
+            print(f"[ERROR] Cannot enable email routing, zone not found for {domain}")
+            return None
+
+        self.update_headers({
+            "X-Auth-Email": email,
+            "X-Auth-Key": api_key
+        })
+
+        return await self._request(
+            "POST",
+            f"/zones/{zone_id}/email/routing/enable",
+            json={}
+        )
+
+    async def create_destination_email(self, account_id: str, email: str, api_key: str):
+        self.update_headers({
+            "X-Auth-Email": email,
+            "X-Auth-Key": api_key
+        })
+        endpoint = f"/accounts/{account_id}/email/routing/addresses"
+        payload = {"email": email}
+        return await self._request("POST", endpoint, json=payload)
+
+    async def update_catch_all_email_rule(self, domain: str, email: str, api_key: str):
+        self.update_headers({
+            "X-Auth-Email": email,
+            "X-Auth-Key": api_key
+        })
+
+        zone_id = await self.get_zone_id(domain)
+        if not zone_id:
+            return None
+
+        endpoint = f"/zones/{zone_id}/email/routing/rules/catch_all"
+        payload = {
+            "actions": [
+                {
+                    "type": "forward",
+                    "value": [email]
+                }
+            ],
+            "matchers": [
+                {
+                    "type": "all"
+                }
+            ],
+            "enabled": True,
+            "name": f"Send to {email} rule."
+        }
+
+        return await self._request("PUT", endpoint, json=payload)

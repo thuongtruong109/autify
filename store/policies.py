@@ -4,12 +4,10 @@ from typing import Dict, Any
 from utils.element import delay, highlight_element
 
 def setup_legal_policies(driver: webdriver.Chrome, storeId: str, policies: Dict[str, Any]):
-    """Setup legal policies cho store"""
     print("\n" + "="*60)
     print("📜 SETUP LEGAL POLICIES...")
     print("="*60)
 
-    # Danh sách các trang legal policies
     legal_pages = [
         {
             "name": "Refund Policy",

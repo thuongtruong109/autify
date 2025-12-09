@@ -5,7 +5,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from utils.element import delay, highlight_element
 from utils.toast import show_toast
 
-async def connect_domain(driver: webdriver.Chrome, storeId: str, domain: str, cloudflare_token: str):
+async def connect_domain(driver: webdriver.Chrome, storeId: str, domain: str, clf_token: str):
     print("\n" + "="*60)
     print("🌐 CONNECT EXISTING DOMAIN...")
     print("="*60)
@@ -136,7 +136,7 @@ async def connect_domain(driver: webdriver.Chrome, storeId: str, domain: str, cl
                 { "type": "TXT", "name": "_dmarc", "content": "v=DMARC1; p=reject; sp=reject; adkim=s; aspf=s;", "ttl": 1}
             ]
 
-            async with CloudflareClient(cloudflare_token) as cf:
+            async with CloudflareClient(clf_token) as cf:
                 results = await cf.add_multiple_dns_records(domain, dns_records)
                 print(results)
                 show_toast(driver, "✅ Đã thêm DNS records")
