@@ -66,7 +66,6 @@ def check_login_required(driver, email: str, password: str, storeId: str, select
         print("✅ Already logged in. Proceeding with tasks...")
         _store_id = current_store_id
 
-    print(f"💾 Store ID saved: {_store_id}")
     print("="*60)
     return True
 
@@ -139,10 +138,10 @@ async def main():
     if not driver:
         return
 
+    start_captcha_monitor(driver, check_interval=1.5)
+
     heartbeat = AntiFreeze(driver, interval=15)
     heartbeat.start()
-
-    start_captcha_monitor(driver, check_interval=2.0)
 
     try:
         # Xử lý task register (không cần login)
@@ -178,7 +177,7 @@ async def main():
                 install_apps(driver, _store_id)
 
             if 'link_dser_account' in selected_tasks:
-                link_dser_account(driver, _store_id, password)
+                link_dser_account(driver, password)
 
             if 'setup_world_market' in selected_tasks:
                 setup_world_market(driver, _store_id)

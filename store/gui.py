@@ -1127,7 +1127,7 @@ class StoreAutomationGUI(QMainWindow):
             'zip': zip_code,
             'seo': {
                 'title': self.seo_title_entry.text().strip(),
-                'description': self.seo_description_entry.text().strip()
+                'description': self.seo_description_entry.toPlainText().strip()
             },
             'marketing': {
                 'subject': self.marketing_subject_entry.text().strip()
@@ -1167,7 +1167,13 @@ class StoreAutomationGUI(QMainWindow):
                     'discount_price': getattr(self, f'product_{i}_discount_entry').text().strip(),
                     'original_price': getattr(self, f'product_{i}_original_entry').text().strip()
                 } for i in range(1, 5)
-            ]
+            ],
+            'policies': {
+                'return_and_refund': self.return_refund_text.toPlainText().strip(),
+                'terms_of_service': self.terms_service_text.toPlainText().strip(),
+                'shipping': self.shipping_policy_text.toPlainText().strip(),
+                'contact_information': self.contact_info_text.toPlainText().strip()
+            }
         }
 
     def log(self, message):
@@ -1257,7 +1263,6 @@ class StoreAutomationGUI(QMainWindow):
                 detected_store_id = detect_store_id(self.driver)
                 if detected_store_id:
                     self.store_id = detected_store_id
-                    self.log(f"💾 Store ID saved: {self.store_id}")
                 else:
                     self.store_id = store_id
                     self.log(f"💾 Store ID saved (fallback): {self.store_id}")
@@ -1424,7 +1429,6 @@ class StoreAutomationGUI(QMainWindow):
             detected_store_id = detect_store_id(self.driver)
             if detected_store_id:
                 self.store_id = detected_store_id
-                self.log(f"💾 Store ID saved: {self.store_id}")
             else:
                 self.store_id = store_id
                 self.log(f"💾 Store ID saved (fallback): {self.store_id}")
@@ -1442,8 +1446,6 @@ class StoreAutomationGUI(QMainWindow):
         address = self.credentials['address']
         zip_code = self.credentials['zip']
 
-        self.log(f"📦 Using Store ID: {store_id}")
-
         if task_func == setup_legal_policies:
             policies = self.credentials.get('policies', {})
             task_func(self.driver, store_id, policies)
@@ -1451,7 +1453,7 @@ class StoreAutomationGUI(QMainWindow):
             seo_data = self.credentials.get('seo', {})
             task_func(self.driver, store_id, seo_data)
         elif task_func == link_dser_account:
-            task_func(self.driver, store_id, password)
+            task_func(self.driver, password)
         elif task_func == register_shopify_account:
             from utils.element import detect_store_id
 

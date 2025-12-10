@@ -4,10 +4,6 @@ from typing import Dict, Any
 from utils.element import delay, highlight_element
 
 def setup_legal_policies(driver: webdriver.Chrome, storeId: str, policies: Dict[str, Any]):
-    print("\n" + "="*60)
-    print("📜 SETUP LEGAL POLICIES...")
-    print("="*60)
-
     legal_pages = [
         {
             "name": "Refund Policy",
@@ -39,6 +35,42 @@ def setup_legal_policies(driver: webdriver.Chrome, storeId: str, policies: Dict[
             # Vào trang policy
             driver.get(page['url'])
             delay(2)
+
+            # Lấy nội dung policy từ GUI
+            policy_content = policies.get(page['policy_key'], '').strip()
+            if policy_content:
+                print(f"📝 Đang nhập nội dung policy cho {page['name']}...")
+
+                # Tìm textarea để nhập nội dung
+                # Thử các selector phổ biến cho Shopify admin
+                textarea_selectors = [
+                    "textarea[name='policy[content]']",
+                    "textarea[id*='policy']",
+                    "textarea[class*='policy']",
+                    ".policy-editor textarea",
+                    ".editor textarea",
+                    "textarea"
+                ]
+
+                textarea = None
+                for selector in textarea_selectors:
+                    try:
+                        textarea = driver.find_element(By.CSS_SELECTOR, selector)
+                        if textarea.is_displayed():
+                            break
+                    except:
+                        continue
+
+                if textarea:
+                    # Xóa nội dung cũ và nhập nội dung mới
+                    textarea.clear()
+                    textarea.send_keys(policy_content)
+                    print(f"✅ Đã nhập nội dung policy cho {page['name']}")
+                    delay(1)
+                else:
+                    print(f"⚠️ Không tìm thấy textarea để nhập nội dung cho {page['name']}")
+            else:
+                print(f"⚠️ Không có nội dung policy cho {page['name']}")
 
             # Tìm button "Publish" và check aria-disabled mỗi 2s
             print(f"🔍 Tìm button 'Publish' cho {page['name']}...")

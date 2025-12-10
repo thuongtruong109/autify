@@ -105,7 +105,7 @@ def setup_driver() -> Optional[webdriver.Chrome]:
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-infobars")
         options.add_argument("--disable-blink-features=AutomationControlled")
-        options.add_argument("--disable-gpu")
+        # options.add_argument("--disable-gpu")
 
         user_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "profile")
         options.add_argument(f"--user-data-dir={user_data_dir}")
@@ -120,6 +120,7 @@ def setup_driver() -> Optional[webdriver.Chrome]:
         options.add_experimental_option("excludeSwitches", ["enable-logging"])
 
         # options.add_argument('--proxy-server=http://lkqbgbdk:klwsil8ci4hw@193.160.82.111:6083')
+        # options.add_argument(f"--proxy-server=socks5://193.160.82.111:6083")
 
         driver = webdriver.Chrome(service=service, options=options)
         driver.implicitly_wait(3)

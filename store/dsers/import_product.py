@@ -5,10 +5,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from utils.element import delay, highlight_element
 
 def import_dser_products(driver: webdriver.Chrome, storeId: str, password: str):
-    print("\n" + "="*60)
-    print("🔄 XỬ LÝ MỞ VÀ XÁC NHẬN DSERS...")
-    print("="*60)
-
     main_window_handle = driver.current_window_handle
 
     try:

@@ -135,73 +135,202 @@ def login_to_shopify(driver: webdriver.Chrome, email: str, password: str, storeI
     return logged
 
 def cloudflare_captcha(driver: webdriver.Chrome, verbose: bool = True) -> bool:
-    """Kiểm tra và click vào Cloudflare captcha 'Verify you are human' nếu có"""
+    """
+    Xử lý Cloudflare captcha bằng cách tìm <h1> chứa text "Your connection needs to be verified"
+    và thực hiện các thao tác click như trong test_cf_xpath.py
+    """
+    import random
+    from selenium.webdriver.common.action_chains import ActionChains
+
+    def find_h1_element(text_to_find):
+        """Tìm <h1> chứa text, trả về element hoặc None."""
+        try:
+            return driver.find_element(By.XPATH, f"//h1[contains(text(), '{text_to_find}')]")
+        except:
+            return None
+
+    def click_offset_with_marker(x, y):
+        """Click vật lý tại (x,y) và tạo marker đỏ."""
+        actions = ActionChains(driver)
+        actions.move_by_offset(x, y).click().perform()
+        actions.reset_actions()
+
+        js_marker = f"""
+        const marker = document.createElement('div');
+        marker.style.position = 'absolute';
+        marker.style.left = '{x-5}px';
+        marker.style.top = '{y-5}px';
+        marker.style.width = '10px';
+        marker.style.height = '10px';
+        marker.style.background='red';
+        marker.style.borderRadius='50%';
+        marker.style.zIndex='9999';
+        document.body.appendChild(marker);
+        """
+        driver.execute_script(js_marker)
+
     try:
-        verify_elements = driver.find_elements(
-            By.XPATH,
-            "//*[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'verify you are human')]"
-        )
-
-        if verify_elements:
+        # Check xem driver còn sống không
+        try:
+            _ = driver.current_url  # Test connection
+        except Exception as e:
             if verbose:
-                print("✅ Tìm thấy yêu cầu 'Verify you are human'. Click vào...")
-            # Tìm element có thể click (button, link, hoặc div có role="button")
-            clickable_verify = None
-
-            for elem in verify_elements:
-                tag_name = elem.tag_name.lower()
-                if tag_name in ['button', 'a'] or elem.get_attribute('role') == 'button':
-                    clickable_verify = elem
-                    break
-
-            if clickable_verify:
-                highlight_element(driver, clickable_verify)
-                clickable_verify.click()
-                if verbose:
-                    print("✅ Đã click vào 'Verify you are human'.")
-                delay(3)
-                return True
-            else:
-                # Nếu không tìm thấy element có thể click, thử click vào element đầu tiên
-                highlight_element(driver, verify_elements[0])
-                verify_elements[0].click()
-                if verbose:
-                    print("✅ Đã click vào element chứa 'Verify you are human'.")
-                delay(3)
-                return True
-        else:
+                print(f"⚠️ Driver không khả dụng: {str(e)[:50]}")
             return False
+
+        text_to_find = "Your connection needs to be verified"
+        element = find_h1_element(text_to_find)
+
+        if not element:
+            if verbose:
+                print("🔍 Không tìm thấy Cloudflare challenge element")
+            return False
+
+        if verbose:
+            print(f"✅ Tìm thấy Cloudflare challenge element!")
+
+        # Highlight element
+        try:
+            highlight_element(driver, element, "yellow")
+        except:
+            pass
+
+        rect = element.rect
+        base_x = rect['x'] + rect['width']/2
+        base_y = rect['y'] + rect['height']/2
+
+        # Cấu hình
+        offset_x = -180
+        offset_y = 60
+        random_clicks = 6
+        random_range = 25
+        random_click_delay = (0.8, 1.5)
+
+        # Random click nhiều lần
+        for _ in range(random_clicks):
+            rand_x = base_x + random.randint(-random_range, random_range)
+            rand_y = base_y + random.randint(-random_range, random_range)
+            click_offset_with_marker(rand_x, rand_y)
+            if verbose:
+                print(f"🎯 Random click tại ({rand_x:.0f},{rand_y:.0f}) với marker đỏ")
+            time.sleep(random.uniform(*random_click_delay))
+
+        # Click thật tại offset
+        click_x = base_x + offset_x
+        click_y = base_y + offset_y
+        click_offset_with_marker(click_x, click_y)
+        if verbose:
+            print(f"🖱 Click thật tại ({click_x:.0f},{click_y:.0f}) với marker đỏ")
+            print("✅ ĐÃ XỬ LÝ CLOUDFLARE CAPTCHA!")
+
+        time.sleep(2)
+        return True
 
     except Exception as e:
         if verbose:
-            print(f"⚠️ Lỗi khi kiểm tra/xác minh human: {e}")
+            print(f"⚠️ Lỗi khi xử lý Cloudflare captcha: {e}")
         return False
 
 
-def _cloudflare_captcha_monitor(driver: webdriver.Chrome, check_interval: float = 2.0):
-    """Background thread để liên tục kiểm tra và xử lý Cloudflare captcha"""
+def _captcha_monitor_background(driver: webdriver.Chrome, check_interval: float = 2.0):
+    """
+    Background thread để liên tục kiểm tra và xử lý cả Cloudflare captcha và Shopify captcha SONG SONG.
+
+    Thread này chạy GLOBAL trong suốt lifecycle của driver, không chỉ trong login.
+    Nó sẽ tự động detect và xử lý captcha ở bất kỳ page nào trong quá trình automation.
+    """
     global _captcha_monitor_active
 
-    print("🔄 Cloudflare captcha monitor đã bắt đầu (chạy trong background)...")
+    print("\n" + "="*70)
+    print("🔄 CAPTCHA MONITOR ĐÃ BẮT ĐẦU (chạy trong background)")
+    print("   🔍 Đang theo dõi: Cloudflare Captcha + Shopify Captcha")
+    print(f"   ⏱️  Check interval: {check_interval}s")
+    print(f"   🎯 Trạng thái: ĐANG CHẠY GLOBAL (cho mọi task)")
+    print("="*70 + "\n")
+
+    check_count = 0
+    consecutive_errors = 0
+    max_consecutive_errors = 5
 
     while _captcha_monitor_active:
+        check_count += 1
+
+        # Log mỗi 10 lần check để người dùng biết monitor vẫn đang chạy
+        if check_count % 10 == 1:
+            print(f"🔍 [Monitor] Đang check captcha lần thứ #{check_count}...")
+
         try:
-            # Kiểm tra captcha (không verbose để tránh spam log)
-            found = cloudflare_captcha(driver, verbose=False)
-            if found:
-                print("🤖 [Background] Đã tự động xử lý Cloudflare captcha!")
+            # 🔍 KIỂM TRA DRIVER CÒN SỐNG KHÔNG (tránh HTTPConnectionPool error)
+            try:
+                _ = driver.current_url
+                consecutive_errors = 0  # Reset error counter nếu driver OK
+            except Exception as e:
+                consecutive_errors += 1
+                if consecutive_errors >= max_consecutive_errors:
+                    print(f"\n⚠️ [Monitor] Driver không còn khả dụng sau {max_consecutive_errors} lần thử.")
+                    print("⚠️ [Monitor] Dừng monitor để tránh spam errors.")
+                    break
+                # Skip iteration này nếu driver chết
+                time.sleep(check_interval)
+                continue
+
+            # XỬ LÝ SONG SONG: Kiểm tra cả 2 loại captcha trong cùng 1 lượt
+            cf_found = False
+            shopify_found = False
+
+            # Kiểm tra Cloudflare captcha trước (ưu tiên cao hơn)
+            try:
+                cf_found = cloudflare_captcha(driver, verbose=True)  # BẬT verbose để debug
+                if cf_found:
+                    print("✅🤖 [BACKGROUND] ĐÃ TỰ ĐỘNG XỬ LÝ CLOUDFLARE CAPTCHA!")
+                    time.sleep(2)  # Đợi lâu hơn sau khi solve
+            except Exception as e:
+                error_msg = str(e)
+                # Chỉ log error nếu không phải HTTPConnectionPool (đã handle ở trên)
+                if 'HTTPConnectionPool' not in error_msg:
+                    print(f"⚠️ [Background] Lỗi Cloudflare captcha: {error_msg[:60]}")
+
+            # Kiểm tra Shopify captcha ngay sau đó (không đợi)
+            try:
+                shopify_found = shopify_captcha(driver, verbose=False, auto_solve=True)
+                if shopify_found:
+                    print("✅🤖 [BACKGROUND] ĐÃ TỰ ĐỘNG XỬ LÝ SHOPIFY CAPTCHA!")
+                    time.sleep(2)
+            except Exception as e:
+                error_msg = str(e)
+                if 'HTTPConnectionPool' not in error_msg:
+                    print(f"⚠️ [Background] Lỗi Shopify captcha: {error_msg[:60]}")
+
         except Exception as e:
-            # Bỏ qua lỗi để thread tiếp tục chạy
-            pass
+            # Log lỗi tổng thể
+            print(f"⚠️ [Background] Lỗi chung: {str(e)[:100]}")
 
         # Chờ trước khi check lại
         time.sleep(check_interval)
 
-    print("🛑 Cloudflare captcha monitor đã dừng.")
+    print("\n" + "="*70)
+    print("🛑 CAPTCHA MONITOR ĐÃ DỪNG")
+    print(f"   📊 Tổng số lần check: {check_count}")
+    print("="*70 + "\n")
 
 
 def start_captcha_monitor(driver: webdriver.Chrome, check_interval: float = 2.0):
-    """Khởi động background thread để tự động kiểm tra captcha"""
+    """
+    Khởi động background thread để tự động kiểm tra cả Cloudflare và Shopify captcha.
+
+    ⚠️ QUAN TRỌNG: Nên gọi hàm này NGAY SAU KHI setup driver, TRƯỚC KHI thực hiện bất kỳ task nào.
+    Monitor sẽ chạy global trong suốt lifecycle của driver, không chỉ riêng trong login.
+
+    Args:
+        driver: Selenium WebDriver instance
+        check_interval: Thời gian giữa các lần check (giây). Mặc định 2.0s
+
+    Example:
+        driver = setup_driver()
+        start_captcha_monitor(driver, check_interval=1.5)  # Bắt đầu monitor
+        # ... thực hiện các tasks ...
+        stop_captcha_monitor()  # Dừng monitor khi kết thúc
+    """
     global _captcha_monitor_active, _captcha_monitor_thread
 
     # Nếu thread đã chạy, không khởi động lại
@@ -211,15 +340,26 @@ def start_captcha_monitor(driver: webdriver.Chrome, check_interval: float = 2.0)
 
     _captcha_monitor_active = True
     _captcha_monitor_thread = threading.Thread(
-        target=_cloudflare_captcha_monitor,
+        target=_captcha_monitor_background,
         args=(driver, check_interval),
         daemon=True  # Daemon thread sẽ tự động kết thúc khi program exit
     )
     _captcha_monitor_thread.start()
 
-
+    # Đợi một chút để đảm bảo thread đã bắt đầu chạy
+    time.sleep(0.5)
+    print("✅ Captcha monitor thread đã được khởi động!")
 def stop_captcha_monitor():
-    """Dừng background thread kiểm tra captcha"""
+    """
+    Dừng background thread kiểm tra captcha.
+
+    ⚠️ QUAN TRỌNG: Chỉ nên gọi hàm này khi:
+    - Kết thúc toàn bộ chương trình / tất cả tasks
+    - Chuẩn bị đóng driver/browser
+    - Cleanup resources
+
+    KHÔNG nên dừng monitor giữa chừng các tasks vì captcha có thể xuất hiện bất cứ lúc nào.
+    """
     global _captcha_monitor_active, _captcha_monitor_thread
 
     if _captcha_monitor_active:
@@ -443,13 +583,14 @@ def register_shopify_account(driver: webdriver.Chrome, email: str, password: str
 
 
 
-def extract_hcaptcha_iframe_attributes(driver: webdriver.Chrome) -> dict:
+def extract_hcaptcha_iframe_attributes(driver: webdriver.Chrome, verbose: bool = True) -> dict:
     """
     Tìm và extract sitekey và origin từ hCaptcha iframe src.
     Trả về dictionary chứa sitekey và origin hoặc None nếu không tìm thấy.
     """
     try:
-        print("🔍 Đang tìm hCaptcha iframe...")
+        if verbose:
+            print("🔍 Đang tìm hCaptcha iframe...")
 
         # Tìm tất cả iframe có chứa hcaptcha
         hcaptcha_iframes = driver.find_elements(
@@ -458,10 +599,12 @@ def extract_hcaptcha_iframe_attributes(driver: webdriver.Chrome) -> dict:
         )
 
         if not hcaptcha_iframes:
-            print("⚠️ Không tìm thấy hCaptcha iframe.")
+            if verbose:
+                print("⚠️ Không tìm thấy hCaptcha iframe.")
             return None
 
-        print(f"✅ Tìm thấy {len(hcaptcha_iframes)} hCaptcha iframe(s).")
+        if verbose:
+            print(f"✅ Tìm thấy {len(hcaptcha_iframes)} hCaptcha iframe(s).")
 
         # Extract sitekey và origin từ iframe đầu tiên
         for idx, iframe in enumerate(hcaptcha_iframes):
@@ -472,9 +615,10 @@ def extract_hcaptcha_iframe_attributes(driver: webdriver.Chrome) -> dict:
                 if not src or 'hcaptcha.com' not in src:
                     continue
 
-                print(f"\n{'='*60}")
-                print(f"hCaptcha iframe #{idx + 1}")
-                print(f"{'='*60}")
+                if verbose:
+                    print(f"\n{'='*60}")
+                    print(f"hCaptcha iframe #{idx + 1}")
+                    print(f"{'='*60}")
 
                 # Parse URL để lấy parameters
                 from urllib.parse import urlparse, parse_qs, unquote
@@ -493,9 +637,10 @@ def extract_hcaptcha_iframe_attributes(driver: webdriver.Chrome) -> dict:
                     sitekey = params.get('sitekey', 'N/A')
                     origin = params.get('origin', 'N/A')
 
-                    print(f"sitekey: {sitekey}")
-                    print(f"origin: {origin}")
-                    print(f"{'='*60}\n")
+                    if verbose:
+                        print(f"sitekey: {sitekey}")
+                        print(f"origin: {origin}")
+                        print(f"{'='*60}\n")
 
                     # Trả về dict với sitekey và origin
                     return {
@@ -519,10 +664,12 @@ def shopify_captcha(driver: webdriver.Chrome, verbose: bool = True, auto_solve: 
     Tìm kiếm trong DOM thông thường, iframe, và shadow root.
     Nếu auto_solve=True, sẽ tự động giải captcha bằng Bright Data.
     """
-    # DETECT VÀ PRINT hCaptcha iframe attributes
-    print("\n🔍 Detecting hCaptcha iframe...")
-    captcha_info = extract_hcaptcha_iframe_attributes(driver)
-    print("")
+    # DETECT VÀ PRINT hCaptcha iframe attributes (chỉ khi verbose=True)
+    if verbose:
+        print("\n🔍 Detecting hCaptcha iframe...")
+    captcha_info = extract_hcaptcha_iframe_attributes(driver, verbose=verbose)
+    if verbose:
+        print("")
 
     # Nếu tìm thấy hCaptcha và auto_solve được bật, giải captcha tự động
     if captcha_info and auto_solve:
