@@ -19,6 +19,8 @@ from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 
+from configs.driver import setup_driver
+from configs.anti_freeze import AntiFreeze
 from auth import login_to_shopify, register_shopify_account, start_captcha_monitor, stop_captcha_monitor
 from install import install_apps
 from dsers.link_account import link_dser_account
@@ -64,21 +66,24 @@ class StoreAutomationGUI(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Autify")
-        self.setGeometry(100, 100, 600, 700)
+        self.resize(600, 700)
         self.setFixedSize(600, 700)
         self.setWindowIcon(QIcon(os.path.join(base_path, 'favicon.ico')))
 
-        # Variables
         self.driver = None
+        self.heartbeat = None
         self.is_logged_in = False
+        self.store_id = None
         self.credentials = None
         self.is_info_sheet = True
         self.is_toggling_card = False
         self.is_toggling_name = False
         self.is_toggling_account = False
         self.is_toggling_info = False
+        self.selected_tasks = set()  # Track selected tasks (using set)
+        self.task_order = []  # Track original task order
+        self.seo_file_path = None
 
-        # Setup UI
         self.setup_styles()
         self.create_widgets()
         self.card_text.textChanged.connect(self.toggle_card_inputs)
@@ -120,15 +125,6 @@ class StoreAutomationGUI(QMainWindow):
             QPushButton:disabled {
                 background-color: #cccccc;
                 color: #666666;
-            }
-            QPushButton#loginButton {
-                background-color: #2196F3;
-                font: bold 11px 'Segoe UI';
-                padding: 6px 20px;
-                border-radius: 6px;
-            }
-            QPushButton#loginButton:hover {
-                background-color: #1976D2;
             }
             QLineEdit {
                 padding: 5px;
@@ -327,26 +323,32 @@ class StoreAutomationGUI(QMainWindow):
         """)
         main_layout.addWidget(self.notebook)
 
-        # Login frame (now in the same row as tabs)
-        login_frame = QWidget()
-        login_layout = QHBoxLayout(login_frame)
-        login_layout.setContentsMargins(0, 0, 0, 0)
+        # Login Status Frame (ở góc tab bar - chỗ cũ)
+        login_status_frame = QWidget()
+        login_status_layout = QHBoxLayout(login_status_frame)
+        login_status_layout.setContentsMargins(0, 0, 0, 0)
+        login_status_layout.setSpacing(8)
+
+        # Login status label
+        login_status_label = QLabel("Login status:")
+        login_status_label.setStyleSheet("font: bold 11px 'Segoe UI'; color: #2c3e50;")
+        login_status_layout.addWidget(login_status_label)
 
         # Status icon
         self.status_icon = QLabel("⚪")
-        self.status_icon.setStyleSheet("font-size: 12px; color: white; background-color: #2196F3; border-radius: 50%; text-align: center; padding: 0;")
+        self.status_icon.setStyleSheet("""
+            font-size: 14px;
+            color: white;
+            min-width: 20px;
+            max-width: 20px;
+            min-height: 20px;
+            max-height: 20px;
+        """)
         self.status_icon.setAlignment(Qt.AlignCenter)
-        self.status_icon.setFixedSize(20, 20)
-        login_layout.addWidget(self.status_icon)
+        login_status_layout.addWidget(self.status_icon)
 
-        # Login Button
-        self.login_button = QPushButton("🔐 Login")
-        self.login_button.setObjectName("loginButton")
-        self.login_button.clicked.connect(self.login_action)
-        login_layout.addWidget(self.login_button)
-
-        # Set login frame as corner widget in the tab bar
-        self.notebook.setCornerWidget(login_frame)
+        # Set login status frame as corner widget
+        self.notebook.setCornerWidget(login_status_frame)
 
         # Create Credentials Tab
         self.credentials_tab = self.create_credentials_tab()
@@ -429,25 +431,6 @@ class StoreAutomationGUI(QMainWindow):
         credentical_layout = QVBoxLayout(self.credentical_group)
         credentical_layout.setSpacing(3)
         credentical_layout.setContentsMargins(4, 2, 4, 4)
-
-        # Store ID
-        self.store_id_entry = QLineEdit()
-        self.store_id_entry.setPlaceholderText('Domain')
-        self.store_id_entry.setVisible(False)
-        credentical_layout.addWidget(self.store_id_entry)
-
-        # Email
-        self.email_entry = QLineEdit()
-        self.email_entry.setPlaceholderText('Email address')
-        self.email_entry.setVisible(False)
-        credentical_layout.addWidget(self.email_entry)
-
-        # Password
-        self.password_entry = QLineEdit()
-        self.password_entry.setEchoMode(QLineEdit.Password)
-        self.password_entry.setPlaceholderText('Password')
-        self.password_entry.setVisible(False)
-        credentical_layout.addWidget(self.password_entry)
 
         # Account input
         self.account_text = QLineEdit()
@@ -547,14 +530,23 @@ class StoreAutomationGUI(QMainWindow):
         seo_layout.setSpacing(3)
         seo_layout.setContentsMargins(4, 2, 4, 4)
 
-        # SEO Title
+        # SEO Title and Upload Button
+        seo_title_layout = QHBoxLayout()
         self.seo_title_entry = QLineEdit()
         self.seo_title_entry.setPlaceholderText('SEO title')
-        seo_layout.addWidget(self.seo_title_entry)
+        seo_title_layout.addWidget(self.seo_title_entry)
+
+        self.upload_seo_button = QPushButton("📁 Logo")
+        self.upload_seo_button.clicked.connect(self.upload_seo_file)
+        seo_title_layout.addWidget(self.upload_seo_button)
+
+        seo_layout.addLayout(seo_title_layout)
 
         # SEO Description
-        self.seo_description_entry = QLineEdit()
+        self.seo_description_entry = PlainTextEdit()
+        self.seo_description_entry.setObjectName("inputText")
         self.seo_description_entry.setPlaceholderText('SEO description')
+        self.seo_description_entry.setMaximumHeight(80)
         seo_layout.addWidget(self.seo_description_entry)
 
         # Pages Frame
@@ -687,7 +679,8 @@ class StoreAutomationGUI(QMainWindow):
             getattr(self, f'product_{i}_original_entry').setPlaceholderText('Original price')
             price_layout.addWidget(getattr(self, f'product_{i}_original_entry'))
 
-            product_item_layout.addLayout(price_layout)
+            # Can be enabled later if needed
+            # product_item_layout.addLayout(price_layout)
 
             # Add separator
             if i < 4:
@@ -803,7 +796,7 @@ class StoreAutomationGUI(QMainWindow):
             setattr(self, f'review_file_{i}_name_entry', QLineEdit())
             getattr(self, f'review_file_{i}_name_entry').setPlaceholderText(f'Review text {i}')
             file_layout.addWidget(getattr(self, f'review_file_{i}_name_entry'))
-            setattr(self, f'review_file_{i}_browse_button', QPushButton('Browse'))
+            setattr(self, f'review_file_{i}_browse_button', QPushButton('📁 Image'))
             getattr(self, f'review_file_{i}_browse_button').clicked.connect(lambda checked, idx=i: self.browse_review_file(idx))
             file_layout.addWidget(getattr(self, f'review_file_{i}_browse_button'))
 
@@ -855,28 +848,32 @@ class StoreAutomationGUI(QMainWindow):
         pass
 
     def create_tasks_tab(self):
-        """Create the Tasks tab"""
-        # Create scroll area
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
 
-        # Create container widget
         container = QWidget()
         scroll_area.setWidget(container)
 
-        # Main layout
         layout = QVBoxLayout(container)
 
-        # Tasks Frame
-        tasks_group = QGroupBox("🎯 Available Tasks")
-        layout.addWidget(tasks_group)
+        # Tasks container (no border wrapper)
+        tasks_container = QWidget()
+        layout.addWidget(tasks_container)
 
-        tasks_layout = QGridLayout(tasks_group)
-        tasks_layout.setSpacing(3)
-        tasks_layout.setContentsMargins(4, 2, 4, 4)
+        tasks_layout = QVBoxLayout(tasks_container)
+        tasks_layout.setContentsMargins(0, 0, 0, 0)
+        tasks_layout.setSpacing(8)
 
-        # Create task buttons
+        # Tasks grid
+        tasks_grid = QWidget()
+        tasks_layout.addWidget(tasks_grid)
+
+        tasks_grid_layout = QGridLayout(tasks_grid)
+        tasks_grid_layout.setSpacing(3)
+        tasks_grid_layout.setContentsMargins(0, 0, 0, 0)
+
         self.task_buttons = {}
+        self.task_data = {}  # Store task metadata
         tasks = [
             ('register_shopify_account', '🆕 Register', register_shopify_account),
             ('install_apps', '📦 Install Apps', install_apps),
@@ -893,27 +890,119 @@ class StoreAutomationGUI(QMainWindow):
             ('setup_notifications', '🔔 Notifications', setup_notifications),
         ]
 
+        # Định nghĩa style chung cho tất cả buttons (tasks + login)
+        button_style = """
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #f9f9f9, stop:1 #e0e0e0);
+                color: #2c3e50;
+                border: 1px solid #bdc3c7;
+                padding: 8px 12px;
+                font: 11px 'Segoe UI';
+                border-radius: 4px;
+                text-align: left;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #ffffff, stop:1 #e3f2fd);
+                color: #1976d2;
+                border: 1px solid #2196F3;
+            }
+            QPushButton:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #e3f2fd, stop:1 #bbdefb);
+            }
+            QPushButton:disabled {
+                background-color: #ecf0f1;
+                color: #95a5a6;
+            }
+        """
+
+        # Selected button style (looks like hover)
+        self.selected_button_style = """
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #ffffff, stop:1 #e3f2fd);
+                color: #1976d2;
+                border: 1px solid #2196F3;
+                padding: 8px 12px;
+                font: 11px 'Segoe UI';
+                border-radius: 4px;
+                text-align: left;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #ffffff, stop:1 #e3f2fd);
+                color: #1976d2;
+                border: 1px solid #2196F3;
+            }
+            QPushButton:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #e3f2fd, stop:1 #bbdefb);
+            }
+            QPushButton:disabled {
+                background-color: #ecf0f1;
+                color: #95a5a6;
+            }
+        """
+
+        self.normal_button_style = button_style
+
         row = 0
         col = 0
+
+        # Thêm Login button đầu tiên
+        self.login_button = QPushButton("🔐 Login")
+        self.login_button.setStyleSheet(button_style)
+        self.login_button.clicked.connect(self.login_action)
+        tasks_grid_layout.addWidget(self.login_button, row, col)
+
+        col += 1
+
+        # Thêm các task buttons
         for task_id, task_label, task_func in tasks:
             btn = QPushButton(task_label)
-            btn.setEnabled(False)
-            btn.clicked.connect(lambda checked, f=task_func, l=task_label: self.run_task(f, l))
-            tasks_layout.addWidget(btn, row, col)
+            btn.setStyleSheet(button_style)
+            btn.clicked.connect(lambda checked, tid=task_id, tl=task_label, tf=task_func: self.toggle_task_selection(tid, tl, tf))
+            tasks_grid_layout.addWidget(btn, row, col)
             self.task_buttons[task_id] = btn
+            self.task_data[task_id] = {'label': task_label, 'func': task_func}
+            self.task_order.append(task_id)  # Store original order
 
             col += 1
-            if col > 1:  # 2 columns
+            if col > 1:
                 col = 0
                 row += 1
 
-        # Add stretch
+        # Add Run button below task list
+        self.run_button = QPushButton("▶️ Run Selected Tasks")
+        self.run_button.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                font: bold 12px 'Segoe UI';
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #666666;
+            }
+        """)
+        self.run_button.clicked.connect(self.run_selected_tasks)
+        self.run_button.setEnabled(False)
+        tasks_layout.addWidget(self.run_button)
+
         layout.addStretch()
 
         return scroll_area
 
-    def validate_inputs(self):
-        """Validate input fields"""
+    def validate_login_inputs(self):
+        """Validate input fields for login - only check hotmail_id and shopify_password"""
         # Validate email (từ hotmail_id_entry)
         email = self.hotmail_id_entry.text().strip() if self.hotmail_id_entry.isVisible() else ""
         if not email:
@@ -926,20 +1015,77 @@ class StoreAutomationGUI(QMainWindow):
             QMessageBox.critical(self, "Error", "Shopify Password is required!")
             return False
 
-        # Validate domain
-        domain = self.domain_entry.text().strip() if self.domain_entry.isVisible() else ""
-        if not domain:
-            QMessageBox.critical(self, "Error", "Domain is required!")
+        return True
+
+    def validate_register_inputs(self):
+        """Validate input fields for register - check hotmail_id, zip_code, name, address, card info"""
+        # Validate email (từ hotmail_id_entry)
+        email = self.hotmail_id_entry.text().strip() if self.hotmail_id_entry.isVisible() else ""
+        if not email:
+            QMessageBox.critical(self, "Error", "Hotmail ID (Email) is required for registration!")
+            return False
+
+        # Validate zip code
+        zip_code = self.zip_entry.text().strip() if self.zip_entry.isVisible() else ""
+        if not zip_code:
+            QMessageBox.critical(self, "Error", "Zip Code is required for registration!")
             return False
 
         # Validate firstname và lastname
         firstname = self.first_name_entry.text().strip() if self.first_name_entry.isVisible() else ""
         lastname = self.last_name_entry.text().strip() if self.last_name_entry.isVisible() else ""
         if not firstname or not lastname:
+            QMessageBox.critical(self, "Error", "First Name and Last Name are required for registration!")
+            return False
+
+        # Validate address
+        address = self.address_entry.text().strip() if self.address_entry.isVisible() else ""
+        if not address:
+            QMessageBox.critical(self, "Error", "Address is required for registration!")
+            return False
+
+        # Validate card number
+        card_number = self.card_number.text().strip() if self.card_number.isVisible() else ""
+        if not card_number:
+            QMessageBox.critical(self, "Error", "Card Number is required for registration!")
+            return False
+
+        # Validate card expired date
+        expired = self.expired.text().strip() if self.expired.isVisible() else ""
+        if not expired:
+            QMessageBox.critical(self, "Error", "Card Expiration Date is required for registration!")
+            return False
+
+        # Validate card CVC
+        cvc = self.cvc.text().strip() if self.cvc.isVisible() else ""
+        if not cvc:
+            QMessageBox.critical(self, "Error", "Card CVC is required for registration!")
+            return False
+
+        return True
+
+    def validate_inputs(self):
+        email = self.hotmail_id_entry.text().strip() if self.hotmail_id_entry.isVisible() else ""
+        if not email:
+            QMessageBox.critical(self, "Error", "Hotmail ID (Email) is required!")
+            return False
+
+        password = self.shopify_password_entry.text().strip() if self.shopify_password_entry.isVisible() else ""
+        if not password:
+            QMessageBox.critical(self, "Error", "Shopify Password is required!")
+            return False
+
+        domain = self.domain_entry.text().strip() if self.domain_entry.isVisible() else ""
+        if not domain:
+            QMessageBox.critical(self, "Error", "Domain is required!")
+            return False
+
+        firstname = self.first_name_entry.text().strip() if self.first_name_entry.isVisible() else ""
+        lastname = self.last_name_entry.text().strip() if self.last_name_entry.isVisible() else ""
+        if not firstname or not lastname:
             QMessageBox.critical(self, "Error", "First Name and Last Name are required!")
             return False
 
-        # Validate SEO
         seo_title = self.seo_title_entry.text().strip()
         seo_description = self.seo_description_entry.text().strip()
         if not seo_title:
@@ -952,24 +1098,17 @@ class StoreAutomationGUI(QMainWindow):
         return True
 
     def get_credentials_from_inputs(self):
-        """Get credentials from input fields"""
-        # Lấy email từ hotmail_id_entry
         email = self.hotmail_id_entry.text().strip() if self.hotmail_id_entry.isVisible() and self.hotmail_id_entry.text().strip() else ""
 
-        # Lấy password từ shopify_password_entry
         password = self.shopify_password_entry.text().strip() if self.shopify_password_entry.isVisible() and self.shopify_password_entry.text().strip() else ""
 
-        # Lấy domain từ domain_entry
         domain = self.domain_entry.text().strip() if self.domain_entry.isVisible() and self.domain_entry.text().strip() else ""
 
-        # Lấy storeId từ domain (chuyển đổi dấu . thành -)
         store_id = domain.replace('.', '-').replace('_', '-') if domain else ""
 
-        # Lấy firstname và lastname
         firstname = self.first_name_entry.text().strip() if self.first_name_entry.isVisible() and self.first_name_entry.text().strip() else ""
         lastname = self.last_name_entry.text().strip() if self.last_name_entry.isVisible() and self.last_name_entry.text().strip() else ""
 
-        # Lấy thông tin từ các field info
         ssn = self.ssn_entry.text().strip() if self.ssn_entry.isVisible() and self.ssn_entry.text().strip() else ""
         birthday = self.birthday_entry.text().strip() if self.birthday_entry.isVisible() and self.birthday_entry.text().strip() else ""
         address = self.address_entry.text().strip() if self.address_entry.isVisible() and self.address_entry.text().strip() else ""
@@ -1032,60 +1171,53 @@ class StoreAutomationGUI(QMainWindow):
         }
 
     def log(self, message):
-        """Add message to log"""
         self.log_text.append(f"{message}")
-        # Scroll to bottom
         scrollbar = self.log_text.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
 
-    def setup_driver(self) -> Optional[webdriver.Chrome]:
-        """Setup Chrome WebDriver"""
+    def setup_driver_and_heartbeat(self) -> Optional[webdriver.Chrome]:
         try:
-            self.log("Setting up Chrome WebDriver...")
-            service = Service(ChromeDriverManager().install())
+            self.log("🔧 Setting up Chrome WebDriver with advanced anti-detection...")
 
-            options = webdriver.ChromeOptions()
-            options.add_argument("--start-maximized")
+            driver = setup_driver()
 
-            user_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "selenium_data")
-            options.add_argument(f"--user-data-dir={user_data_dir}")
+            if not driver:
+                self.log("❌ Failed to initialize WebDriver")
+                QMessageBox.critical(self, "Error", "Failed to initialize WebDriver")
+                return None
 
-            options.add_experimental_option("excludeSwitches", ["enable-logging"])
-            options.add_argument("--disable-blink-features=AutomationControlled")
+            self.log("✅ WebDriver setup completed with stealth mode")
 
-            driver = webdriver.Chrome(service=service, options=options)
-            driver.implicitly_wait(10)
+            self.log("💓 Starting AntiFreeze heartbeat (interval: 15s)...")
+            self.heartbeat = AntiFreeze(driver, interval=15)
+            self.heartbeat.start()
+            self.log("✅ AntiFreeze heartbeat started")
 
-            self.log("✅ WebDriver setup completed")
-
-            # Khởi động captcha monitor ngay sau khi setup driver
             self.log("🔄 Starting Cloudflare captcha auto-monitor...")
             start_captcha_monitor(driver, check_interval=2.0)
+            self.log("✅ Captcha monitor started")
 
             return driver
         except Exception as e:
             self.log(f"❌ Critical error initializing WebDriver: {e}")
+            self.log(f"📋 Traceback: {traceback.format_exc()}")
             QMessageBox.critical(self, "Error", f"Failed to initialize WebDriver:\n{e}")
             return None
 
     def login_action(self):
-        """Handle login button click"""
         if self.is_logged_in:
             self.log("⚠️ Already logged in")
             return
 
-        # Validate inputs
-        if not self.validate_inputs():
+        if not self.validate_login_inputs():
             return
 
-        # Get credentials from input fields
         self.credentials = self.get_credentials_from_inputs()
 
         self.log(f"📝 Credentials validated for store: {self.credentials['storeId']}")
         self.log(f"📧 Email: {self.credentials['email']}")
         self.log(f"👤 Name: {self.credentials['firstname']} {self.credentials['lastname']}")
 
-        # Disable login button and input fields
         self.login_button.setEnabled(False)
         self.hotmail_id_entry.setEnabled(False)
         self.shopify_password_entry.setEnabled(False)
@@ -1095,13 +1227,13 @@ class StoreAutomationGUI(QMainWindow):
         self.seo_title_entry.setEnabled(False)
         self.seo_description_entry.setEnabled(False)
 
-        # Run login in separate thread
         thread = threading.Thread(target=self.login_thread, daemon=True)
         thread.start()
 
     def login_thread(self):
-        """Login thread function"""
         try:
+            from utils.element import detect_store_id
+
             email = self.credentials['email']
             password = self.credentials['password']
             store_id = self.credentials['storeId']
@@ -1110,7 +1242,7 @@ class StoreAutomationGUI(QMainWindow):
             self.log(f"📦 Store ID: {store_id}")
             self.log(f"🌐 Domain: {self.credentials['domain']}")
 
-            self.driver = self.setup_driver()
+            self.driver = self.setup_driver_and_heartbeat()
             if not self.driver:
                 QTimer.singleShot(0, lambda: self.login_button.setEnabled(True))
                 return
@@ -1122,7 +1254,14 @@ class StoreAutomationGUI(QMainWindow):
                 self.is_logged_in = True
                 self.log("✅ Login successful!")
 
-                # Update UI in main thread
+                detected_store_id = detect_store_id(self.driver)
+                if detected_store_id:
+                    self.store_id = detected_store_id
+                    self.log(f"💾 Store ID saved: {self.store_id}")
+                else:
+                    self.store_id = store_id
+                    self.log(f"💾 Store ID saved (fallback): {self.store_id}")
+
                 QTimer.singleShot(0, self.on_login_success)
             else:
                 self.log("❌ Login failed")
@@ -1131,9 +1270,7 @@ class StoreAutomationGUI(QMainWindow):
                 QTimer.singleShot(0, lambda: self.status_icon.setText("❌"))
 
                 if self.driver:
-                    stop_captcha_monitor()
-                    self.driver.quit()
-                    self.driver = None
+                    self.cleanup_driver()
 
         except Exception as e:
             self.log(f"❌ Login error: {e}")
@@ -1142,12 +1279,29 @@ class StoreAutomationGUI(QMainWindow):
             QTimer.singleShot(0, lambda: self.status_icon.setText("❌"))
 
             if self.driver:
-                stop_captcha_monitor()
+                self.cleanup_driver()
+
+    def cleanup_driver(self):
+        try:
+            self.log("🧹 Cleaning up driver resources...")
+
+            stop_captcha_monitor()
+            self.log("✅ Captcha monitor stopped")
+
+            if self.heartbeat:
+                self.heartbeat.stop()
+                self.heartbeat = None
+                self.log("✅ AntiFreeze heartbeat stopped")
+
+            if self.driver:
                 self.driver.quit()
                 self.driver = None
+                self.log("✅ Driver closed")
+
+        except Exception as e:
+            self.log(f"⚠️ Error during cleanup: {e}")
 
     def enable_inputs(self):
-        """Re-enable input fields and login button"""
         self.login_button.setEnabled(True)
         self.hotmail_id_entry.setEnabled(True)
         self.shopify_password_entry.setEnabled(True)
@@ -1157,93 +1311,196 @@ class StoreAutomationGUI(QMainWindow):
         self.seo_title_entry.setEnabled(True)
         self.seo_description_entry.setEnabled(True)
         self.status_icon.setText("⚪")
-        self.status_icon.setStyleSheet("color: white; background-color: #2196F3;")
+        self.status_icon.setStyleSheet("""
+            font-size: 14px;
+            color: white;
+            background-color: #95a5a6;
+            border-radius: 10px;
+            padding: 2px;
+            min-width: 20px;
+            max-width: 20px;
+            min-height: 20px;
+            max-height: 20px;
+        """)
+
+    def toggle_task_selection(self, task_id, task_label, task_func):
+        if task_id in self.selected_tasks:
+            self.selected_tasks.discard(task_id)
+            self.task_buttons[task_id].setStyleSheet(self.normal_button_style)
+            self.log(f"❌ Deselected task: {task_label}")
+        else:
+            self.selected_tasks.add(task_id)
+            self.task_buttons[task_id].setStyleSheet(self.selected_button_style)
+            self.log(f"✅ Selected task: {task_label}")
+
+        self.run_button.setEnabled(len(self.selected_tasks) > 0)
+
+    def run_selected_tasks(self):
+        if not self.selected_tasks:
+            QMessageBox.warning(self, "No Tasks", "Please select at least one task to run.")
+            return
+
+        for btn in self.task_buttons.values():
+            btn.setEnabled(False)
+        self.run_button.setEnabled(False)
+
+        thread = threading.Thread(target=self.run_selected_tasks_thread, daemon=True)
+        thread.start()
+
+    def run_selected_tasks_thread(self):
+        try:
+            self.log(f"\n{'='*60}")
+            self.log(f"🚀 Starting {len(self.selected_tasks)} selected task(s)")
+            self.log(f"{'='*60}")
+
+            sorted_tasks = [task_id for task_id in self.task_order if task_id in self.selected_tasks]
+
+            for task_id in sorted_tasks:
+                task_data = self.task_data[task_id]
+                task_func = task_data['func']
+                task_label = task_data['label']
+
+                self.log(f"\n▶️ Running: {task_label}")
+
+                self.execute_single_task(task_func, task_label)
+
+                self.log(f"✅ Completed: {task_label}")
+
+            self.log(f"\n{'='*60}")
+            self.log(f"✅ All selected tasks completed!")
+            self.log(f"{'='*60}\n")
+
+            QTimer.singleShot(0, lambda: QMessageBox.information(self, "Success", f"All {len(self.selected_tasks)} selected task(s) completed!"))
+
+        except Exception as e:
+            self.log(f"❌ Error running selected tasks: {e}")
+            self.log(f"📋 Traceback: {traceback.format_exc()}")
+            QTimer.singleShot(0, lambda: QMessageBox.critical(self, "Error", f"Error running tasks:\n{e}"))
+        finally:
+            QTimer.singleShot(0, self.after_run_selected_tasks)
+
+    def after_run_selected_tasks(self):
+        for task_id in self.selected_tasks:
+            if task_id in self.task_buttons:
+                self.task_buttons[task_id].setStyleSheet(self.normal_button_style)
+        self.selected_tasks.clear()
+
+        for btn in self.task_buttons.values():
+            btn.setEnabled(True)
+        self.run_button.setEnabled(False)
+
+    def execute_single_task(self, task_func, task_label):
+        if task_func == register_shopify_account:
+            if not self.validate_register_inputs():
+                raise Exception("Validation failed for register task")
+
+        if not self.credentials:
+            self.log("📝 Getting credentials from inputs...")
+            self.credentials = self.get_credentials_from_inputs()
+
+        if not self.driver or not self.is_logged_in:
+            self.log("🔐 Auto-login required for this task...")
+
+            if not self.driver:
+                self.driver = self.setup_driver_and_heartbeat()
+                if not self.driver:
+                    raise Exception("Failed to setup driver")
+
+            from utils.element import detect_store_id
+
+            email = self.credentials['email']
+            password = self.credentials['password']
+            store_id = self.credentials['storeId']
+
+            self.log(f"🔐 Logging in as {email}...")
+            logged = login_to_shopify(self.driver, email, password, store_id)
+
+            if not logged:
+                raise Exception("Auto-login failed")
+
+            self.is_logged_in = True
+            self.log("✅ Auto-login successful!")
+
+            detected_store_id = detect_store_id(self.driver)
+            if detected_store_id:
+                self.store_id = detected_store_id
+                self.log(f"💾 Store ID saved: {self.store_id}")
+            else:
+                self.store_id = store_id
+                self.log(f"💾 Store ID saved (fallback): {self.store_id}")
+
+            QTimer.singleShot(0, self.on_login_success)
+
+        store_id = self.store_id if self.store_id else self.credentials['storeId']
+        email = self.credentials['email']
+        password = self.credentials['password']
+        domain = self.credentials['domain']
+        firstname = self.credentials['firstname']
+        lastname = self.credentials['lastname']
+        ssn = self.credentials['ssn']
+        birthday = self.credentials['birthday']
+        address = self.credentials['address']
+        zip_code = self.credentials['zip']
+
+        self.log(f"📦 Using Store ID: {store_id}")
+
+        if task_func == setup_legal_policies:
+            policies = self.credentials.get('policies', {})
+            task_func(self.driver, store_id, policies)
+        elif task_func == setup_preferences:
+            seo_data = self.credentials.get('seo', {})
+            task_func(self.driver, store_id, seo_data)
+        elif task_func == link_dser_account:
+            task_func(self.driver, store_id, password)
+        elif task_func == register_shopify_account:
+            from utils.element import detect_store_id
+
+            name = f"{firstname} {lastname}"
+            info = f"{ssn} {birthday} F {address} {zip_code}" if ssn and birthday and address and zip_code else ""
+            self.log(f"👤 Registering with name: {name}")
+            self.log(f"📋 Info: {info}")
+            registered = task_func(self.driver, email, password, store_id, name, info)
+
+            if registered:
+                self.log("\n🔍 Detecting store ID after registration...")
+                detected_store_id = detect_store_id(self.driver)
+                if detected_store_id:
+                    self.store_id = detected_store_id
+                    self.log(f"💾 Store ID detected and saved: {self.store_id}")
+                else:
+                    self.store_id = store_id
+                    self.log(f"💾 Store ID saved (fallback): {self.store_id}")
+        elif task_func == connect_domain:
+            task_func(self.driver, store_id, domain)
+        elif task_func == setup_notifications:
+            clf_token = get_config_json("cloudflare", "8", "token")
+            clf_email = get_config_json("cloudflare", "8", "email")
+            clf_key = get_config_json("cloudflare", "8", "key")
+            self.log(f"🔔 Setting up notifications for domain: {domain}")
+            asyncio.run(task_func(self.driver, store_id, domain, clf_token, clf_email, clf_key))
+        else:
+            task_func(self.driver, store_id)
 
     def on_login_success(self):
-        """Update UI after successful login"""
         self.status_icon.setText("✅")
-        self.status_icon.setStyleSheet("color: #27ae60; background-color: #2196F3;")
+        self.status_icon.setStyleSheet("""
+            font-size: 14px;
+            color: white;
+            background-color: #27ae60;
+            border-radius: 10px;
+            padding: 2px;
+            min-width: 20px;
+            max-width: 20px;
+            min-height: 20px;
+            max-height: 20px;
+        """)
         self.login_button.setText("✅ Logged In")
         self.login_button.setEnabled(False)
 
         for btn in self.task_buttons.values():
             btn.setEnabled(True)
 
-        QMessageBox.information(self, "Success", "Login successful! You can now run tasks.")
-
-    def run_task(self, task_func, task_label):
-        if not self.is_logged_in:
-            QMessageBox.warning(self, "Warning", "Please login first!")
-            return
-
-        for btn in self.task_buttons.values():
-            btn.setEnabled(False)
-
-        thread = threading.Thread(target=self.task_thread, args=(task_func, task_label), daemon=True)
-        thread.start()
-
-    def task_thread(self, task_func, task_label):
-        try:
-            self.log(f"\n{'='*60}")
-            self.log(f"🚀 Starting task: {task_label}")
-            self.log(f"{'='*60}")
-
-            store_id = self.credentials['storeId']
-            email = self.credentials['email']
-            password = self.credentials['password']
-            domain = self.credentials['domain']
-            firstname = self.credentials['firstname']
-            lastname = self.credentials['lastname']
-            ssn = self.credentials['ssn']
-            birthday = self.credentials['birthday']
-            address = self.credentials['address']
-            zip_code = self.credentials['zip']
-
-            if task_func == setup_legal_policies:
-                policies = self.credentials.get('policies', {})
-                task_func(self.driver, store_id, policies)
-            elif task_func == setup_preferences:
-                seo_data = self.credentials.get('seo', {})
-                task_func(self.driver, store_id, seo_data)
-            elif task_func == link_dser_account:
-                task_func(self.driver, store_id, password)
-            elif task_func == register_shopify_account:
-                # Tạo full name từ firstname và lastname
-                name = f"{firstname} {lastname}"
-                # Tạo info string từ các field riêng lẻ
-                info = f"{ssn} {birthday} F {address} {zip_code}" if ssn and birthday and address and zip_code else ""
-                self.log(f"👤 Registering with name: {name}")
-                self.log(f"📋 Info: {info}")
-                task_func(self.driver, email, password, store_id, name, info)
-            elif task_func == connect_domain:
-                task_func(self.driver, store_id, domain)
-            elif task_func == setup_notifications:
-                # setup_notifications là async function, cần chạy với asyncio
-                clf_token = get_config_json("cloudflare", "8", "token")
-                clf_email = get_config_json("cloudflare", "8", "email")
-                clf_key = get_config_json("cloudflare", "8", "key")
-                self.log(f"🔔 Setting up notifications for domain: {domain}")
-                asyncio.run(task_func(self.driver, store_id, domain, clf_token, clf_email, clf_key))
-            else:
-                # Các task còn lại: install_apps, setup_world_market, setup_contact_page,
-                # setup_shipping_zones, setup_selleasy, setup_content_menus, import_theme
-                task_func(self.driver, store_id)
-
-            self.log(f"✅ Task completed: {task_label}")
-            self.log(f"{'='*60}\n")
-
-            QTimer.singleShot(0, lambda: QMessageBox.information(self, "Success", f"Task completed:\n{task_label}"))
-
-        except Exception as e:
-            self.log(f"❌ Error in task {task_label}: {e}")
-            self.log(f"📋 Traceback: {traceback.format_exc()}")
-            QTimer.singleShot(0, lambda: QMessageBox.critical(self, "Error", f"Task failed:\n{task_label}\n\nError: {e}"))
-        finally:
-            QTimer.singleShot(0, self.enable_task_buttons)
-
-    def enable_task_buttons(self):
-        for btn in self.task_buttons.values():
-            btn.setEnabled(True)
+        QMessageBox.information(self, "Success", "Login successful! You can now select and run tasks.")
 
     def toggle_card_inputs(self):
         if self.is_toggling_card:
@@ -1389,14 +1646,19 @@ class StoreAutomationGUI(QMainWindow):
             button = getattr(self, f'review_file_{idx}_browse_button')
             button.setText(f"Selected: {self.shorten_filename(os.path.basename(file_path))}")
 
+    def upload_seo_file(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select SEO File", "", "All Files (*)")
+        if file_path:
+            self.seo_file_path = file_path
+            self.upload_seo_button.setText(f"📁 {self.shorten_filename(os.path.basename(file_path))}")
+
     def closeEvent(self, event):
         if self.driver:
             reply = QMessageBox.question(self, "Quit", "Do you want to close the browser and exit?",
                                        QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
             if reply == QMessageBox.Yes:
                 try:
-                    stop_captcha_monitor()
-                    self.driver.quit()
+                    self.cleanup_driver()
                     self.log("Browser closed")
                 except:
                     pass
@@ -1424,6 +1686,8 @@ class TextRedirector:
 def main():
     app = QApplication(sys.argv)
     window = StoreAutomationGUI()
+    screen = app.primaryScreen().geometry()
+    window.move((screen.width() - window.width()) // 2, (screen.height() - window.height()) // 2)
     window.show()
     sys.exit(app.exec())
 

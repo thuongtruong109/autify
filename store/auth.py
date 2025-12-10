@@ -34,18 +34,9 @@ def login_to_shopify(driver: webdriver.Chrome, email: str, password: str, storeI
         print(f"✅ Đã điền email: {email}")
         delay(1)
 
-        # ===== XỬ LÝ SHOPIFY CAPTCHA SAU KHI ĐIỀN EMAIL =====
-        print("🔍 Tìm và xử lý Shopify captcha 'I am human'...")
-        captcha_handled = shopify_captcha(driver, auto_solve=True)
-        if captcha_handled:
-            print("✅ Đã xử lý Shopify captcha.")
-            delay(2)  # Đợi captcha verify
-        else:
-            print("⚠️ Không tìm thấy Shopify captcha. Có thể không cần hoặc đã được xử lý.")
-            delay(1)
+        # ===== XỬ LÝ SONG SONG: CAPTCHA VÀ CHECK BUTTON =====
+        print("🔍 Đang xử lý Shopify captcha và đồng thời check button 'Continue with email'...")
 
-        # Chờ button "Continue with email" visible và clickable
-        print("🔍 Đang đợi button 'Continue with email' được enable...")
         keywords_lower = ["continue with email", "tiếp tục bằng email"]
         keyword_conditions = [
             f"contains(translate(normalize-space(.), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{k}')"
@@ -56,13 +47,63 @@ def login_to_shopify(driver: webdriver.Chrome, email: str, password: str, storeI
             f"//a[{' or '.join(keyword_conditions)}]"
         )
 
-        cont_btn = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, xpath_query))
-        )
-        highlight_element(driver, cont_btn)
-        print("✅ Button 'Continue with email' đã sẵn sàng, đang click...")
-        cont_btn.click()
-        delay(2)
+        max_wait_time = 30  # Tối đa 30 giây
+        check_interval = 0.5  # Check mỗi 0.5 giây
+        elapsed_time = 0
+        button_clicked = False
+        captcha_attempted = False
+
+        while elapsed_time < max_wait_time and not button_clicked:
+            try:
+                # 1. Kiểm tra xem button đã visible và clickable chưa
+                cont_buttons = driver.find_elements(By.XPATH, xpath_query)
+
+                for btn in cont_buttons:
+                    try:
+                        if btn.is_displayed() and btn.is_enabled():
+                            # Button đã sẵn sàng → click ngay
+                            highlight_element(driver, btn)
+                            print("✅ Button 'Continue with email' đã sẵn sàng → Click ngay và bỏ qua captcha!")
+                            btn.click()
+                            button_clicked = True
+                            delay(2)
+                            break
+                    except:
+                        continue
+
+                if button_clicked:
+                    break
+
+                # 2. Nếu button chưa sẵn sàng, thử xử lý captcha (chỉ làm 1 lần)
+                if not captcha_attempted:
+                    captcha_handled = shopify_captcha(driver, auto_solve=True, verbose=False)
+                    if captcha_handled:
+                        print("✅ Đã xử lý Shopify captcha. Đang đợi button sẵn sàng...")
+                    captcha_attempted = True
+
+                # 3. Chờ một chút trước khi check lại
+                time.sleep(check_interval)
+                elapsed_time += check_interval
+
+            except Exception as e:
+                # Tiếp tục loop nếu có lỗi
+                time.sleep(check_interval)
+                elapsed_time += check_interval
+                continue
+
+        if not button_clicked:
+            # Fallback: Thử wait với WebDriverWait
+            print("⚠️ Chưa click được button. Thử phương thức chờ thông thường...")
+            try:
+                cont_btn = WebDriverWait(driver, 10).until(
+                    EC.element_to_be_clickable((By.XPATH, xpath_query))
+                )
+                highlight_element(driver, cont_btn)
+                print("✅ Button 'Continue with email' đã sẵn sàng (fallback), đang click...")
+                cont_btn.click()
+                delay(2)
+            except Exception as e:
+                print(f"⚠️ Không thể click button 'Continue with email': {e}")
     except Exception as e:
         print(f"⚠️ Lỗi khi xử lý email input hoặc continue button: {e}")
         pass
