@@ -21,7 +21,8 @@ from PySide6.QtGui import *
 
 from configs.driver import setup_driver
 from configs.anti_freeze import AntiFreeze
-from auth import login_to_shopify, register_shopify_account, start_captcha_monitor, stop_captcha_monitor
+from auth import login_to_shopify, register_shopify_account
+from utils.captcha import start_captcha_monitor, stop_captcha_monitor
 from install import install_apps
 from dsers.link_account import link_dser_account
 from market import setup_world_market
@@ -62,6 +63,18 @@ class PlainTextEdit(QTextEdit):
         else:
             super().insertFromMimeData(source)
 
+class WorkerSignals(QObject):
+    """Defines signals available from worker threads"""
+    log_message = Signal(str)
+    login_success = Signal()
+    login_failed = Signal(str)
+    task_completed = Signal()
+    task_error = Signal(str)
+    enable_login_button = Signal()
+    enable_inputs = Signal()
+    update_status_icon = Signal(str)
+    show_message_box = Signal(str, str, str)  # title, message, type (info/critical/warning)
+
 class StoreAutomationGUI(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -83,9 +96,18 @@ class StoreAutomationGUI(QMainWindow):
         self.selected_tasks = set()  # Track selected tasks (using set)
         self.task_order = []  # Track original task order
         self.seo_file_path = None
+        self.is_running_tasks = False  # Track if tasks are currently running
+        self.should_stop_tasks = False  # Flag to stop tasks
+
+        # Initialize worker signals (no parent = thread-safe for cross-thread signals)
+        self.signals = WorkerSignals()
 
         self.setup_styles()
         self.create_widgets()
+
+        # Connect signals AFTER widgets are created
+        self.connect_signals()
+
         self.card_text.textChanged.connect(self.toggle_card_inputs)
         self.card_number.textChanged.connect(self.toggle_card_inputs)
         self.expired.textChanged.connect(self.toggle_card_inputs)
@@ -951,7 +973,7 @@ class StoreAutomationGUI(QMainWindow):
         row = 0
         col = 0
 
-        # Thêm Login button đầu tiên
+        # Thêm Login button đầu tiên (để test khi cần)
         self.login_button = QPushButton("🔐 Login")
         self.login_button.setStyleSheet(button_style)
         self.login_button.clicked.connect(self.login_action)
@@ -974,7 +996,9 @@ class StoreAutomationGUI(QMainWindow):
                 col = 0
                 row += 1
 
-        # Add Run button below task list
+        # Add Run and Stop buttons in horizontal layout
+        buttons_layout = QHBoxLayout()
+
         self.run_button = QPushButton("▶️ Run Selected Tasks")
         self.run_button.setStyleSheet("""
             QPushButton {
@@ -984,18 +1008,56 @@ class StoreAutomationGUI(QMainWindow):
                 padding: 10px 20px;
                 font: bold 12px 'Segoe UI';
                 border-radius: 4px;
+                min-height: 35px;
             }
             QPushButton:hover {
                 background-color: #45a049;
+                cursor: pointer;
             }
             QPushButton:disabled {
                 background-color: #cccccc;
                 color: #666666;
             }
         """)
+        self.run_button.setCursor(Qt.PointingHandCursor)
+        self.run_button.setFocusPolicy(Qt.StrongFocus)
         self.run_button.clicked.connect(self.run_selected_tasks)
         self.run_button.setEnabled(False)
-        tasks_layout.addWidget(self.run_button)
+        self.run_button.setToolTip("Chạy các task đã chọn")
+        buttons_layout.addWidget(self.run_button)
+
+        self.stop_button = QPushButton("⏹️ Stop Tasks")
+        self.stop_button.setStyleSheet("""
+            QPushButton {
+                background-color: #f44336;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                font: bold 12px 'Segoe UI';
+                border-radius: 4px;
+                min-height: 35px;
+            }
+            QPushButton:hover:!disabled {
+                background-color: #da190b;
+            }
+            QPushButton:pressed:!disabled {
+                background-color: #b71c1c;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #666666;
+                cursor: not-allowed;
+            }
+            QPushButton:!disabled {
+                cursor: pointer;
+            }
+        """)
+        self.stop_button.clicked.connect(self.stop_tasks)
+        self.stop_button.setEnabled(False)
+        self.stop_button.setToolTip("Dừng các task đang chạy")
+        buttons_layout.addWidget(self.stop_button)
+
+        tasks_layout.addLayout(buttons_layout)
 
         layout.addStretch()
 
@@ -1003,64 +1065,82 @@ class StoreAutomationGUI(QMainWindow):
 
     def validate_login_inputs(self):
         """Validate input fields for login - only check hotmail_id and shopify_password"""
-        # Validate email (từ hotmail_id_entry)
-        email = self.hotmail_id_entry.text().strip() if self.hotmail_id_entry.isVisible() else ""
+        # Validate email (from parsed hotmail_id_entry field)
+        email = self.hotmail_id_entry.text().strip()
         if not email:
-            QMessageBox.critical(self, "Error", "Hotmail ID (Email) is required!")
+            QMessageBox.critical(self, "Error", "Hotmail ID (Email) is required for login!")
             return False
 
-        # Validate password (từ shopify_password_entry)
-        password = self.shopify_password_entry.text().strip() if self.shopify_password_entry.isVisible() else ""
+        # Validate password (from parsed shopify_password_entry field)
+        password = self.shopify_password_entry.text().strip()
         if not password:
-            QMessageBox.critical(self, "Error", "Shopify Password is required!")
+            QMessageBox.critical(self, "Error", "Shopify Password is required for login!")
             return False
 
         return True
 
+    def show_error_thread_safe(self, message):
+        """Show error message in a thread-safe way"""
+        if QThread.currentThread() != self.thread():
+            self.signals.show_message_box.emit("Error", message, "critical")
+        else:
+            QMessageBox.critical(self, "Error", message)
+
     def validate_register_inputs(self):
-        """Validate input fields for register - check hotmail_id, zip_code, name, address, card info"""
-        # Validate email (từ hotmail_id_entry)
-        email = self.hotmail_id_entry.text().strip() if self.hotmail_id_entry.isVisible() else ""
+        """Validate input fields for register - check hotmail_id, shopify_password, zip_code, firstname, lastname, address"""
+        # Validate email (from parsed hotmail_id_entry field)
+        email = self.hotmail_id_entry.text().strip()
         if not email:
-            QMessageBox.critical(self, "Error", "Hotmail ID (Email) is required for registration!")
+            self.show_error_thread_safe("Hotmail ID (Email) is required for registration!")
             return False
 
-        # Validate zip code
-        zip_code = self.zip_entry.text().strip() if self.zip_entry.isVisible() else ""
+        # Validate shopify password (from parsed shopify_password_entry field)
+        shopify_password = self.shopify_password_entry.text().strip()
+        if not shopify_password:
+            self.show_error_thread_safe("Shopify Password is required for registration!")
+            return False
+
+        # Validate zip code (from parsed zip_entry field)
+        zip_code = self.zip_entry.text().strip()
         if not zip_code:
-            QMessageBox.critical(self, "Error", "Zip Code is required for registration!")
+            self.show_error_thread_safe("Zip Code is required for registration!")
             return False
 
-        # Validate firstname và lastname
-        firstname = self.first_name_entry.text().strip() if self.first_name_entry.isVisible() else ""
-        lastname = self.last_name_entry.text().strip() if self.last_name_entry.isVisible() else ""
-        if not firstname or not lastname:
-            QMessageBox.critical(self, "Error", "First Name and Last Name are required for registration!")
+        # Validate firstname (from parsed first_name_entry field)
+        firstname = self.first_name_entry.text().strip()
+        if not firstname:
+            self.show_error_thread_safe("First Name is required for registration!")
             return False
 
-        # Validate address
-        address = self.address_entry.text().strip() if self.address_entry.isVisible() else ""
+        # Validate lastname (from parsed last_name_entry field)
+        lastname = self.last_name_entry.text().strip()
+        if not lastname:
+            self.show_error_thread_safe("Last Name is required for registration!")
+            return False
+
+        # Validate address (from parsed address_entry field)
+        address = self.address_entry.text().strip()
         if not address:
-            QMessageBox.critical(self, "Error", "Address is required for registration!")
+            self.show_error_thread_safe("Address is required for registration!")
             return False
 
-        # Validate card number
-        card_number = self.card_number.text().strip() if self.card_number.isVisible() else ""
-        if not card_number:
-            QMessageBox.critical(self, "Error", "Card Number is required for registration!")
-            return False
+        # Validate card number (from parsed card_number field)
+        # card_number = self.card_number.text().strip()
+        # if not card_number:
+        #     self.show_error_thread_safe("Card Number is required for registration!")
+        #     return False
 
-        # Validate card expired date
-        expired = self.expired.text().strip() if self.expired.isVisible() else ""
-        if not expired:
-            QMessageBox.critical(self, "Error", "Card Expiration Date is required for registration!")
-            return False
+        # # Validate card expired date (from parsed expired field)
+        # expired = self.expired.text().strip()
+        # if not expired:
+        #     self.show_error_thread_safe("Card Expiration Date is required for registration!")
+        #     return False
 
-        # Validate card CVC
-        cvc = self.cvc.text().strip() if self.cvc.isVisible() else ""
-        if not cvc:
-            QMessageBox.critical(self, "Error", "Card CVC is required for registration!")
-            return False
+        # # Validate card CVC (from parsed cvc field)
+        # cvc = self.cvc.text().strip()
+        # if not cvc:
+        #     self.show_error_thread_safe("Card CVC is required for registration!")
+        #     return False
 
         return True
 
@@ -1098,16 +1178,25 @@ class StoreAutomationGUI(QMainWindow):
         return True
 
     def get_credentials_from_inputs(self):
-        email = self.hotmail_id_entry.text().strip() if self.hotmail_id_entry.isVisible() and self.hotmail_id_entry.text().strip() else ""
+        # Debug: Log raw input values
+        self.log("🔍 DEBUG - Reading input fields:")
 
-        password = self.shopify_password_entry.text().strip() if self.shopify_password_entry.isVisible() and self.shopify_password_entry.text().strip() else ""
+        email = self.hotmail_id_entry.text().strip()
+        self.log(f"  Email field value: '{email}' (visible: {self.hotmail_id_entry.isVisible()})")
 
-        domain = self.domain_entry.text().strip() if self.domain_entry.isVisible() and self.domain_entry.text().strip() else ""
+        password = self.shopify_password_entry.text().strip()
+        self.log(f"  Password field value: '{password}' (visible: {self.shopify_password_entry.isVisible()})")
+
+        domain = self.domain_entry.text().strip()
+        self.log(f"  Domain field value: '{domain}' (visible: {self.domain_entry.isVisible()})")
 
         store_id = domain.replace('.', '-').replace('_', '-') if domain else ""
 
-        firstname = self.first_name_entry.text().strip() if self.first_name_entry.isVisible() and self.first_name_entry.text().strip() else ""
-        lastname = self.last_name_entry.text().strip() if self.last_name_entry.isVisible() and self.last_name_entry.text().strip() else ""
+        firstname = self.first_name_entry.text().strip()
+        self.log(f"  First name field value: '{firstname}' (visible: {self.first_name_entry.isVisible()})")
+
+        lastname = self.last_name_entry.text().strip()
+        self.log(f"  Last name field value: '{lastname}' (visible: {self.last_name_entry.isVisible()})")
 
         ssn = self.ssn_entry.text().strip() if self.ssn_entry.isVisible() and self.ssn_entry.text().strip() else ""
         birthday = self.birthday_entry.text().strip() if self.birthday_entry.isVisible() and self.birthday_entry.text().strip() else ""
@@ -1176,10 +1265,57 @@ class StoreAutomationGUI(QMainWindow):
             }
         }
 
+    def connect_signals(self):
+        """Connect worker signals to GUI slots using Qt.QueuedConnection for thread safety"""
+        self.signals.log_message.connect(self.log_safe, Qt.QueuedConnection)
+        self.signals.login_success.connect(self.on_login_success, Qt.QueuedConnection)
+        self.signals.login_failed.connect(self.on_login_failed, Qt.QueuedConnection)
+        self.signals.task_completed.connect(self.after_run_selected_tasks, Qt.QueuedConnection)
+        self.signals.task_error.connect(self.on_task_error, Qt.QueuedConnection)
+        self.signals.enable_login_button.connect(lambda: self.login_button.setEnabled(True), Qt.QueuedConnection)
+        self.signals.enable_inputs.connect(self.enable_inputs, Qt.QueuedConnection)
+        self.signals.update_status_icon.connect(self.update_status_icon, Qt.QueuedConnection)
+        self.signals.show_message_box.connect(self.show_message_box_safe, Qt.QueuedConnection)
+
     def log(self, message):
+        """Thread-safe logging - can be called from any thread"""
+        if QThread.currentThread() == self.thread():
+            # Called from main thread
+            self.log_safe(message)
+        else:
+            # Called from worker thread - use signal
+            self.signals.log_message.emit(message)
+
+    def log_safe(self, message):
+        """Actually append to log - only called from main thread"""
         self.log_text.append(f"{message}")
         scrollbar = self.log_text.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
+
+    def update_status_icon(self, icon_text):
+        """Update status icon from main thread"""
+        self.status_icon.setText(icon_text)
+
+    def show_message_box_safe(self, title, message, msg_type):
+        """Show message box from main thread"""
+        if msg_type == "info":
+            QMessageBox.information(self, title, message)
+        elif msg_type == "critical":
+            QMessageBox.critical(self, title, message)
+        elif msg_type == "warning":
+            QMessageBox.warning(self, title, message)
+
+    def on_login_failed(self, error_msg):
+        """Handle login failure from main thread"""
+        QMessageBox.critical(self, "Login Failed", error_msg)
+        self.enable_inputs()
+        self.status_icon.setText("❌")
+        if self.driver:
+            self.cleanup_driver()
+
+    def on_task_error(self, error_msg):
+        """Handle task error from main thread"""
+        QMessageBox.critical(self, "Error", error_msg)
 
     def setup_driver_and_heartbeat(self) -> Optional[webdriver.Chrome]:
         try:
@@ -1189,7 +1325,11 @@ class StoreAutomationGUI(QMainWindow):
 
             if not driver:
                 self.log("❌ Failed to initialize WebDriver")
-                QMessageBox.critical(self, "Error", "Failed to initialize WebDriver")
+                # Use signal instead of direct QMessageBox call (thread-safe)
+                if QThread.currentThread() != self.thread():
+                    self.signals.show_message_box.emit("Error", "Failed to initialize WebDriver", "critical")
+                else:
+                    QMessageBox.critical(self, "Error", "Failed to initialize WebDriver")
                 return None
 
             self.log("✅ WebDriver setup completed with stealth mode")
@@ -1207,7 +1347,11 @@ class StoreAutomationGUI(QMainWindow):
         except Exception as e:
             self.log(f"❌ Critical error initializing WebDriver: {e}")
             self.log(f"📋 Traceback: {traceback.format_exc()}")
-            QMessageBox.critical(self, "Error", f"Failed to initialize WebDriver:\n{e}")
+            # Use signal instead of direct QMessageBox call (thread-safe)
+            if QThread.currentThread() != self.thread():
+                self.signals.show_message_box.emit("Error", f"Failed to initialize WebDriver:\n{e}", "critical")
+            else:
+                QMessageBox.critical(self, "Error", f"Failed to initialize WebDriver:\n{e}")
             return None
 
     def login_action(self):
@@ -1218,12 +1362,16 @@ class StoreAutomationGUI(QMainWindow):
         if not self.validate_login_inputs():
             return
 
+        # Get credentials from input fields FIRST
         self.credentials = self.get_credentials_from_inputs()
 
-        self.log(f"📝 Credentials validated for store: {self.credentials['storeId']}")
+        # NOW log the credentials that were just retrieved
+        self.log(f"📝 Credentials retrieved from input fields:")
+        self.log(f"📦 Store ID: {self.credentials['storeId']}")
         self.log(f"📧 Email: {self.credentials['email']}")
         self.log(f"👤 Name: {self.credentials['firstname']} {self.credentials['lastname']}")
 
+        # Disable inputs during login
         self.login_button.setEnabled(False)
         self.hotmail_id_entry.setEnabled(False)
         self.shopify_password_entry.setEnabled(False)
@@ -1250,7 +1398,7 @@ class StoreAutomationGUI(QMainWindow):
 
             self.driver = self.setup_driver_and_heartbeat()
             if not self.driver:
-                QTimer.singleShot(0, lambda: self.login_button.setEnabled(True))
+                self.signals.enable_login_button.emit()
                 return
 
             self.log("Attempting to login to Shopify...")
@@ -1267,21 +1415,16 @@ class StoreAutomationGUI(QMainWindow):
                     self.store_id = store_id
                     self.log(f"💾 Store ID saved (fallback): {self.store_id}")
 
-                QTimer.singleShot(0, self.on_login_success)
+                self.signals.login_success.emit()
             else:
                 self.log("❌ Login failed")
-                QTimer.singleShot(0, lambda: QMessageBox.critical(self, "Login Failed", "Could not login to Shopify"))
-                QTimer.singleShot(0, self.enable_inputs)
-                QTimer.singleShot(0, lambda: self.status_icon.setText("❌"))
-
-                if self.driver:
-                    self.cleanup_driver()
+                self.signals.login_failed.emit("Could not login to Shopify")
 
         except Exception as e:
             self.log(f"❌ Login error: {e}")
-            QTimer.singleShot(0, lambda: QMessageBox.critical(self, "Error", f"Login error:\n{e}"))
-            QTimer.singleShot(0, self.enable_inputs)
-            QTimer.singleShot(0, lambda: self.status_icon.setText("❌"))
+            self.signals.show_message_box.emit("Error", f"Login error:\n{e}", "critical")
+            self.signals.enable_inputs.emit()
+            self.signals.update_status_icon.emit("❌")
 
             if self.driver:
                 self.cleanup_driver()
@@ -1329,72 +1472,229 @@ class StoreAutomationGUI(QMainWindow):
         """)
 
     def toggle_task_selection(self, task_id, task_label, task_func):
+        """Toggle task selection - does NOT run the task immediately
+
+        CHÚ Ý: Hàm này CHỈ chọn/bỏ chọn task, KHÔNG chạy task!
+        Phải click nút 'Run Selected Tasks' để chạy các task đã chọn.
+        """
+        self.log(f"🖱️ Click vào task button: {task_label}")
+        self.log(f"⚠️ CHÚ Ý: CHỈ ĐANG CHỌN/BỎ CHỌN, KHÔNG CHẠY TASK!")
+
         if task_id in self.selected_tasks:
             self.selected_tasks.discard(task_id)
             self.task_buttons[task_id].setStyleSheet(self.normal_button_style)
-            self.log(f"❌ Deselected task: {task_label}")
+            self.log(f"❌ Đã BỎ CHỌN task: {task_label} (chưa chạy gì cả)")
         else:
             self.selected_tasks.add(task_id)
             self.task_buttons[task_id].setStyleSheet(self.selected_button_style)
-            self.log(f"✅ Selected task: {task_label}")
+            self.log(f"✅ Đã CHỌN task: {task_label} (chưa chạy, chỉ đánh dấu)")
 
+        # Enable Run button if any tasks are selected
         self.run_button.setEnabled(len(self.selected_tasks) > 0)
 
+        # Log current selection count
+        if len(self.selected_tasks) > 0:
+            self.log(f"📋 Tổng số task đã chọn: {len(self.selected_tasks)}")
+            self.log(f"👉 Nhấn nút 'Run Selected Tasks' ở dưới để BẮT ĐẦU CHẠY các task!")
+        else:
+            self.log(f"📋 Không có task nào được chọn")
+
     def run_selected_tasks(self):
+        """Start running all selected tasks"""
+        self.log("🖱️ Run button được click!")
+
         if not self.selected_tasks:
-            QMessageBox.warning(self, "No Tasks", "Please select at least one task to run.")
+            self.log("⚠️ Không có task nào được chọn")
+            QMessageBox.warning(self, "Không có task nào", "Vui lòng chọn ít nhất một task trước khi chạy.")
             return
 
+        self.log("\n" + "="*60)
+        self.log(f"▶️ BẮT ĐẦU CHẠY {len(self.selected_tasks)} TASK ĐÃ CHỌN")
+        self.log("="*60)
+
+        # Reset stop flag and mark as running
+        self.should_stop_tasks = False
+        self.is_running_tasks = True
+
+        # Disable all task buttons and Run button
         for btn in self.task_buttons.values():
             btn.setEnabled(False)
         self.run_button.setEnabled(False)
 
+        # Enable Stop button with explicit cursor update
+        self.stop_button.setEnabled(True)
+        self.stop_button.setCursor(Qt.PointingHandCursor)
+        self.stop_button.setFocus()  # Set focus to make it more visible
+        self.log("✅ Stop button đã được enable và có thể click")
+
         thread = threading.Thread(target=self.run_selected_tasks_thread, daemon=True)
         thread.start()
+
+    def stop_tasks(self):
+        """Stop currently running tasks - CHỈ set flag, thread sẽ tự dừng"""
+        self.log("🖱️ Stop button được click!")
+        self.log(f"🔍 Debug - is_running_tasks: {self.is_running_tasks}")
+        self.log(f"🔍 Debug - stop_button enabled: {self.stop_button.isEnabled()}")
+
+        if not self.is_running_tasks:
+            self.log("⚠️ Không có task nào đang chạy")
+            return
+
+        self.log("\n" + "="*60)
+        self.log("⏹️ ĐANG DỪNG TASKS - Vui lòng đợi thread kết thúc...")
+        self.log("="*60)
+
+        # Chỉ set flag để thread tự dừng
+        # Thread sẽ emit task_completed signal và cleanup được xử lý ở đó
+        self.should_stop_tasks = True
+        self.stop_button.setEnabled(False)
+        self.stop_button.setCursor(Qt.ArrowCursor)
+        self.log("✅ Đã set stop flag. Thread sẽ dừng và cleanup tự động.")
+
+        # KHÔNG gọi cleanup_and_reset ở đây
+        # Để after_run_selected_tasks() xử lý khi thread kết thúc
+
+    def cleanup_and_reset(self):
+        """Reset state to ready for next run - KHÔNG đóng app, KHÔNG logout
+        """
+        try:
+            self.log("🔄 Đang reset state về trạng thái sẵn sàng...")
+
+            # KHÔNG stop captcha monitor - giữ nguyên để dùng lại
+            # KHÔNG stop heartbeat - giữ browser sống
+            # KHÔNG quit driver - giữ session login
+
+            self.log("✅ Đã reset state. Sẵn sàng chọn và chạy task mới.")
+            self.log("💡 Browser vẫn đang mở, login state được giữ nguyên.")
+            self.log("="*60 + "\n")
+
+        except Exception as e:
+            self.log(f"⚠️ Lỗi khi reset: {e}")
+        finally:
+            # Reset task running state
+            self.is_running_tasks = False
+            self.should_stop_tasks = False
+
+            # Clear task selections and reset button styles
+            for task_id in list(self.selected_tasks):
+                if task_id in self.task_buttons:
+                    self.task_buttons[task_id].setStyleSheet(self.normal_button_style)
+            self.selected_tasks.clear()
+
+            # Re-enable all task buttons (vì vẫn đang logged in)
+            for btn in self.task_buttons.values():
+                btn.setEnabled(True)
+
+            # Disable Run button (vì đã clear selections)
+            self.run_button.setEnabled(False)
+
+            # Disable Stop button and reset cursor
+            self.stop_button.setEnabled(False)
+            self.stop_button.setCursor(Qt.ArrowCursor)
+
+            # Restore login button state
+            if self.is_logged_in:
+                self.login_button.setText("✅ Logged In")
+                self.login_button.setEnabled(False)
 
     def run_selected_tasks_thread(self):
         try:
             self.log(f"\n{'='*60}")
-            self.log(f"🚀 Starting {len(self.selected_tasks)} selected task(s)")
+            self.log(f"🚀 Bắt đầu chạy {len(self.selected_tasks)} task đã chọn")
             self.log(f"{'='*60}")
 
+            # Get tasks in original order
             sorted_tasks = [task_id for task_id in self.task_order if task_id in self.selected_tasks]
 
-            for task_id in sorted_tasks:
+            self.log(f"📋 Danh sách tasks sẽ chạy:")
+            for idx, task_id in enumerate(sorted_tasks, 1):
+                task_label = self.task_data[task_id]['label']
+                self.log(f"   {idx}. {task_label}")
+            self.log("")
+
+            for idx, task_id in enumerate(sorted_tasks, 1):
+                # Check if stop was requested
+                if self.should_stop_tasks:
+                    self.log("\n⏹️ Đã dừng chạy tasks theo yêu cầu người dùng.")
+                    break
+
                 task_data = self.task_data[task_id]
                 task_func = task_data['func']
                 task_label = task_data['label']
 
-                self.log(f"\n▶️ Running: {task_label}")
+                self.log(f"\n▶️ [{idx}/{len(sorted_tasks)}] Đang chạy: {task_label}")
 
                 self.execute_single_task(task_func, task_label)
 
-                self.log(f"✅ Completed: {task_label}")
+                self.log(f"✅ [{idx}/{len(sorted_tasks)}] Hoàn thành: {task_label}")
 
-            self.log(f"\n{'='*60}")
-            self.log(f"✅ All selected tasks completed!")
-            self.log(f"{'='*60}\n")
+            if not self.should_stop_tasks:
+                self.log(f"\n{'='*60}")
+                self.log(f"✅ ĐÃ HOÀN THÀNH TẤT CẢ {len(self.selected_tasks)} TASKS!")
+                self.log(f"{'='*60}\n")
 
-            QTimer.singleShot(0, lambda: QMessageBox.information(self, "Success", f"All {len(self.selected_tasks)} selected task(s) completed!"))
+                num_tasks = len(self.selected_tasks)
+                self.signals.show_message_box.emit("Thành công", f"Đã hoàn thành {num_tasks} task(s)!", "info")
 
         except Exception as e:
-            self.log(f"❌ Error running selected tasks: {e}")
-            self.log(f"📋 Traceback: {traceback.format_exc()}")
-            QTimer.singleShot(0, lambda: QMessageBox.critical(self, "Error", f"Error running tasks:\n{e}"))
+            if not self.should_stop_tasks:  # Only log error if not manually stopped
+                self.log(f"❌ Lỗi khi chạy tasks: {e}")
+                self.log(f"📋 Traceback: {traceback.format_exc()}")
+                self.signals.task_error.emit(f"Lỗi khi chạy tasks:\n{e}")
         finally:
-            QTimer.singleShot(0, self.after_run_selected_tasks)
+            self.signals.task_completed.emit()
 
     def after_run_selected_tasks(self):
-        for task_id in self.selected_tasks:
+        """Called when tasks complete or are stopped - Reset về trạng thái ban đầu"""
+        self.log("🔄 after_run_selected_tasks được gọi")
+
+        if self.should_stop_tasks:
+            self.log("⏹️ Tasks đã bị DỪNG - Reset về trạng thái sẵn sàng")
+        else:
+            self.log("✅ Tasks đã HOÀN THÀNH - Reset về trạng thái sẵn sàng")
+
+        # Reset task running state
+        self.is_running_tasks = False
+        self.should_stop_tasks = False
+
+        # Clear all task selections và reset button styles
+        for task_id in list(self.selected_tasks):
             if task_id in self.task_buttons:
                 self.task_buttons[task_id].setStyleSheet(self.normal_button_style)
         self.selected_tasks.clear()
 
+        # Re-enable all task buttons (vì vẫn đang logged in)
         for btn in self.task_buttons.values():
             btn.setEnabled(True)
+
+        # Disable Run button (vì đã clear selections)
         self.run_button.setEnabled(False)
 
+        # Disable Stop button and reset cursor
+        self.stop_button.setEnabled(False)
+        self.stop_button.setCursor(Qt.ArrowCursor)
+
+        # Giữ nguyên login state
+        if self.is_logged_in:
+            self.login_button.setText("✅ Logged In")
+            self.login_button.setEnabled(False)
+            self.log("💡 Login state được giữ nguyên. Browser vẫn mở. Sẵn sàng chạy task mới!")
+
+        self.log("="*60 + "\n")
+
+        # Clear log text để dễ đọc cho lần chạy tiếp theo
+        self.log_text.clear()
+        self.log("🔄 Log đã được clear. Sẵn sàng cho lần chạy tiếp theo.")
+        if self.is_logged_in:
+            self.log("✅ Đã đăng nhập. Có thể chọn và chạy tasks.")
+        else:
+            self.log("⚠️ Chưa đăng nhập. Sẽ auto-login khi chạy tasks.")
+
     def execute_single_task(self, task_func, task_label):
+        # Check if stop was requested before executing
+        if self.should_stop_tasks:
+            raise Exception("Task stopped by user")
+
         if task_func == register_shopify_account:
             if not self.validate_register_inputs():
                 raise Exception("Validation failed for register task")
@@ -1407,9 +1707,11 @@ class StoreAutomationGUI(QMainWindow):
             self.log("🔐 Auto-login required for this task...")
 
             if not self.driver:
+                self.log("🔧 Setting up driver and starting monitors...")
                 self.driver = self.setup_driver_and_heartbeat()
                 if not self.driver:
                     raise Exception("Failed to setup driver")
+                self.log("✅ Driver setup completed")
 
             from utils.element import detect_store_id
 
@@ -1433,7 +1735,7 @@ class StoreAutomationGUI(QMainWindow):
                 self.store_id = store_id
                 self.log(f"💾 Store ID saved (fallback): {self.store_id}")
 
-            QTimer.singleShot(0, self.on_login_success)
+            self.signals.login_success.emit()
 
         store_id = self.store_id if self.store_id else self.credentials['storeId']
         email = self.credentials['email']
@@ -1499,6 +1801,7 @@ class StoreAutomationGUI(QMainWindow):
         self.login_button.setText("✅ Logged In")
         self.login_button.setEnabled(False)
 
+        # Task buttons luôn enabled (không cần login trước)
         for btn in self.task_buttons.values():
             btn.setEnabled(True)
 

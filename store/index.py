@@ -7,7 +7,8 @@ from configs.anti_freeze import AntiFreeze
 
 from configs.app import load_credentials, get_config_json
 from utils.element import detect_store_id
-from auth import login_to_shopify, register_shopify_account, start_captcha_monitor, stop_captcha_monitor
+from auth import login_to_shopify, register_shopify_account
+from utils.captcha import start_captcha_monitor, stop_captcha_monitor
 from install import install_apps
 from dsers.link_account import link_dser_account
 from market import setup_world_market
