@@ -230,9 +230,6 @@ def _captcha_monitor_background(driver: webdriver.Chrome, check_interval: float 
 
     print("\n" + "="*70)
     print("🔄 CAPTCHA AUTO-MONITOR ĐÃ BẮT ĐẦU")
-    print("   🔍 Đang theo dõi: Cloudflare Captcha + Shopify Captcha")
-    print(f"   ⏱️  Check interval: {check_interval}s")
-    print(f"   ✅ CHẾ ĐỘ: Tự động phát hiện và xử lý trong background")
     print(f"   💡 Main thread chạy bình thường - KHÔNG bị block!")
     print("="*70 + "\n")
 

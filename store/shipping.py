@@ -5,7 +5,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from utils.element import delay, highlight_element, click_save_button
 
-def setup_shipping_zones(driver: webdriver.Chrome, storeId: str):
+def setup_shipping_zones(driver: webdriver.Chrome, storeId: str, should_stop_callback=None):
     print("\n" + "="*60)
     print("🚚 SETUP SHIPPING ZONES...")
     print("="*60)
@@ -21,6 +21,10 @@ def setup_shipping_zones(driver: webdriver.Chrome, storeId: str):
         verification_message_found = False
 
         for check_attempt in range(max_verification_checks):
+            # Check stop flag
+            if should_stop_callback and should_stop_callback():
+                print("\n⏹️ DỪNG TASK - User đã nhấn Stop button")
+                return
             try:
                 verification_element = driver.find_element(
                     By.XPATH,

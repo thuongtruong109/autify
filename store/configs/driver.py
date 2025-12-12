@@ -106,48 +106,57 @@ def setup_driver() -> Optional[webdriver.Chrome]:
         options.add_argument("--disable-infobars")
         options.add_argument("--disable-blink-features=AutomationControlled")
         # options.add_argument("--disable-gpu")
+        # options.add_argument("--disable-popup-blocking")
+        # options.add_argument("--disable-notifications")
+        # options.add_argument("--disable-hang-monitor")
+        # options.add_argument("--enable-automation")
+        # options.add_argument("--no-first-run")
+        # options.add_argument("--no-default-browser-check")
+
+        # options.add_argument("--disable-background-timer-throttling")
+        # options.add_argument("--disable-backgrounding-occluded-windows")
+        # options.add_argument("--disable-background-networking")
+        # options.add_argument("--disable-renderer-backgrounding")
+        # options.add_argument("--disable-extensions-except")
+        # options.add_argument("--disable-web-security")
 
         user_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "profile")
         options.add_argument(f"--user-data-dir={user_data_dir}")
-        options.add_argument("--no-first-run")
-        options.add_argument("--no-default-browser-check")
 
-        options.add_argument("--disable-background-timer-throttling")
-        options.add_argument("--disable-backgrounding-occluded-windows")
-        options.add_argument("--disable-background-networking")
-        options.add_argument("--disable-renderer-backgrounding")
-
-        options.add_experimental_option("excludeSwitches", ["enable-logging"])
+        # options.add_experimental_option("excludeSwitches", ["enable-logging", "enable-automation"])
+        # options.add_experimental_option("useAutomationExtension", False)
 
         # options.add_argument('--proxy-server=http://lkqbgbdk:klwsil8ci4hw@193.160.82.111:6083')
         # options.add_argument(f"--proxy-server=socks5://193.160.82.111:6083")
 
         driver = webdriver.Chrome(service=service, options=options)
-        driver.implicitly_wait(3)
+        driver.implicitly_wait(4)
 
-        driver.execute_script(
-            "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
-        )
-        driver.execute_script("""
-            Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 4});
-            Object.defineProperty(navigator, 'deviceMemory', {get: () => 4});
-        """)
+        driver.set_page_load_timeout(30)
 
-        driver.execute_cdp_cmd(
-            "Network.setUserAgentOverride",
-            {"userAgent": USER_AGENT, "platform": "Windows"}
-        )
+        # driver.execute_script(
+        #     "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+        # )
+        # driver.execute_script("""
+        #     Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 4});
+        #     Object.defineProperty(navigator, 'deviceMemory', {get: () => 4});
+        # """)
 
-        driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": STEALTH_JS})
+        # driver.execute_cdp_cmd(
+        #     "Network.setUserAgentOverride",
+        #     {"userAgent": USER_AGENT, "platform": "Windows"}
+        # )
 
-        stealth(driver,
-            languages=["en-US", "en"],
-            vendor="Google Inc.",
-            platform="Win32",
-            webgl_vendor="Intel Inc.",
-            renderer="Intel Iris OpenGL Engine",
-            fix_hairline=True,
-        )
+        # driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": STEALTH_JS})
+
+        # stealth(driver,
+        #     languages=["en-US", "en"],
+        #     vendor="Google Inc.",
+        #     platform="Win32",
+        #     webgl_vendor="Intel Inc.",
+        #     renderer="Intel Iris OpenGL Engine",
+        #     fix_hairline=True,
+        # )
 
         return driver
     except Exception as e:

@@ -16,7 +16,7 @@ APPS = [
     {"name": "DSers-AliExpress Dropshipping", "slug": "dsers", "type": "new_tab"},
 ]
 
-def semi_auto_install_and_pin(driver: webdriver.Chrome, storeId: str):
+def semi_auto_install_and_pin(driver: webdriver.Chrome, storeId: str, should_stop_callback=None):
 
     main_window_handle = driver.current_window_handle
 
@@ -34,6 +34,10 @@ def semi_auto_install_and_pin(driver: webdriver.Chrome, storeId: str):
     print("="*60)
 
     for app in apps_to_install:
+        # Check stop flag trước khi cài mỗi app
+        if should_stop_callback and should_stop_callback():
+            print("\n⏹️ DỪNG TASK - User đã nhấn Stop button")
+            return
         print(f"\n{'='*60}")
         print(f"[{app['name']}] Bắt đầu cài đặt (Type: {app['type']})...")
         print(f"{'='*60}")
@@ -451,6 +455,6 @@ def check_installed_apps(driver: webdriver.Chrome, storeId: str, force_reload: b
 
     return installed_apps
 
-def install_apps(driver: webdriver.Chrome, storeId: str):
-    semi_auto_install_and_pin(driver, storeId)
+def install_apps(driver: webdriver.Chrome, storeId: str, should_stop_callback=None):
+    semi_auto_install_and_pin(driver, storeId, should_stop_callback)
     print(f"Finished installing apps for store: {storeId}")

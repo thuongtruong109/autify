@@ -75,6 +75,312 @@ class WorkerSignals(QObject):
     update_status_icon = Signal(str)
     show_message_box = Signal(str, str, str)  # title, message, type (info/critical/warning)
 
+    # Signals để trigger các actions trong Selenium thread
+    do_login = Signal(str, str, str)  # email, password, store_id
+    do_run_tasks = Signal(set, list, dict, dict, str)  # selected_tasks, task_order, task_data, credentials, store_id
+
+
+class SeleniumWorker(QObject):
+    """
+    Worker object để chạy Selenium operations trong thread riêng.
+    Tất cả Selenium logic chạy trong thread này để không block GUI.
+
+    Architecture:
+    - GUI Thread: Xử lý UI events, render, update widgets
+    - Selenium Thread: Chạy driver operations (login, tasks, etc.)
+    - Captcha Thread: Monitor và xử lý captcha tự động (đã có sẵn)
+
+    Captcha monitor vẫn hoạt động như cũ - detect và xử lý captcha
+    trong thread riêng của nó, can thiệp vào driver khi cần.
+    """
+
+    def __init__(self, parent_gui):
+        super().__init__()
+        self.gui = parent_gui
+        self.driver = None
+        self.heartbeat = None
+
+        # Connect signals để nhận commands từ GUI thread
+        self.gui.signals.do_login.connect(self.perform_login)
+        self.gui.signals.do_run_tasks.connect(self.run_tasks)
+
+    @Slot(str, str, str)
+    def perform_login(self, email, password, store_id):
+        """Thực hiện login - chạy trong Selenium thread"""
+        try:
+            from utils.element import detect_store_id
+
+            self.gui.signals.log_message.emit(f"🔐 Starting login for {email}...")
+            self.gui.signals.log_message.emit(f"📦 Store ID: {store_id}")
+
+            if not self.driver:
+                self.driver = self.setup_driver_and_heartbeat()
+                if not self.driver:
+                    self.gui.signals.enable_login_button.emit()
+                    return
+
+            self.gui.signals.log_message.emit("Attempting to login to Shopify...")
+            logged = login_to_shopify(self.driver, email, password, store_id)
+
+            if logged:
+                self.gui.signals.log_message.emit("✅ Login successful!")
+
+                detected_store_id = detect_store_id(self.driver)
+                if detected_store_id:
+                    self.gui.store_id = detected_store_id
+                else:
+                    self.gui.store_id = store_id
+                    self.gui.signals.log_message.emit(f"💾 Store ID saved (fallback): {self.gui.store_id}")
+
+                self.gui.signals.login_success.emit()
+            else:
+                self.gui.signals.log_message.emit("❌ Login failed")
+                self.gui.signals.login_failed.emit("Could not login to Shopify")
+
+        except Exception as e:
+            self.gui.signals.log_message.emit(f"❌ Login error: {e}")
+            self.gui.signals.show_message_box.emit("Error", f"Login error:\n{e}", "critical")
+            self.gui.signals.enable_inputs.emit()
+            self.gui.signals.update_status_icon.emit("❌")
+
+            self.cleanup_driver()
+
+    @Slot(set, list, dict, dict, str)
+    def run_tasks(self, selected_tasks, task_order, task_data, credentials, store_id):
+        """Chạy các tasks đã chọn - chạy trong Selenium thread"""
+        try:
+            self.gui.signals.log_message.emit(f"\n{'='*60}")
+            self.gui.signals.log_message.emit(f"🚀 Bắt đầu chạy {len(selected_tasks)} task đã chọn")
+            self.gui.signals.log_message.emit(f"{'='*60}")
+
+            # Get tasks in original order
+            sorted_tasks = [task_id for task_id in task_order if task_id in selected_tasks]
+
+            self.gui.signals.log_message.emit(f"📋 Danh sách tasks sẽ chạy:")
+            for idx, task_id in enumerate(sorted_tasks, 1):
+                task_label = task_data[task_id]['label']
+                self.gui.signals.log_message.emit(f"   {idx}. {task_label}")
+            self.gui.signals.log_message.emit("")
+
+            for idx, task_id in enumerate(sorted_tasks, 1):
+                if self.gui.should_stop_tasks:
+                    self.gui.signals.log_message.emit("\n⏹️ Đã dừng chạy tasks theo yêu cầu người dùng.")
+                    break
+
+                task_func = task_data[task_id]['func']
+                task_label = task_data[task_id]['label']
+
+                self.gui.signals.log_message.emit(f"\n▶️ [{idx}/{len(sorted_tasks)}] Đang chạy: {task_label}")
+
+                success = self.execute_single_task(task_func, task_label, credentials, store_id)
+
+                if success is False:
+                    self.gui.signals.log_message.emit(f"⏭️ [{idx}/{len(sorted_tasks)}] Bỏ qua: {task_label}")
+                    continue
+
+                self.gui.signals.log_message.emit(f"✅ [{idx}/{len(sorted_tasks)}] Hoàn thành: {task_label}")
+
+            if not self.gui.should_stop_tasks:
+                self.gui.signals.log_message.emit(f"\n{'='*60}")
+                self.gui.signals.log_message.emit(f"✅ ĐÃ HOÀN THÀNH TẤT CẢ {len(selected_tasks)} TASKS!")
+                self.gui.signals.log_message.emit(f"{'='*60}\n")
+
+        except Exception as e:
+            if not self.gui.should_stop_tasks:
+                self.gui.signals.log_message.emit(f"❌ Lỗi khi chạy tasks: {e}")
+                self.gui.signals.log_message.emit(f"📋 Traceback: {traceback.format_exc()}")
+                self.gui.signals.task_error.emit(f"Lỗi khi chạy tasks:\n{e}")
+        finally:
+            self.gui.signals.task_completed.emit()
+
+    def setup_driver_and_heartbeat(self) -> Optional[webdriver.Chrome]:
+        """Setup driver và các monitors - chạy trong Selenium thread"""
+        try:
+            self.gui.signals.log_message.emit("🔧 Setting up Chrome WebDriver with advanced anti-detection...")
+
+            driver = setup_driver()
+
+            if not driver:
+                self.gui.signals.log_message.emit("❌ Failed to initialize WebDriver")
+                self.gui.signals.show_message_box.emit("Error", "Failed to initialize WebDriver", "critical")
+                return None
+
+            self.gui.signals.log_message.emit("✅ WebDriver setup completed with stealth mode")
+
+            self.gui.signals.log_message.emit("💓 Starting AntiFreeze heartbeat (interval: 15s)...")
+            self.heartbeat = AntiFreeze(driver, interval=15)
+            self.heartbeat.start()
+            self.gui.signals.log_message.emit("✅ AntiFreeze heartbeat started")
+
+            # Start captcha monitor trong thread riêng của nó
+            self.gui.signals.log_message.emit("🔄 Starting Cloudflare captcha auto-monitor...")
+            start_captcha_monitor(driver, check_interval=2.0)
+            self.gui.signals.log_message.emit("✅ Captcha monitor started (running in separate thread)")
+
+            self.driver = driver
+            return driver
+
+        except Exception as e:
+            self.gui.signals.log_message.emit(f"❌ Critical error initializing WebDriver: {e}")
+            self.gui.signals.log_message.emit(f"📋 Traceback: {traceback.format_exc()}")
+            self.gui.signals.show_message_box.emit("Error", f"Failed to initialize WebDriver:\n{e}", "critical")
+            return None
+
+    def cleanup_driver(self):
+        """
+        Cleanup driver và monitors - chạy trong Selenium thread
+
+        ✅ THREAD-SAFE CLEANUP:
+        1. Dừng captcha monitor trước (ngăn monitor truy cập driver)
+        2. Dừng AntiFreeze heartbeat (ngăn heartbeat truy cập driver)
+        3. Quit driver cuối cùng khi không còn thread nào dùng
+        """
+        try:
+            self.gui.signals.log_message.emit("🧹 Cleaning up driver resources...")
+
+            # Stop captcha monitor TRƯỚC - ngăn monitor truy cập driver
+            stop_captcha_monitor()
+            self.gui.signals.log_message.emit("✅ Captcha monitor stopped")
+
+            # Stop AntiFreeze heartbeat TRƯỚC - ngăn heartbeat truy cập driver
+            if self.heartbeat:
+                self.heartbeat.stop()
+                self.heartbeat = None
+                self.gui.signals.log_message.emit("✅ AntiFreeze heartbeat stopped")
+
+            # Quit driver cuối cùng khi không còn thread nào dùng
+            if self.driver:
+                self.driver.quit()
+                self.driver = None
+                self.gui.signals.log_message.emit("✅ Driver closed")
+
+        except Exception as e:
+            self.gui.signals.log_message.emit(f"⚠️ Error during cleanup: {e}")
+
+    def execute_single_task(self, task_func, task_label, credentials, store_id):
+        """Execute một task - chạy trong Selenium thread"""
+        # Check if stop was requested before executing
+        if self.gui.should_stop_tasks:
+            raise Exception("Task stopped by user")
+
+        # Helper function để task có thể check stop flag
+        def should_stop():
+            return self.gui.should_stop_tasks
+
+        if task_func == register_shopify_account:
+            # Validate sẽ được gọi từ GUI thread trước khi đến đây
+            pass
+
+        # REGISTER TASK KHÔNG CẦN LOGIN
+        if task_func == register_shopify_account:
+            self.gui.signals.log_message.emit("🆕 Register task - không cần login trước")
+            if not self.driver:
+                self.gui.signals.log_message.emit("🔧 Setting up driver and starting monitors...")
+                self.driver = self.setup_driver_and_heartbeat()
+                if not self.driver:
+                    raise Exception("Failed to setup driver")
+                self.gui.signals.log_message.emit("✅ Driver setup completed")
+        elif not self.driver or not self.gui.is_logged_in:
+            # CÁC TASK KHÁC - Cần login trước
+            self.gui.signals.log_message.emit("🔐 Auto-login required for this task...")
+
+            if not self.driver:
+                self.gui.signals.log_message.emit("🔧 Setting up driver and starting monitors...")
+                self.driver = self.setup_driver_and_heartbeat()
+                if not self.driver:
+                    raise Exception("Failed to setup driver")
+                self.gui.signals.log_message.emit("✅ Driver setup completed")
+
+            from utils.element import detect_store_id
+
+            email = credentials['email']
+            password = credentials['password']
+            cred_store_id = credentials['storeId']
+
+            self.gui.signals.log_message.emit(f"🔐 Logging in as {email}...")
+            logged = login_to_shopify(self.driver, email, password, cred_store_id)
+
+            if not logged:
+                raise Exception("Auto-login failed")
+
+            self.gui.is_logged_in = True
+            self.gui.signals.log_message.emit("✅ Auto-login successful!")
+
+            detected_store_id = detect_store_id(self.driver)
+            if detected_store_id:
+                self.gui.store_id = detected_store_id
+            else:
+                self.gui.store_id = cred_store_id
+                self.gui.signals.log_message.emit(f"💾 Store ID saved (fallback): {self.gui.store_id}")
+
+            self.gui.signals.login_success.emit()
+
+        # Execute task với parameters tương ứng
+        current_store_id = self.gui.store_id if self.gui.store_id else store_id
+        email = credentials['email']
+        password = credentials['password']
+        domain = credentials['domain']
+        firstname = credentials['firstname']
+        lastname = credentials['lastname']
+        ssn = credentials['ssn']
+        birthday = credentials['birthday']
+        address = credentials['address']
+        zip_code = credentials['zip']
+
+        if task_func == setup_legal_policies:
+            policies = credentials.get('policies', {})
+            task_func(self.driver, current_store_id, policies, should_stop_callback=should_stop)
+        elif task_func == setup_preferences:
+            seo_data = credentials.get('seo', {})
+            task_func(self.driver, current_store_id, seo_data)
+        elif task_func == link_dser_account:
+            task_func(self.driver, password)
+        elif task_func == register_shopify_account:
+            from utils.element import detect_store_id
+
+            card_number = credentials.get('card_number', '')
+            card_expired = credentials.get('card_expired', '')
+            card_cvc = credentials.get('card_cvc', '')
+
+            self.gui.signals.log_message.emit(f"👤 Registering with name: {firstname} {lastname}")
+            self.gui.signals.log_message.emit(f"📧 Email: {email}")
+            self.gui.signals.log_message.emit(f"🏪 Domain: {domain}")
+            self.gui.signals.log_message.emit(f"📍 Address: {address}")
+            self.gui.signals.log_message.emit(f"📮 Zip: {zip_code}")
+            self.gui.signals.log_message.emit(f"💳 Card number: {'*' * len(card_number) if card_number else 'Not provided'}")
+
+            registered = task_func(self.driver, email, password, domain, firstname, lastname, address, zip_code, card_number, card_expired, card_cvc)
+
+            if registered:
+                self.gui.signals.log_message.emit("\n🔍 Detecting store ID after registration...")
+                detected_store_id = detect_store_id(self.driver)
+                if detected_store_id:
+                    self.gui.store_id = detected_store_id
+                    self.gui.signals.log_message.emit(f"💾 Store ID detected and saved: {self.gui.store_id}")
+                else:
+                    self.gui.store_id = current_store_id
+                    self.gui.signals.log_message.emit(f"💾 Store ID saved (fallback): {self.gui.store_id}")
+
+                self.gui.is_logged_in = True
+                self.gui.signals.login_success.emit()
+                self.gui.signals.log_message.emit("✅ Đã đăng ký và đăng nhập thành công!")
+        elif task_func == connect_domain:
+            task_func(self.driver, current_store_id, domain)
+        elif task_func == setup_notifications:
+            clf_token = get_config_json("cloudflare", "8", "token")
+            clf_email = get_config_json("cloudflare", "8", "email")
+            clf_key = get_config_json("cloudflare", "8", "key")
+            self.gui.signals.log_message.emit(f"🔔 Setting up notifications for domain: {domain}")
+            asyncio.run(task_func(self.driver, current_store_id, domain, clf_token, clf_email, clf_key))
+        elif task_func == install_apps or task_func == setup_shipping_zones:
+            # Truyền callback cho các task hỗ trợ stop
+            task_func(self.driver, current_store_id, should_stop_callback=should_stop)
+        else:
+            # Các task còn lại chưa có stop callback
+            task_func(self.driver, current_store_id)
+
+        return True
+
 class StoreAutomationGUI(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -83,7 +389,7 @@ class StoreAutomationGUI(QMainWindow):
         self.setFixedSize(600, 700)
         self.setWindowIcon(QIcon(os.path.join(base_path, 'favicon.ico')))
 
-        self.driver = None
+        self._driver_ref = None  # Chỉ dùng để check, không dùng trực tiếp
         self.heartbeat = None
         self.is_logged_in = False
         self.store_id = None
@@ -101,6 +407,10 @@ class StoreAutomationGUI(QMainWindow):
 
         # Initialize worker signals (no parent = thread-safe for cross-thread signals)
         self.signals = WorkerSignals()
+
+        # Selenium worker sẽ chạy trong thread riêng
+        self.selenium_worker = None
+        self.selenium_thread = None
 
         self.setup_styles()
         self.create_widgets()
@@ -125,6 +435,13 @@ class StoreAutomationGUI(QMainWindow):
         self.birthday_entry.textChanged.connect(self.toggle_info_inputs)
         self.address_entry.textChanged.connect(self.toggle_info_inputs)
         self.zip_entry.textChanged.connect(self.toggle_info_inputs)
+
+    @property
+    def driver(self):
+        """Property để access driver từ selenium worker"""
+        if self.selenium_worker:
+            return self.selenium_worker.driver
+        return None
 
     def setup_styles(self):
         """Configure Qt stylesheets"""
@@ -1087,60 +1404,55 @@ class StoreAutomationGUI(QMainWindow):
             QMessageBox.critical(self, "Error", message)
 
     def validate_register_inputs(self):
-        """Validate input fields for register - check hotmail_id, shopify_password, zip_code, firstname, lastname, address"""
-        # Validate email (from parsed hotmail_id_entry field)
         email = self.hotmail_id_entry.text().strip()
         if not email:
             self.show_error_thread_safe("Hotmail ID (Email) is required for registration!")
             return False
 
-        # Validate shopify password (from parsed shopify_password_entry field)
         shopify_password = self.shopify_password_entry.text().strip()
         if not shopify_password:
             self.show_error_thread_safe("Shopify Password is required for registration!")
             return False
 
-        # Validate zip code (from parsed zip_entry field)
-        zip_code = self.zip_entry.text().strip()
-        if not zip_code:
-            self.show_error_thread_safe("Zip Code is required for registration!")
+        domain = self.domain_entry.text().strip()
+        if not domain:
+            self.show_error_thread_safe("Domain is required for registration!")
             return False
 
-        # Validate firstname (from parsed first_name_entry field)
         firstname = self.first_name_entry.text().strip()
         if not firstname:
             self.show_error_thread_safe("First Name is required for registration!")
             return False
 
-        # Validate lastname (from parsed last_name_entry field)
         lastname = self.last_name_entry.text().strip()
         if not lastname:
             self.show_error_thread_safe("Last Name is required for registration!")
             return False
 
-        # Validate address (from parsed address_entry field)
         address = self.address_entry.text().strip()
         if not address:
             self.show_error_thread_safe("Address is required for registration!")
             return False
 
-        # Validate card number (from parsed card_number field)
-        # card_number = self.card_number.text().strip()
-        # if not card_number:
-        #     self.show_error_thread_safe("Card Number is required for registration!")
-        #     return False
+        zip_code = self.zip_entry.text().strip()
+        if not zip_code:
+            self.show_error_thread_safe("Zip Code is required for registration!")
+            return False
 
-        # # Validate card expired date (from parsed expired field)
-        # expired = self.expired.text().strip()
-        # if not expired:
-        #     self.show_error_thread_safe("Card Expiration Date is required for registration!")
-        #     return False
+        card_number = self.card_number.text().strip()
+        if not card_number:
+            self.show_error_thread_safe("Card Number is required for registration!")
+            return False
 
-        # # Validate card CVC (from parsed cvc field)
-        # cvc = self.cvc.text().strip()
-        # if not cvc:
-        #     self.show_error_thread_safe("Card CVC is required for registration!")
-        #     return False
+        expired = self.expired.text().strip()
+        if not expired:
+            self.show_error_thread_safe("Card Expiration Date is required for registration!")
+            return False
+
+        cvc = self.cvc.text().strip()
+        if not cvc:
+            self.show_error_thread_safe("Card CVC is required for registration!")
+            return False
 
         return True
 
@@ -1198,10 +1510,22 @@ class StoreAutomationGUI(QMainWindow):
         lastname = self.last_name_entry.text().strip()
         self.log(f"  Last name field value: '{lastname}' (visible: {self.last_name_entry.isVisible()})")
 
-        ssn = self.ssn_entry.text().strip() if self.ssn_entry.isVisible() and self.ssn_entry.text().strip() else ""
-        birthday = self.birthday_entry.text().strip() if self.birthday_entry.isVisible() and self.birthday_entry.text().strip() else ""
-        address = self.address_entry.text().strip() if self.address_entry.isVisible() and self.address_entry.text().strip() else ""
-        zip_code = self.zip_entry.text().strip() if self.zip_entry.isVisible() and self.zip_entry.text().strip() else ""
+        # Lấy giá trị từ các field bất kể visible hay không (chỉ cần có giá trị)
+        ssn = self.ssn_entry.text().strip()
+        birthday = self.birthday_entry.text().strip()
+        address = self.address_entry.text().strip()
+        zip_code = self.zip_entry.text().strip()
+
+        self.log(f"  Address field value: '{address}' (visible: {self.address_entry.isVisible()})")
+        self.log(f"  Zip field value: '{zip_code}' (visible: {self.zip_entry.isVisible()})")
+
+        card_number = self.card_number.text().strip()
+        card_expired = self.expired.text().strip()
+        card_cvc = self.cvc.text().strip()
+
+        self.log(f"  Card number field value: '{'*' * len(card_number) if card_number else ''}' (visible: {self.card_number.isVisible()})")
+        self.log(f"  Card expired field value: '{card_expired}' (visible: {self.expired.isVisible()})")
+        self.log(f"  Card CVC field value: '{'*' * len(card_cvc) if card_cvc else ''}' (visible: {self.cvc.isVisible()})")
 
         return {
             'storeId': store_id,
@@ -1214,6 +1538,9 @@ class StoreAutomationGUI(QMainWindow):
             'birthday': birthday,
             'address': address,
             'zip': zip_code,
+            'card_number': card_number,
+            'card_expired': card_expired,
+            'card_cvc': card_cvc,
             'seo': {
                 'title': self.seo_title_entry.text().strip(),
                 'description': self.seo_description_entry.toPlainText().strip()
@@ -1306,60 +1633,57 @@ class StoreAutomationGUI(QMainWindow):
             QMessageBox.warning(self, title, message)
 
     def on_login_failed(self, error_msg):
-        """Handle login failure from main thread"""
+        """Handle login failure from main thread - THREAD-SAFE VERSION"""
         QMessageBox.critical(self, "Login Failed", error_msg)
         self.enable_inputs()
         self.status_icon.setText("❌")
-        if self.driver:
-            self.cleanup_driver()
+
+        # ✅ FIXED: GUI thread KHÔNG truy cập driver trực tiếp
+        # Driver thuộc về Selenium thread, sẽ được cleanup bởi Selenium worker
+        # Tránh race condition giữa GUI thread và Selenium thread
 
     def on_task_error(self, error_msg):
         """Handle task error from main thread"""
-        QMessageBox.critical(self, "Error", error_msg)
+        # QMessageBox.critical(self, "Error", error_msg)  # Removed modal as per user request, logs are sufficient
 
-    def setup_driver_and_heartbeat(self) -> Optional[webdriver.Chrome]:
-        try:
-            self.log("🔧 Setting up Chrome WebDriver with advanced anti-detection...")
+    def create_selenium_worker(self):
+        """Tạo Selenium worker và thread riêng"""
+        # Tạo thread mới cho Selenium
+        self.selenium_thread = QThread()
 
-            driver = setup_driver()
+        # Tạo worker và move vào thread
+        self.selenium_worker = SeleniumWorker(self)
+        self.selenium_worker.moveToThread(self.selenium_thread)
 
-            if not driver:
-                self.log("❌ Failed to initialize WebDriver")
-                # Use signal instead of direct QMessageBox call (thread-safe)
-                if QThread.currentThread() != self.thread():
-                    self.signals.show_message_box.emit("Error", "Failed to initialize WebDriver", "critical")
-                else:
-                    QMessageBox.critical(self, "Error", "Failed to initialize WebDriver")
-                return None
+        # Start thread
+        self.selenium_thread.start()
 
-            self.log("✅ WebDriver setup completed with stealth mode")
+        self.log("✅ Selenium worker thread đã được tạo và khởi động")
 
-            self.log("💓 Starting AntiFreeze heartbeat (interval: 15s)...")
-            self.heartbeat = AntiFreeze(driver, interval=15)
-            self.heartbeat.start()
-            self.log("✅ AntiFreeze heartbeat started")
+    def cleanup_selenium_worker(self):
+        """Cleanup Selenium worker và thread"""
+        if self.selenium_worker:
+            # Cleanup driver trong worker
+            self.selenium_worker.cleanup_driver()
 
-            self.log("🔄 Starting Cloudflare captcha auto-monitor...")
-            start_captcha_monitor(driver, check_interval=2.0)
-            self.log("✅ Captcha monitor started")
+        if self.selenium_thread:
+            self.selenium_thread.quit()
+            self.selenium_thread.wait()
 
-            return driver
-        except Exception as e:
-            self.log(f"❌ Critical error initializing WebDriver: {e}")
-            self.log(f"📋 Traceback: {traceback.format_exc()}")
-            # Use signal instead of direct QMessageBox call (thread-safe)
-            if QThread.currentThread() != self.thread():
-                self.signals.show_message_box.emit("Error", f"Failed to initialize WebDriver:\n{e}", "critical")
-            else:
-                QMessageBox.critical(self, "Error", f"Failed to initialize WebDriver:\n{e}")
-            return None
+        self.selenium_worker = None
+        self.selenium_thread = None
 
     def login_action(self):
         if self.is_logged_in:
             self.log("⚠️ Already logged in")
             return
 
+        # Disable button ngay để tránh click nhiều lần
+        self.login_button.setEnabled(False)
+
         if not self.validate_login_inputs():
+            # Re-enable button nếu validation failed
+            self.login_button.setEnabled(True)
             return
 
         # Get credentials from input fields FIRST
@@ -1371,8 +1695,7 @@ class StoreAutomationGUI(QMainWindow):
         self.log(f"📧 Email: {self.credentials['email']}")
         self.log(f"👤 Name: {self.credentials['firstname']} {self.credentials['lastname']}")
 
-        # Disable inputs during login
-        self.login_button.setEnabled(False)
+        # Disable inputs during login (button đã disable ở trên rồi)
         self.hotmail_id_entry.setEnabled(False)
         self.shopify_password_entry.setEnabled(False)
         self.domain_entry.setEnabled(False)
@@ -1381,73 +1704,16 @@ class StoreAutomationGUI(QMainWindow):
         self.seo_title_entry.setEnabled(False)
         self.seo_description_entry.setEnabled(False)
 
-        thread = threading.Thread(target=self.login_thread, daemon=True)
-        thread.start()
+        # Tạo Selenium worker nếu chưa có
+        if not self.selenium_worker:
+            self.create_selenium_worker()
 
-    def login_thread(self):
-        try:
-            from utils.element import detect_store_id
+        # Chạy login trong Selenium thread qua signal
+        email = self.credentials['email']
+        password = self.credentials['password']
+        store_id = self.credentials['storeId']
 
-            email = self.credentials['email']
-            password = self.credentials['password']
-            store_id = self.credentials['storeId']
-
-            self.log(f"🔐 Starting login for {email}...")
-            self.log(f"📦 Store ID: {store_id}")
-            self.log(f"🌐 Domain: {self.credentials['domain']}")
-
-            self.driver = self.setup_driver_and_heartbeat()
-            if not self.driver:
-                self.signals.enable_login_button.emit()
-                return
-
-            self.log("Attempting to login to Shopify...")
-            logged = login_to_shopify(self.driver, email, password, store_id)
-
-            if logged:
-                self.is_logged_in = True
-                self.log("✅ Login successful!")
-
-                detected_store_id = detect_store_id(self.driver)
-                if detected_store_id:
-                    self.store_id = detected_store_id
-                else:
-                    self.store_id = store_id
-                    self.log(f"💾 Store ID saved (fallback): {self.store_id}")
-
-                self.signals.login_success.emit()
-            else:
-                self.log("❌ Login failed")
-                self.signals.login_failed.emit("Could not login to Shopify")
-
-        except Exception as e:
-            self.log(f"❌ Login error: {e}")
-            self.signals.show_message_box.emit("Error", f"Login error:\n{e}", "critical")
-            self.signals.enable_inputs.emit()
-            self.signals.update_status_icon.emit("❌")
-
-            if self.driver:
-                self.cleanup_driver()
-
-    def cleanup_driver(self):
-        try:
-            self.log("🧹 Cleaning up driver resources...")
-
-            stop_captcha_monitor()
-            self.log("✅ Captcha monitor stopped")
-
-            if self.heartbeat:
-                self.heartbeat.stop()
-                self.heartbeat = None
-                self.log("✅ AntiFreeze heartbeat stopped")
-
-            if self.driver:
-                self.driver.quit()
-                self.driver = None
-                self.log("✅ Driver closed")
-
-        except Exception as e:
-            self.log(f"⚠️ Error during cleanup: {e}")
+        self.signals.do_login.emit(email, password, store_id)
 
     def enable_inputs(self):
         self.login_button.setEnabled(True)
@@ -1500,7 +1766,6 @@ class StoreAutomationGUI(QMainWindow):
             self.log(f"📋 Không có task nào được chọn")
 
     def run_selected_tasks(self):
-        """Start running all selected tasks"""
         self.log("🖱️ Run button được click!")
 
         if not self.selected_tasks:
@@ -1512,23 +1777,35 @@ class StoreAutomationGUI(QMainWindow):
         self.log(f"▶️ BẮT ĐẦU CHẠY {len(self.selected_tasks)} TASK ĐÃ CHỌN")
         self.log("="*60)
 
-        # Reset stop flag and mark as running
         self.should_stop_tasks = False
         self.is_running_tasks = True
 
-        # Disable all task buttons and Run button
         for btn in self.task_buttons.values():
             btn.setEnabled(False)
         self.run_button.setEnabled(False)
 
-        # Enable Stop button with explicit cursor update
         self.stop_button.setEnabled(True)
         self.stop_button.setCursor(Qt.PointingHandCursor)
         self.stop_button.setFocus()  # Set focus to make it more visible
         self.log("✅ Stop button đã được enable và có thể click")
 
-        thread = threading.Thread(target=self.run_selected_tasks_thread, daemon=True)
-        thread.start()
+        # Get credentials nếu chưa có
+        if not self.credentials:
+            self.log("📝 Getting credentials from inputs...")
+            self.credentials = self.get_credentials_from_inputs()
+
+        # Tạo Selenium worker nếu chưa có
+        if not self.selenium_worker:
+            self.create_selenium_worker()
+
+        # Chạy tasks trong Selenium thread qua signal
+        self.signals.do_run_tasks.emit(
+            self.selected_tasks.copy(),  # Copy để tránh race condition
+            self.task_order.copy(),
+            self.task_data.copy(),
+            self.credentials.copy(),
+            self.store_id if self.store_id else self.credentials['storeId']
+        )
 
     def stop_tasks(self):
         """Stop currently running tasks - CHỈ set flag, thread sẽ tự dừng"""
@@ -1554,106 +1831,14 @@ class StoreAutomationGUI(QMainWindow):
         # KHÔNG gọi cleanup_and_reset ở đây
         # Để after_run_selected_tasks() xử lý khi thread kết thúc
 
-    def cleanup_and_reset(self):
-        """Reset state to ready for next run - KHÔNG đóng app, KHÔNG logout
-        """
-        try:
-            self.log("🔄 Đang reset state về trạng thái sẵn sàng...")
 
-            # KHÔNG stop captcha monitor - giữ nguyên để dùng lại
-            # KHÔNG stop heartbeat - giữ browser sống
-            # KHÔNG quit driver - giữ session login
-
-            self.log("✅ Đã reset state. Sẵn sàng chọn và chạy task mới.")
-            self.log("💡 Browser vẫn đang mở, login state được giữ nguyên.")
-            self.log("="*60 + "\n")
-
-        except Exception as e:
-            self.log(f"⚠️ Lỗi khi reset: {e}")
-        finally:
-            # Reset task running state
-            self.is_running_tasks = False
-            self.should_stop_tasks = False
-
-            # Clear task selections and reset button styles
-            for task_id in list(self.selected_tasks):
-                if task_id in self.task_buttons:
-                    self.task_buttons[task_id].setStyleSheet(self.normal_button_style)
-            self.selected_tasks.clear()
-
-            # Re-enable all task buttons (vì vẫn đang logged in)
-            for btn in self.task_buttons.values():
-                btn.setEnabled(True)
-
-            # Disable Run button (vì đã clear selections)
-            self.run_button.setEnabled(False)
-
-            # Disable Stop button and reset cursor
-            self.stop_button.setEnabled(False)
-            self.stop_button.setCursor(Qt.ArrowCursor)
-
-            # Restore login button state
-            if self.is_logged_in:
-                self.login_button.setText("✅ Logged In")
-                self.login_button.setEnabled(False)
-
-    def run_selected_tasks_thread(self):
-        try:
-            self.log(f"\n{'='*60}")
-            self.log(f"🚀 Bắt đầu chạy {len(self.selected_tasks)} task đã chọn")
-            self.log(f"{'='*60}")
-
-            # Get tasks in original order
-            sorted_tasks = [task_id for task_id in self.task_order if task_id in self.selected_tasks]
-
-            self.log(f"📋 Danh sách tasks sẽ chạy:")
-            for idx, task_id in enumerate(sorted_tasks, 1):
-                task_label = self.task_data[task_id]['label']
-                self.log(f"   {idx}. {task_label}")
-            self.log("")
-
-            for idx, task_id in enumerate(sorted_tasks, 1):
-                # Check if stop was requested
-                if self.should_stop_tasks:
-                    self.log("\n⏹️ Đã dừng chạy tasks theo yêu cầu người dùng.")
-                    break
-
-                task_data = self.task_data[task_id]
-                task_func = task_data['func']
-                task_label = task_data['label']
-
-                self.log(f"\n▶️ [{idx}/{len(sorted_tasks)}] Đang chạy: {task_label}")
-
-                self.execute_single_task(task_func, task_label)
-
-                self.log(f"✅ [{idx}/{len(sorted_tasks)}] Hoàn thành: {task_label}")
-
-            if not self.should_stop_tasks:
-                self.log(f"\n{'='*60}")
-                self.log(f"✅ ĐÃ HOÀN THÀNH TẤT CẢ {len(self.selected_tasks)} TASKS!")
-                self.log(f"{'='*60}\n")
-
-                num_tasks = len(self.selected_tasks)
-                self.signals.show_message_box.emit("Thành công", f"Đã hoàn thành {num_tasks} task(s)!", "info")
-
-        except Exception as e:
-            if not self.should_stop_tasks:  # Only log error if not manually stopped
-                self.log(f"❌ Lỗi khi chạy tasks: {e}")
-                self.log(f"📋 Traceback: {traceback.format_exc()}")
-                self.signals.task_error.emit(f"Lỗi khi chạy tasks:\n{e}")
-        finally:
-            self.signals.task_completed.emit()
 
     def after_run_selected_tasks(self):
-        """Called when tasks complete or are stopped - Reset về trạng thái ban đầu"""
-        self.log("🔄 after_run_selected_tasks được gọi")
-
         if self.should_stop_tasks:
             self.log("⏹️ Tasks đã bị DỪNG - Reset về trạng thái sẵn sàng")
         else:
             self.log("✅ Tasks đã HOÀN THÀNH - Reset về trạng thái sẵn sàng")
 
-        # Reset task running state
         self.is_running_tasks = False
         self.should_stop_tasks = False
 
@@ -1663,18 +1848,14 @@ class StoreAutomationGUI(QMainWindow):
                 self.task_buttons[task_id].setStyleSheet(self.normal_button_style)
         self.selected_tasks.clear()
 
-        # Re-enable all task buttons (vì vẫn đang logged in)
         for btn in self.task_buttons.values():
             btn.setEnabled(True)
 
-        # Disable Run button (vì đã clear selections)
         self.run_button.setEnabled(False)
 
-        # Disable Stop button and reset cursor
         self.stop_button.setEnabled(False)
         self.stop_button.setCursor(Qt.ArrowCursor)
 
-        # Giữ nguyên login state
         if self.is_logged_in:
             self.login_button.setText("✅ Logged In")
             self.login_button.setEnabled(False)
@@ -1682,108 +1863,12 @@ class StoreAutomationGUI(QMainWindow):
 
         self.log("="*60 + "\n")
 
-        # Clear log text để dễ đọc cho lần chạy tiếp theo
         self.log_text.clear()
         self.log("🔄 Log đã được clear. Sẵn sàng cho lần chạy tiếp theo.")
         if self.is_logged_in:
             self.log("✅ Đã đăng nhập. Có thể chọn và chạy tasks.")
         else:
             self.log("⚠️ Chưa đăng nhập. Sẽ auto-login khi chạy tasks.")
-
-    def execute_single_task(self, task_func, task_label):
-        # Check if stop was requested before executing
-        if self.should_stop_tasks:
-            raise Exception("Task stopped by user")
-
-        if task_func == register_shopify_account:
-            if not self.validate_register_inputs():
-                raise Exception("Validation failed for register task")
-
-        if not self.credentials:
-            self.log("📝 Getting credentials from inputs...")
-            self.credentials = self.get_credentials_from_inputs()
-
-        if not self.driver or not self.is_logged_in:
-            self.log("🔐 Auto-login required for this task...")
-
-            if not self.driver:
-                self.log("🔧 Setting up driver and starting monitors...")
-                self.driver = self.setup_driver_and_heartbeat()
-                if not self.driver:
-                    raise Exception("Failed to setup driver")
-                self.log("✅ Driver setup completed")
-
-            from utils.element import detect_store_id
-
-            email = self.credentials['email']
-            password = self.credentials['password']
-            store_id = self.credentials['storeId']
-
-            self.log(f"🔐 Logging in as {email}...")
-            logged = login_to_shopify(self.driver, email, password, store_id)
-
-            if not logged:
-                raise Exception("Auto-login failed")
-
-            self.is_logged_in = True
-            self.log("✅ Auto-login successful!")
-
-            detected_store_id = detect_store_id(self.driver)
-            if detected_store_id:
-                self.store_id = detected_store_id
-            else:
-                self.store_id = store_id
-                self.log(f"💾 Store ID saved (fallback): {self.store_id}")
-
-            self.signals.login_success.emit()
-
-        store_id = self.store_id if self.store_id else self.credentials['storeId']
-        email = self.credentials['email']
-        password = self.credentials['password']
-        domain = self.credentials['domain']
-        firstname = self.credentials['firstname']
-        lastname = self.credentials['lastname']
-        ssn = self.credentials['ssn']
-        birthday = self.credentials['birthday']
-        address = self.credentials['address']
-        zip_code = self.credentials['zip']
-
-        if task_func == setup_legal_policies:
-            policies = self.credentials.get('policies', {})
-            task_func(self.driver, store_id, policies)
-        elif task_func == setup_preferences:
-            seo_data = self.credentials.get('seo', {})
-            task_func(self.driver, store_id, seo_data)
-        elif task_func == link_dser_account:
-            task_func(self.driver, password)
-        elif task_func == register_shopify_account:
-            from utils.element import detect_store_id
-
-            name = f"{firstname} {lastname}"
-            info = f"{ssn} {birthday} F {address} {zip_code}" if ssn and birthday and address and zip_code else ""
-            self.log(f"👤 Registering with name: {name}")
-            self.log(f"📋 Info: {info}")
-            registered = task_func(self.driver, email, password, store_id, name, info)
-
-            if registered:
-                self.log("\n🔍 Detecting store ID after registration...")
-                detected_store_id = detect_store_id(self.driver)
-                if detected_store_id:
-                    self.store_id = detected_store_id
-                    self.log(f"💾 Store ID detected and saved: {self.store_id}")
-                else:
-                    self.store_id = store_id
-                    self.log(f"💾 Store ID saved (fallback): {self.store_id}")
-        elif task_func == connect_domain:
-            task_func(self.driver, store_id, domain)
-        elif task_func == setup_notifications:
-            clf_token = get_config_json("cloudflare", "8", "token")
-            clf_email = get_config_json("cloudflare", "8", "email")
-            clf_key = get_config_json("cloudflare", "8", "key")
-            self.log(f"🔔 Setting up notifications for domain: {domain}")
-            asyncio.run(task_func(self.driver, store_id, domain, clf_token, clf_email, clf_key))
-        else:
-            task_func(self.driver, store_id)
 
     def on_login_success(self):
         self.status_icon.setText("✅")
@@ -1804,8 +1889,6 @@ class StoreAutomationGUI(QMainWindow):
         # Task buttons luôn enabled (không cần login trước)
         for btn in self.task_buttons.values():
             btn.setEnabled(True)
-
-        QMessageBox.information(self, "Success", "Login successful! You can now select and run tasks.")
 
     def toggle_card_inputs(self):
         if self.is_toggling_card:
@@ -1958,12 +2041,15 @@ class StoreAutomationGUI(QMainWindow):
             self.upload_seo_button.setText(f"📁 {self.shorten_filename(os.path.basename(file_path))}")
 
     def closeEvent(self, event):
-        if self.driver:
+        # Check if selenium worker has driver
+        has_driver = self.selenium_worker and self.selenium_worker.driver
+
+        if has_driver:
             reply = QMessageBox.question(self, "Quit", "Do you want to close the browser and exit?",
                                        QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
             if reply == QMessageBox.Yes:
                 try:
-                    self.cleanup_driver()
+                    self.cleanup_selenium_worker()
                     self.log("Browser closed")
                 except:
                     pass

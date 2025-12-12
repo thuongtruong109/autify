@@ -5,11 +5,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from utils.element import delay, highlight_element, click_save_button, find_button
 
 def setup_world_market(driver: webdriver.Chrome, storeId: str):
-    print("\n" + "="*60)
-    print("🌍 SETUP WORLD MARKET...")
-    print("="*60)
-
-    # Vào markets page
     markets_url = f"https://admin.shopify.com/store/{storeId}/markets/new"
     driver.get(markets_url)
     delay(3)

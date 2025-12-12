@@ -124,12 +124,24 @@ def show_interactive_menu():
 async def main():
     # Mặc định sử dụng Google Sheet, lấy từ row đầu tiên (index 0)
     # Nếu muốn dùng env.json, đổi use_sheet=False
-    entry = load_credentials(use_sheet=True, row_index=0)
-    if not entry:
-        print("No valid credentials found. Exiting.")
-        return
+    # entry = load_credentials(use_sheet=True, row_index=0)
+    # if not entry:
+    #     print("No valid credentials found. Exiting.")
+    #     return
 
-    email, password, storeId, domain, name, info = entry["email"], entry["password"], entry["storeId"], entry["domain"], entry["name"], entry["info"]
+    # email, password, storeId, domain, name, info = entry["email"], entry["password"], entry["storeId"], entry["domain"], entry["name"], entry["info"]
+
+    email = "blwnpyjeth2489@hotmail.com"
+    password = "victoria@2047"
+    storeId = "victoria"
+    domain = "victoria"
+    first_name = "YourFirstName"
+    last_name = "YourLastName"
+    address = "your_address_here"
+    zip = "your_zip_here"
+    card_number = "your_card_number_here"
+    card_expired = "your_card_expired_here"
+    card_cvc = "your_card_cvc_here"
 
     selected_tasks = show_interactive_menu()
     if not selected_tasks:
@@ -149,11 +161,11 @@ async def main():
         if 'register_shopify_account' in selected_tasks:
             print("\n🆕 Starting registration process...")
             print("="*60)
-            registered = register_shopify_account(driver, email, password, storeId, name, info)
+            registered = register_shopify_account(driver, email, password, domain, first_name, last_name, address, zip, card_number, card_expired, card_cvc)
             if not registered:
                 print("🚫 Registration failed. Cannot proceed.")
                 return
-            print(f"\n✅ Registration successful for {name}!")
+            print(f"\n✅ Registration successful for {first_name} {last_name}!")
             print("="*60)
 
             # Sau khi register xong, nếu có tasks khác thì cần login và lưu store_id
