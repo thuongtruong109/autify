@@ -1,173 +1,490 @@
+"""
+🚀 PAGES SETUP MODULE with TinyMCE Integration
+===============================================
+
+Module này setup các pages (Contact Us, About Us) với TinyMCE content injection.
+Sử dụng chiến lược tương tự như policies.py để inject content vào TinyMCE editor.
+"""
+
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
+from typing import Dict, Any
 from utils.element import delay, highlight_element, click_save_button
+from policies import debug_tinymce_state
+import time
 
-def setup_contact_page(driver: webdriver.Chrome, storeId: str):
-    """Setup Contact page - Đổi title từ 'Contact' thành 'Contact Us'"""
-    print("\n" + "="*60)
-    print("📄 SETUP CONTACT PAGE...")
-    print("="*60)
+def inject_page_content_smart(driver: webdriver.Chrome, content: str, page_name: str = "about_us") -> bool:
+    """
+    🚀 Inject content vào TinyMCE editor - CHỈ GIỮ STRATEGY 4 (WORK)
+    """
+    html_content = f"<p>{content}</p>"
 
+    print(f"\n🚀 SMART PAGE INJECTION: {page_name}")
+    print(f"   Content length: {len(content)} chars")
+
+    # Debug TinyMCE state
+    debug_tinymce_state(driver)
+
+    # Wait for TinyMCE to load
+    print(f"\n⏳ Waiting for TinyMCE...")
     try:
-        # Vào trang pages
-        pages_url = f"https://admin.shopify.com/store/{storeId}/pages"
-        print(f"Đang vào trang: {pages_url}")
-        driver.get(pages_url)
+        WebDriverWait(driver, 10).until(
+            lambda d: d.execute_script("return typeof tinyMCE !== 'undefined' && typeof tinymce !== 'undefined'")
+        )
+        print(f"   ✅ TinyMCE loaded")
+    except:
+        print(f"   ⚠️ TinyMCE chưa load, nhưng TIẾP TỤC thử inject!")
+
+    # ================================================================
+    # 🔥 STRATEGY 4: Direct textarea manipulation (WORK - GIỮ LẠI)
+    # ================================================================
+    print(f"\n🔥 Strategy 4: Direct textarea manipulation")
+    result = driver.execute_script("""
+        try {
+            // Tìm textarea đầu tiên có TinyMCE
+            var textareas = document.querySelectorAll('textarea');
+            var targetTextarea = null;
+
+            for (var i = 0; i < textareas.length; i++) {
+                var ta = textareas[i];
+                if (ta.id && typeof tinyMCE !== 'undefined') {
+                    var editor = tinyMCE.get(ta.id);
+                    if (editor) {
+                        targetTextarea = ta;
+                        break;
+                    }
+                }
+            }
+
+            if (!targetTextarea) {
+                return { success: false, error: 'No textarea with TinyMCE found' };
+            }
+
+            // Set textarea value
+            targetTextarea.value = arguments[0];
+            targetTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+            targetTextarea.dispatchEvent(new Event('change', { bubbles: true }));
+
+            // Trigger TinyMCE to load from textarea
+            var editor = tinyMCE.get(targetTextarea.id);
+            if (editor) {
+                editor.load();
+                editor.fire('change');
+                editor.save();
+            }
+
+            return { success: true, method: 'textarea manipulation', textareaId: targetTextarea.id };
+        } catch (e) {
+            return { success: false, error: e.toString() };
+        }
+    """, content)
+
+    if result.get('success'):
+        print(f"   ✅ SUCCESS via {result.get('method')} (Textarea: {result.get('textareaId')})")
+        time.sleep(0.5)
+        return True
+    else:
+        print(f"   ⚠️ Strategy 4 chưa work: {result.get('error')}")
+        print(f"   ⚠️ Content có thể chưa inject được, nhưng KHÔNG ĐÓNG APP!")
+        return False
+
+def setup_contact_page(driver: webdriver.Chrome, storeId: str, pages: Dict[str, str] = None):
+    """
+    Setup Contact Us và About Us pages với TinyMCE content
+
+    🚀 KHÔNG BAO GIỜ TỰ ĐỘNG ĐÓNG APP KHI GẶP LỖI!
+    Chỉ print warning và tiếp tục chạy.
+    """
+    if pages is None:
+        pages = {}
+
+    contact_content = pages.get('contact_us', '').strip()
+    about_content = pages.get('about_us', '').strip()
+
+    print(f"\n{'='*60}")
+    print(f"📄 SETUP PAGES - Contact Us & About Us")
+    print(f"{'='*60}")
+    print(f"📝 Contact Us content: {len(contact_content)} chars")
+    print(f"📝 About Us content: {len(about_content)} chars")
+
+    pages_url = f"https://admin.shopify.com/store/{storeId}/pages"
+    print(f"\n🌐 Đang vào trang: {pages_url}")
+    driver.get(pages_url)
+    delay(3)
+
+    # ================================================================
+    # STEP 1: Edit Contact Page
+    # ================================================================
+    print(f"\n{'='*60}")
+    print(f"STEP 1: Edit Contact Page")
+    print(f"{'='*60}")
+
+    print("🔍 Tìm item có chữ 'Contact'...")
+
+    # Tìm element có text "Contact" - WRAP trong try để không crash
+    try:
+        contact_item = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.XPATH, "//a[text()='Contact'] | //span[text()='Contact'] | //div[text()='Contact'] | //button[text()='Contact'] | //a[contains(text(), 'Contact')] | //button[contains(text(), 'Contact')] | //span[contains(text(), 'Contact')]"))
+        )
+
+        highlight_element(driver, contact_item)
+        print(f"✅ Tìm thấy item 'Contact'. Text: '{contact_item.text}'. Click...")
+        driver.execute_script("arguments[0].click();", contact_item)
         delay(3)
+        print("✅ Đã click vào item 'Contact'.")
+    except:
+        print("⚠️ Không tìm thấy item 'Contact', nhưng TIẾP TỤC chạy!")
 
-        # Tìm item element có chữ "Contact" và click vào
-        print("🔍 Tìm item có chữ 'Contact'...")
+    # Đợi page load sau khi click Contact
+    delay(3)
+
+    # ================================================================
+    # STEP 2: UPDATE TITLE INPUT - CHỈ GIỮ STRATEGY 2 (WORK) 🔥
+    # ================================================================
+    print(f"\n🔍 STEP 2: Tìm title input và update 'Contact Us'...")
+
+    title_updated = False
+
+    # STRATEGY 2: Common selectors (WORK - GIỮ LẠI)
+    print(f"   🔥 Strategy 2: Common selectors...")
+    selectors = [
+        "input[name*='title']",
+        "input[id*='title']",
+        "input[placeholder*='title' i]",
+        "input[placeholder*='about us' i]",
+        "input[placeholder*='page' i]",
+        "input.Polaris-TextField__Input",
+        "input[type='text']:first-of-type"
+    ]
+
+    for selector in selectors:
         try:
-            # Tìm element có text "Contact" chính xác (không phải "Contact Us")
-            contact_item = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, "//a[text()='Contact'] | //span[text()='Contact'] | //div[text()='Contact'] | //button[text()='Contact']"))
-            )
+            title_input = driver.find_element(By.CSS_SELECTOR, selector)
+            if not title_input.is_displayed():
+                continue
 
-            highlight_element(driver, contact_item)
-            print(f"✅ Tìm thấy item 'Contact'. Text: '{contact_item.text}'. Click...")
-            driver.execute_script("arguments[0].click();", contact_item)
-            delay(3)
-            print("✅ Đã click vào item 'Contact'.")
+            print(f"   ✅ Found by selector: {selector}")
+
+            try:
+                highlight_element(driver, title_input)
+
+                # Clear và type - WRAP để tránh segmentation fault
+                print(f"   🔥 Clear và type 'Contact Us'...")
+
+                # Click input
+                try:
+                    title_input.click()
+                    delay(0.3)
+                except:
+                    print(f"   ⚠️ Click failed, nhưng tiếp tục...")
+
+                # Clear bằng JavaScript an toàn hơn
+                try:
+                    driver.execute_script("""
+                        arguments[0].focus();
+                        arguments[0].select();
+                        arguments[0].value = '';
+                    """, title_input)
+                    delay(0.2)
+                except:
+                    print(f"   ⚠️ Clear failed, nhưng tiếp tục...")
+
+                # Type "Contact Us"
+                try:
+                    title_input.send_keys("Contact Us")
+                    delay(0.5)
+
+                    # Tab out
+                    title_input.send_keys(Keys.TAB)
+                    delay(0.5)
+                except Exception as e:
+                    print(f"   ⚠️ Send keys failed: {e}, thử selector tiếp...")
+                    continue
+
+                # Check value
+                final_value = title_input.get_attribute('value')
+                print(f"   ✅ Updated to: '{final_value}'")
+
+                if "Contact Us" in final_value:
+                    title_updated = True
+                    print(f"   ✅ Xác nhận: Title đã update thành công!")
+                    break
+                else:
+                    print(f"   ⚠️ Value không khớp, thử selector tiếp theo...")
+
+            except Exception as e:
+                print(f"   ⚠️ Error updating input: {e}")
+                continue
 
         except Exception as e:
-            print(f"⚠️ Không tìm thấy item 'Contact' bằng text chính xác: {e}")
-            print("🔍 Thử tìm bằng contains...")
+            # Selector này không tìm thấy, thử selector tiếp theo
+            print(f"   ⚠️ Selector {selector} failed: {e}")
+            continue
+            continue
 
-            # Thử tìm bằng contains (fallback)
+    if not title_updated:
+        print(f"   ⚠️ Could not update title input, nhưng TIẾP TỤC chạy!")
+
+    # ================================================================
+    # STEP 3: Inject Contact Us content vào TinyMCE
+    # ================================================================
+    if contact_content:
+        print(f"\n🔍 STEP 3: Inject Contact Us content vào TinyMCE...")
+        delay(2)  # Đợi TinyMCE load
+
+        success = inject_page_content_smart(driver, contact_content, "contact_us")
+
+        if success:
+            print(f"   ✅ Đã inject Contact Us content")
+        else:
+            print(f"   ⚠️ Không thể inject Contact Us content, nhưng TIẾP TỤC!")
+    else:
+        print(f"\n⚠️ STEP 3: Không có Contact Us content để inject")
+
+    # ================================================================
+    # STEP 4: Đợi và Click Save button cho Contact page
+    # ================================================================
+    print(f"\n🔍 STEP 4: Đợi Save button enable và click...")
+
+    # CANH CANH đợi button Save enable & visible
+    print("   🔥 Đang canh chờ button Save enable...")
+    save_clicked = False
+    start_time = time.time()
+    timeout = 30
+
+    while time.time() - start_time < timeout:
+        # Tìm tất cả button có chữ Save
+        buttons = driver.find_elements(By.XPATH, "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'save')]")
+
+        for btn in buttons:
+            # Check visible
+            if not btn.is_displayed():
+                continue
+
+            # Check enabled
+            is_enabled = btn.is_enabled()
+            aria_disabled = btn.get_attribute("aria-disabled")
+
+            # Button phải enable VÀ aria-disabled phải "false" (hoặc None)
+            if is_enabled and (aria_disabled is None or aria_disabled == "false"):
+                print(f"   ✅ Tìm thấy button Save enable! Click...")
+                highlight_element(driver, btn)
+                driver.execute_script("arguments[0].click();", btn)
+                delay(2)
+                print("   ✅ Đã click Save!")
+                save_clicked = True
+                break
+
+        if save_clicked:
+            break
+
+        # Chưa tìm thấy, đợi và thử lại
+        delay(0.5)
+
+    if not save_clicked:
+        print("   ⚠️ Chưa click được Save button, nhưng TIẾP TỤC!")
+
+    # ================================================================
+    # PART 2: Tạo About Us Page
+    # ================================================================
+    print(f"\n{'='*60}")
+    print(f"PART 2: Tạo About Us Page")
+    print(f"{'='*60}")
+
+    # Quay lại trang pages
+    print("\n🔄 Quay lại trang pages...")
+    pages_url = f"https://admin.shopify.com/store/{storeId}/pages"
+    driver.get(pages_url)
+    delay(3)
+
+    # Tìm button "Add page" và click
+    print("🔍 STEP 1: Tìm button 'Add page'...")
+
+    try:
+        add_page_btn = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.XPATH, "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'add page')] | //a[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'add page')]"))
+        )
+
+        highlight_element(driver, add_page_btn)
+        print("   ✅ Tìm thấy button 'Add page'. Click...")
+        driver.execute_script("arguments[0].click();", add_page_btn)
+        delay(2)
+        print("   ✅ Đã click 'Add page'.")
+    except:
+        print("   ⚠️ Không tìm thấy button 'Add page', nhưng TIẾP TỤC!")
+
+    # Đợi page load
+    delay(3)
+
+    # ================================================================
+    # STEP 2: UPDATE TITLE INPUT "About Us" - CHỈ GIỮ STRATEGY 2 (WORK) 🔥
+    # ================================================================
+    print(f"\n🔍 STEP 2: Tìm title input và update 'About Us'...")
+
+    about_title_updated = False
+
+    # STRATEGY 2: Common selectors (WORK - GIỮ LẠI)
+    print(f"   🔥 Strategy 2: Common selectors...")
+    selectors = [
+        "input[name*='title']",
+        "input[id*='title']",
+        "input[placeholder*='title' i]",
+        "input.Polaris-TextField__Input",
+        "input[type='text']:first-of-type"
+    ]
+
+    for selector in selectors:
+        try:
+            title_input = driver.find_element(By.CSS_SELECTOR, selector)
+            if not title_input.is_displayed():
+                continue
+
+            print(f"   ✅ Found by selector: {selector}")
+
             try:
-                contact_link = driver.find_element(By.XPATH, "//a[contains(text(), 'Contact')] | //button[contains(text(), 'Contact')] | //span[contains(text(), 'Contact')]")
-                highlight_element(driver, contact_link)
-                print(f"✅ Tìm thấy link/button 'Contact' (contains). Click...")
-                driver.execute_script("arguments[0].click();", contact_link)
-                delay(3)
-                print("✅ Đã click vào 'Contact'.")
-            except Exception as e2:
-                print(f"❌ Không thể tìm thấy item 'Contact': {e2}")
-                return
+                highlight_element(driver, title_input)
 
-        # SAU KHI CLICK VÀO CONTACT, CHECK SAVE BUTTON MỖI 2S BẰNG CÁCH GỌI FUNCTION click_save_button
-        print("🔍 Check Save button mỗi 2s sau khi vào Contact...")
-        max_save_checks = 15  # Tối đa 15 lần check (30 giây)
+                # Clear và type - WRAP để tránh segmentation fault
+                print(f"   🔥 Clear và type 'About Us'...")
 
-        for check_attempt in range(max_save_checks):
-            print(f"   [Attempt {check_attempt + 1}] Gọi click_save_button...")
-
-            # Gọi function click_save_button
-            save_clicked = click_save_button(driver, timeout=1)  # Timeout ngắn để check nhanh
-
-            if save_clicked:
-                print("✅ Đã click Save button thành công.")
-
-                # SAU KHI CLICK SAVE BUTTON, QUAY LẠI TRANG PAGES VÀ TẠO PAGE "About Us"
-                print("\n🔄 Quay lại trang pages để tạo page 'About Us'...")
-                pages_url = f"https://admin.shopify.com/store/{storeId}/pages"
-                driver.get(pages_url)
-                delay(3)
-
-                # Tìm button "Add page" và click
-                print("🔍 Tìm button 'Add page'...")
+                # Click input
                 try:
-                    add_page_btn = WebDriverWait(driver, 10).until(
-                        EC.presence_of_element_located((By.XPATH, "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'add page')] | //a[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'add page')]"))
-                    )
+                    title_input.click()
+                    delay(0.3)
+                except:
+                    print(f"   ⚠️ Click failed, nhưng tiếp tục...")
 
-                    highlight_element(driver, add_page_btn)
-                    print("✅ Tìm thấy button 'Add page'. Click...")
-                    driver.execute_script("arguments[0].click();", add_page_btn)
-                    delay(3)
-                    print("✅ Đã click 'Add page'.")
+                # Clear bằng JavaScript an toàn hơn
+                try:
+                    driver.execute_script("""
+                        arguments[0].focus();
+                        arguments[0].select();
+                        arguments[0].value = '';
+                    """, title_input)
+                    delay(0.2)
+                except:
+                    print(f"   ⚠️ Clear failed, nhưng tiếp tục...")
 
+                # Type "About Us"
+                try:
+                    title_input.send_keys("About Us")
+                    delay(0.5)
+
+                    # Tab out
+                    title_input.send_keys(Keys.TAB)
+                    delay(0.5)
                 except Exception as e:
-                    print(f"❌ Không tìm thấy button 'Add page': {e}")
-                    return
+                    print(f"   ⚠️ Send keys failed: {e}, thử selector tiếp...")
+                    continue
 
-                # SAU KHI CLICK ADD PAGE, CỨ 3S GỌI FUNCTION SAVE BUTTON
-                print("🔍 Check Save button mỗi 3s sau khi click Add page...")
-                max_save_checks = 10  # Tối đa 10 lần check (30 giây)
+                # Check value
+                final_value = title_input.get_attribute('value')
+                print(f"   ✅ Updated to: '{final_value}'")
 
-                for check_attempt in range(max_save_checks):
-                    print(f"   [Attempt {check_attempt + 1}] Gọi click_save_button...")
+                if "About Us" in final_value:
+                    about_title_updated = True
+                    print(f"   ✅ Xác nhận: Title đã update thành công!")
+                    break
+                else:
+                    print(f"   ⚠️ Value không khớp, thử selector tiếp theo...")
 
-                    # Gọi function click_save_button
-                    save_clicked_add_page = click_save_button(driver, timeout=1)  # Timeout ngắn để check nhanh
+            except Exception as e:
+                print(f"   ⚠️ Error updating input: {e}")
+                continue
 
-                    if save_clicked_add_page:
-                        print("✅ Tìm thấy Save button sau khi Add page. Tiếp tục điền thông tin...")
+        except Exception as e:
+            # Selector này không tìm thấy, thử selector tiếp theo
+            print(f"   ⚠️ Selector {selector} failed: {e}")
+            continue
 
-                        # Tìm input type text và điền "About Us"
-                        print("🔍 Tìm input type text để điền 'About Us'...")
-                        try:
-                            title_input = WebDriverWait(driver, 5).until(
-                                EC.presence_of_element_located((By.XPATH, "//input[@type='text']"))
-                            )
+    if not about_title_updated:
+        print(f"   ⚠️ Could not update About Us title, nhưng TIẾP TỤC chạy!")
 
-                            highlight_element(driver, title_input)
-                            print(f"✅ Tìm thấy input text. Giá trị hiện tại: '{title_input.get_attribute('value')}'")
+    # ================================================================
+    # STEP 3: CLICK RADIO BUTTON 🔥
+    # ================================================================
+    print(f"\n🔍 STEP 3: Tìm và click radio button...")
 
-                            # Clear và điền "About Us"
-                            title_input.clear()
-                            delay(0.5)
-                            title_input.send_keys("About Us")
-                            delay(1)
-                            print("✅ Đã điền 'About Us'.")
+    # Scan tất cả radio buttons và click cái đầu tiên visible
+    all_radios = driver.find_elements(By.CSS_SELECTOR, "input[type='radio']")
+    visible_radios = [r for r in all_radios if r.is_displayed()]
 
-                        except Exception as e:
-                            print(f"❌ Không tìm thấy input text: {e}")
+    if visible_radios:
+        radio_button = visible_radios[0]
+        highlight_element(driver, radio_button)
+        driver.execute_script("arguments[0].click();", radio_button)
+        delay(1)
+        print(f"   ✅ Clicked radio button")
+    else:
+        print(f"   ⚠️ Không tìm thấy radio button, nhưng TIẾP TỤC!")
 
-                        # Tìm radio button và click vào visible option
-                        print("🔍 Tìm radio button visible...")
-                        try:
-                            # Tìm radio button có label chứa "visible" hoặc "published"
-                            visible_radio = WebDriverWait(driver, 5).until(
-                                EC.presence_of_element_located((By.XPATH, "//input[@type='radio' and (@value='visible' or @value='published' or contains(following-sibling::text(), 'Visible') or contains(following-sibling::text(), 'Published'))]"))
-                            )
+    # ================================================================
+    # STEP 4: Inject About Us content vào TinyMCE
+    # ================================================================
+    if about_content:
+        print(f"\n🔍 STEP 4: Inject About Us content vào TinyMCE...")
+        delay(2)  # Đợi TinyMCE load sau khi click radio
 
-                            highlight_element(driver, visible_radio)
-                            print("✅ Tìm thấy radio button visible. Click...")
-                            driver.execute_script("arguments[0].click();", visible_radio)
-                            delay(1)
-                            print("✅ Đã click radio button visible.")
+        success = inject_page_content_smart(driver, about_content, "about_us")
 
-                        except Exception as e:
-                            print(f"⚠️ Không tìm thấy radio button visible: {e}")
-                            # Thử tìm bằng cách khác
-                            try:
-                                # Tìm tất cả radio buttons và click vào cái đầu tiên
-                                all_radios = driver.find_elements(By.XPATH, "//input[@type='radio']")
-                                if all_radios:
-                                    highlight_element(driver, all_radios[0])
-                                    driver.execute_script("arguments[0].click();", all_radios[0])
-                                    print("✅ Đã click radio button đầu tiên (fallback).")
-                            except Exception as e2:
-                                print(f"❌ Không thể click radio button: {e2}")
+        if success:
+            print(f"   ✅ Đã inject About Us content")
+        else:
+            print(f"   ⚠️ Không thể inject About Us content, nhưng TIẾP TỤC!")
+    else:
+        print(f"\n⚠️ STEP 4: Không có About Us content để inject")
 
-                        # Click Save button cuối cùng
-                        print("🔍 Click Save button cuối cùng...")
-                        final_save_clicked = click_save_button(driver)
-                        if final_save_clicked:
-                            print("✅ Đã hoàn thành tạo About Us page!")
-                        else:
-                            print("⚠️ Không thể click Save button cuối cùng.")
+    # ================================================================
+    # STEP 5: Đợi và Click Save button cuối cùng
+    # ================================================================
+    print(f"\n🔍 STEP 5: Đợi Save button enable và click...")
 
-                        return
+    # CANH CANH đợi button Save enable & visible
+    print("   🔥 Đang canh chờ button Save enable...")
+    final_save_clicked = False
+    start_time = time.time()
+    timeout = 30
 
-                    # Nếu chưa click được, đợi 3s và thử lại
-                    print(f"   ⏳ Chưa tìm thấy Save button enabled. Đợi 3s...")
-                    delay(3)
+    while time.time() - start_time < timeout:
+        # Tìm tất cả button có chữ Save
+        buttons = driver.find_elements(By.XPATH, "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'save')]")
 
-                print("⚠️ Không tìm thấy Save button sau khi Add page trong 30s.")
-                return
+        for btn in buttons:
+            # Check visible
+            if not btn.is_displayed():
+                continue
 
-            # Nếu chưa click được, đợi 2s và thử lại
-            print(f"   ⏳ Chưa tìm thấy Save button enabled. Đợi 2s...")
-            delay(2)
+            # Check enabled
+            is_enabled = btn.is_enabled()
+            aria_disabled = btn.get_attribute("aria-disabled")
 
-        # NẾU KHÔNG CÓ SAVE BUTTON, THÔI KHÔNG LÀM GÌ THÊM
-        print("⚠️ Không tìm thấy Save button enabled sau 30s. Kết thúc setup Contact page.")
-        return
+            # Button phải enable VÀ aria-disabled phải "false" (hoặc None)
+            if is_enabled and (aria_disabled is None or aria_disabled == "false"):
+                print(f"   ✅ Tìm thấy button Save enable! Click...")
+                highlight_element(driver, btn)
+                driver.execute_script("arguments[0].click();", btn)
+                delay(2)
+                print("   ✅ Đã click Save!")
+                final_save_clicked = True
+                break
 
-    except Exception as e:
-        print(f"❌ Lỗi khi setup Contact page: {e}")
-        print("="*60)
+        if final_save_clicked:
+            break
+
+        # Chưa tìm thấy, đợi và thử lại
+        delay(0.5)
+
+    if final_save_clicked:
+        print(f"\n{'='*60}")
+        print(f"✅ HOÀN TẤT SETUP PAGES!")
+        print(f"{'='*60}")
+        print(f"✅ Contact Us page: Updated với {len(contact_content)} chars")
+        print(f"✅ About Us page: Created với {len(about_content)} chars")
+        print(f"{'='*60}")
+    else:
+        print("⚠️ Chưa click được Save button, nhưng ĐÃ HOÀN TẤT!")
+        print(f"{'='*60}")

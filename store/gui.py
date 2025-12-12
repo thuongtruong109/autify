@@ -330,6 +330,9 @@ class SeleniumWorker(QObject):
         if task_func == setup_legal_policies:
             policies = credentials.get('policies', {})
             task_func(self.driver, current_store_id, policies, should_stop_callback=should_stop)
+        elif task_func == setup_contact_page:
+            pages = credentials.get('pages', {})
+            task_func(self.driver, current_store_id, pages)
         elif task_func == setup_preferences:
             seo_data = credentials.get('seo', {})
             task_func(self.driver, current_store_id, seo_data)
@@ -1216,7 +1219,7 @@ class StoreAutomationGUI(QMainWindow):
         tasks = [
             ('register_shopify_account', '🆕 Register', register_shopify_account),
             ('install_apps', '📦 Install Apps', install_apps),
-            ('link_dser_account', '🛠️ DSers (progress)', link_dser_account),
+            ('link_dser_account', '🛠️ DSers (link account)', link_dser_account),
             ('setup_world_market', '🌍 Markets', setup_world_market),
             ('setup_legal_policies', '📜 Policies', setup_legal_policies),
             ('setup_contact_page', '📄 Pages', setup_contact_page),
@@ -1589,6 +1592,10 @@ class StoreAutomationGUI(QMainWindow):
                 'terms_of_service': self.terms_service_text.toPlainText().strip(),
                 'shipping': self.shipping_policy_text.toPlainText().strip(),
                 'contact_information': self.contact_info_text.toPlainText().strip()
+            },
+            'pages': {
+                'about_us': self.about_us_text.toPlainText().strip(),
+                'contact_us': self.contact_us_text.toPlainText().strip()
             }
         }
 
