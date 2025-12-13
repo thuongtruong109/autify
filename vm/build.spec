@@ -6,7 +6,7 @@ a = Analysis(
     ['index.py', 'launcher.py'],
     pathex=[],
     binaries=[],
-    datas=[('templates', 'templates')],
+    datas=[('templates', 'templates'), ('logo.png', '.')],
     hiddenimports=[
         'pyautogui',
         'numpy',
@@ -48,11 +48,11 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,  # Console window for debugging
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,  # You can add an .ico file path here if you have one
+    icon='logo.png'
 )

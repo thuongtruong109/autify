@@ -1,21 +1,28 @@
+import sys, os, random, ctypes
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
-import sys
-import os
-import random
 
-from states import US_STATES
+from states import US_STATES, CA_STATES
 
-NOTE = "❌ Chú ý: Nhớ tắt CapsLock và không được di chuyển chuột khi tool đang chạy!"
+NOTE = "❌ Chú ý: Không được di chuyển chuột khi tool đang chạy!"
 
-DEFAULT_ADDRESSES = [
-    "New Orleans, Louisiana",
-    "Baton Rouge, Louisiana",
-    "Shreveport, Louisiana",
-    "Lafayette, Louisiana",
-    "Lake Charles, Louisiana",
-    "Monroe, Louisiana",
-]
+def resource_path(path):
+    try:
+        base = sys._MEIPASS
+    except:
+        base = os.path.abspath(".")
+    return os.path.join(base, path)
+
+def set_icon(root):
+    try:
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+            "autify.vm.app"
+        )
+    except:
+        pass
+
+    img = tk.PhotoImage(file=resource_path("logo.png"))
+    root.iconphoto(True, img)
 
 class VMAutomationGUI:
     def __init__(self, root):
@@ -24,25 +31,20 @@ class VMAutomationGUI:
         self.root.geometry("680x400")
         self.root.resizable(False, False)
         self.root.configure(bg="#f5f5f5")
+        set_icon(self.root)
 
-        # Variables to store info
         self.info = None
         self.mode = "full"
 
-        # Table rows data
         self.table_rows = []
 
-        # Row count label
         self.row_count_label = None
 
-        # US States list
-        self.us_states = US_STATES
+        self.us_states = US_STATES + CA_STATES
 
-        # Configure style
         style = ttk.Style()
         style.theme_use('clam')
 
-        # Custom styles
         style.configure('Title.TLabel', font=('Segoe UI', 18, 'bold'),
                        foreground="#2c3e50", background="#f5f5f5")
         style.configure('Field.TLabel', font=('Segoe UI', 10, 'bold'),
@@ -104,40 +106,40 @@ class VMAutomationGUI:
         button_frame.grid(row=3, column=0, columnspan=2, pady=(0, 10))
 
         # Only VM button
-        self.only_vm_button = tk.Button(button_frame, text="💻 Run only VM",
+        self.only_vm_button = tk.Button(button_frame, text="💻 Only VM",
                                         command=self.start_only_vm,
                                         bg="#3498db", fg="white",
                                         font=('Segoe UI', 10, 'bold'),
-                                        padx=16, pady=3,
+                                        padx=16, pady=2,
                                         cursor="hand2",
                                         relief="flat",
                                         activebackground="#2980b9",
                                         activeforeground="white")
-        self.only_vm_button.grid(row=0, column=0, padx=4)
+        self.only_vm_button.grid(row=0, column=0, padx=3)
 
         # Only Goless button
-        # self.only_goless_button = tk.Button(button_frame, text="🤖 Only Goless",
-        #                                     command=self.start_only_goless,
-        #                                     bg="#9b59b6", fg="white",
-        #                                     font=('Segoe UI', 10, 'bold'),
-        #                                     padx=16, pady=3,
-        #                                     cursor="hand2",
-        #                                     relief="flat",
-        #                                     activebackground="#8e44ad",
-        #                                     activeforeground="white")
-        # self.only_goless_button.grid(row=0, column=1, padx=4)
+        self.only_goless_button = tk.Button(button_frame, text="🤖 Only Goless",
+                                            command=self.start_only_goless,
+                                            bg="#9b59b6", fg="white",
+                                            font=('Segoe UI', 10, 'bold'),
+                                            padx=16, pady=2,
+                                            cursor="hand2",
+                                            relief="flat",
+                                            activebackground="#8e44ad",
+                                            activeforeground="white")
+        self.only_goless_button.grid(row=0, column=1, padx=3)
 
         # Start button
         self.start_button = tk.Button(button_frame, text="▶ Run all",
                                       command=self.start_automation,
                                       bg="#27ae60", fg="white",
-                                      font=('Segoe UI', 11, 'bold'),
-                                      padx=24, pady=1,
+                                      font=('Segoe UI', 10, 'bold'),
+                                      padx=16, pady=2,
                                       cursor="hand2",
                                       relief="flat",
                                       activebackground="#229954",
                                       activeforeground="white")
-        self.start_button.grid(row=0, column=2, padx=4)
+        self.start_button.grid(row=0, column=2, padx=3)
 
         # Table header
         header_frame = ttk.Frame(table_card_frame, style='Card.TFrame')
@@ -254,7 +256,6 @@ class VMAutomationGUI:
             self.table_canvas.yview_scroll(1, "units")
 
     def add_table_row(self, name="", sock="", address=""):
-        """Add a new row to the table"""
         row_index = len(self.table_rows)
 
         row_frame = ttk.Frame(self.table_frame, style='Card.TFrame')
@@ -263,15 +264,11 @@ class VMAutomationGUI:
         # Name entry
         name_entry = ttk.Entry(row_frame, width=22, font=('Segoe UI', 9))
         name_entry.grid(row=0, column=0, padx=2)
-        if not name and row_index == 0:
-            name = "2022-example.com"
         name_entry.insert(0, name)
 
         # Sock entry
         sock_entry = ttk.Entry(row_frame, width=35, font=('Segoe UI', 9))
         sock_entry.grid(row=0, column=1, padx=2)
-        if not sock and row_index == 0:
-            sock = "185.253.122.152:5961:lkqbgbdk:klwsil8ci4hw"
         sock_entry.insert(0, sock)
 
         # Address frame with entry and dropdown
@@ -280,8 +277,6 @@ class VMAutomationGUI:
 
         address_entry = ttk.Entry(address_container, width=23, font=('Segoe UI', 9))
         address_entry.grid(row=0, column=0)
-        if not address:
-            address = random.choice(DEFAULT_ADDRESSES)
         address_entry.insert(0, address)
 
         address_dropdown_btn = tk.Button(address_container, text="▼", width=1,
@@ -400,8 +395,6 @@ class VMAutomationGUI:
         self.show_row_address_dropdown(entry_widget, filtered_states)
 
     def show_row_address_dropdown(self, entry_widget, states):
-        """Show custom dropdown with filtered states for row entry"""
-        # Hide existing dropdown
         self.hide_address_dropdown()
 
         if not states:
@@ -450,10 +443,7 @@ class VMAutomationGUI:
             entry_widget.insert(0, selected_state)
         self.hide_address_dropdown()
 
-
-
     def hide_address_dropdown(self, event=None):
-        """Hide the custom dropdown"""
         if self.address_dropdown:
             self.address_dropdown.destroy()
             self.address_dropdown = None
@@ -462,7 +452,6 @@ class VMAutomationGUI:
             self.root.unbind('<Button-1>')
 
     def on_click_outside_dropdown(self, event):
-        """Handle click outside dropdown to close it"""
         if self.address_dropdown:
             # Get click position
             click_x = event.x_root
@@ -493,19 +482,16 @@ class VMAutomationGUI:
         self.root.after(150, self.check_hide_dropdown)
 
     def on_iso_focus_in(self, event):
-        """Remove placeholder text when ISO entry is focused"""
         if self.iso_entry.get() == "Select ISO file path...":
             self.iso_entry.delete(0, tk.END)
             self.iso_entry.config(foreground='black')
 
     def on_iso_focus_out(self, event):
-        """Restore placeholder text if ISO entry is empty"""
         if self.iso_entry.get() == "":
             self.iso_entry.insert(0, "Select ISO file path...")
             self.iso_entry.config(foreground='grey')
 
     def validate_inputs(self):
-        """Validate input fields"""
         if not self.table_rows:
             messagebox.showerror("Error", "Please add at least one row!")
             return False

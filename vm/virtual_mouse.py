@@ -33,7 +33,6 @@ class Input(ctypes.Structure):
     _fields_ = [("type", ctypes.c_ulong),
                 ("ii", Input_I)]
 
-# Constants
 INPUT_MOUSE = 0
 MOUSEEVENTF_MOVE = 0x0001
 MOUSEEVENTF_LEFTDOWN = 0x0002
@@ -56,7 +55,6 @@ def send_input(*inputs):
     return ctypes.windll.user32.SendInput(nInputs, pInputs, cbSize)
 
 def move_mouse(x, y):
-    # Convert to absolute coordinates (0-65535)
     screen_width = ctypes.windll.user32.GetSystemMetrics(0)
     screen_height = ctypes.windll.user32.GetSystemMetrics(1)
     abs_x = int(x * 65535 / screen_width)

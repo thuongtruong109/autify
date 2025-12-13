@@ -1,13 +1,11 @@
 import sys, os, subprocess, time, random, threading
-import cv2
-import numpy as np
 import pyautogui
 import pygetwindow as gw
 import pyperclip
 
 from watcher import ScreenWatcher
 from virtual_mouse import move_mouse, click_mouse, mouse_down, mouse_up
-from helpers import safe_exit, safe_locate
+from helpers import safe_exit, safe_locate, shutdown, turn_off_capslock
 
 pyautogui.FAILSAFE = True
 sys.dont_write_bytecode = True
@@ -269,6 +267,35 @@ def open_vm_app():
 def close_vm_app():
     move_click(1902, 6)
 
+def preset_media():
+    move_click(719, 369)
+    media_opt = random.choice(['c', 'f', 'g', 'i', 'l', 'm', 't'])
+    press_key(media_opt)
+    hotkey('ctrl', 'enter')
+
+def preset_marketplaces():
+    move_click(1139, 369)
+    press_key("e")
+    hotkey('ctrl', 'enter')
+
+def preset_payment():
+    move_click(1139, 432)
+    press_key("p")
+    hotkey('ctrl', 'enter')
+
+def preset_misc():
+    move_click(1139, 432)
+    misc_opt = random.choice(['1', 't'])
+    press_key(misc_opt)
+    hotkey('ctrl', 'enter')
+
+preset_switch = {
+    1: preset_media,
+    2: preset_marketplaces,
+    3: preset_payment,
+    4: preset_misc
+}
+
 def vm_setup(name, sock, address):
     iso = iso_path if iso_path else (default_iso or result.stdout.strip())
     host, port, user, passwd = (sock.split(":") + [""] * 4)[:4]
@@ -290,7 +317,7 @@ def vm_setup(name, sock, address):
         return False
 
     # Name and Operating System
-    move_click(737, 208)
+    move_click(737, 206)
     paste(name)
 
     move_click(800, 259)
@@ -305,16 +332,15 @@ def vm_setup(name, sock, address):
     # Preset
     move_click(726, 422)
     move_click(672, 312)
-    move_click(1139, 370)
-    press_key("a")
-    hotkey('ctrl', 'enter')
+    preset_choice = random.choice(list(preset_switch))
+    preset_switch[preset_choice]()
 
     # Network
     move_click(732, 483)
     move_click(1008, 399, clicks=2)
     move_click(1358, 399, clicks=2)
     move_click(675, 489)
-    move_click(812, 540)
+    move_click(812, 538)
     paste(host)
     move_click(1075, 538)
     paste(port)
@@ -334,14 +360,20 @@ def vm_setup(name, sock, address):
 
     # AntiOS
     move_click(707, 801)
-    move_click(676, 427)
-    move_click(676, 606)
+    move_click(676, 425)
+    move_click(676, 604)
 
-    # Fingerprint
+    # GPU model
     move_click(697, 830)
-    move_click(902, 433)
+    move_click(902, 428)
 
     for _ in range(random.randint(1, 7)):
+        press_key('down', sec=0.2)
+        hotkey('ctrl', 'enter', sec=0.2)
+
+    # Fingerprint
+    move_click(943, 467)
+    for _ in range(random.randint(1, 10)):
         press_key('down', sec=0.2)
         hotkey('ctrl', 'enter', sec=0.2)
 
@@ -651,7 +683,7 @@ def goless_setup():
         click_sock()
         open_goless_popup()
         minimize_keyboard_vm()
-        delay(15)
+        delay(19)
 
     return True
 
@@ -667,6 +699,8 @@ def cleanup_after_vm():
     delay(5)
 
 if mode == "vm":
+    turn_off_capslock()
+
     for idx, (name, sock, address) in enumerate(rows_data):
         open_vm_app()
         delay(0.5)
@@ -684,9 +718,12 @@ if mode == "vm":
     print(f"\n✅ Completed all {len(rows_data)} items!")
     safe_exit(0)
 elif mode == "goless":
+    turn_off_capslock()
     goless_setup()
     safe_exit(0)
 else:
+    turn_off_capslock()
+
     for idx, (name, sock, address) in enumerate(rows_data):
         open_vm_app()
         delay(0.5)
@@ -710,3 +747,5 @@ else:
 
     print(f"\n✅ Completed all {len(rows_data)} items!")
     safe_exit(0)
+
+    shutdown()
