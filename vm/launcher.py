@@ -1,4 +1,4 @@
-import sys, os, random, ctypes
+import sys, os, ctypes
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
@@ -161,7 +161,7 @@ class VMAutomationGUI:
         self.table_frame = ttk.Frame(self.table_canvas, style='Card.TFrame')
 
         self.table_canvas.create_window((0, 0), window=self.table_frame, anchor="nw")
-        self.table_canvas.configure(yscrollcommand=self.on_canvas_scroll)
+        self.table_canvas.configure(yscrollcommand=self.table_scrollbar.set)
 
         self.table_canvas.pack(side="left", fill="both", expand=True, padx=(0, 5))
 
@@ -255,6 +255,31 @@ class VMAutomationGUI:
         elif event.num == 5:
             self.table_canvas.yview_scroll(1, "units")
 
+    def handle_paste_column(self, event, column_name):
+        """Handle pasting a column from Excel into Name or Sock column."""
+        try:
+            clipboard = self.root.clipboard_get()
+        except tk.TclError:
+            return "break"  # Nothing in clipboard
+
+        # Split rows (Excel usually separates by \r\n or \n)
+        rows = [r for r in clipboard.replace("\r", "").split("\n") if r]
+
+        # Determine which entry field to fill
+        entry_key = "name_entry" if column_name == "Name" else "sock_entry"
+
+        # Add rows if needed
+        while len(rows) > len(self.table_rows):
+            self.add_table_row()
+
+        # Fill rows
+        for idx, value in enumerate(rows):
+            self.table_rows[idx][entry_key].delete(0, tk.END)
+            self.table_rows[idx][entry_key].insert(0, value)
+
+        return "break"  # Stop default handling
+
+    # ------------------- ADD ROW -------------------
     def add_table_row(self, name="", sock="", address=""):
         row_index = len(self.table_rows)
 
@@ -265,11 +290,15 @@ class VMAutomationGUI:
         name_entry = ttk.Entry(row_frame, width=22, font=('Segoe UI', 9))
         name_entry.grid(row=0, column=0, padx=2)
         name_entry.insert(0, name)
+        # Bind smart paste
+        name_entry.bind('<Control-v>', lambda e: self.handle_paste_column(e, "Name"))
 
         # Sock entry
         sock_entry = ttk.Entry(row_frame, width=35, font=('Segoe UI', 9))
         sock_entry.grid(row=0, column=1, padx=2)
         sock_entry.insert(0, sock)
+        # Bind smart paste
+        sock_entry.bind('<Control-v>', lambda e: self.handle_paste_column(e, "Sock"))
 
         # Address frame with entry and dropdown
         address_container = ttk.Frame(row_frame, style='Card.TFrame')
@@ -285,28 +314,10 @@ class VMAutomationGUI:
                                         relief="flat", cursor="hand2")
         address_dropdown_btn.grid(row=0, column=1, padx=(2, 0))
 
-        # Bind mouse wheel to address dropdown button
-        address_dropdown_btn.bind('<MouseWheel>', self.on_mouse_wheel)
-        address_dropdown_btn.bind('<Button-4>', self.on_mouse_wheel)
-        address_dropdown_btn.bind('<Button-5>', self.on_mouse_wheel)
-
-        # Bind autocomplete functionality
+        # Bind autocomplete for address
         address_entry.bind('<KeyRelease>', lambda event, e=address_entry: self.on_row_address_keyrelease(event, e))
         address_entry.bind('<FocusOut>', self.on_address_focus_out)
         address_entry.bind('<Escape>', self.hide_address_dropdown)
-
-        # Bind mouse wheel to all row widgets for scrolling
-        name_entry.bind('<MouseWheel>', self.on_mouse_wheel)
-        name_entry.bind('<Button-4>', self.on_mouse_wheel)
-        name_entry.bind('<Button-5>', self.on_mouse_wheel)
-
-        sock_entry.bind('<MouseWheel>', self.on_mouse_wheel)
-        sock_entry.bind('<Button-4>', self.on_mouse_wheel)
-        sock_entry.bind('<Button-5>', self.on_mouse_wheel)
-
-        address_entry.bind('<MouseWheel>', self.on_mouse_wheel)
-        address_entry.bind('<Button-4>', self.on_mouse_wheel)
-        address_entry.bind('<Button-5>', self.on_mouse_wheel)
 
         # Delete button
         delete_button = tk.Button(row_frame, text="🗑️",
@@ -319,11 +330,6 @@ class VMAutomationGUI:
                                  activebackground="white",
                                  activeforeground="#c0392b")
         delete_button.grid(row=0, column=3, padx=(15, 2))
-
-        # Bind mouse wheel to delete button
-        delete_button.bind('<MouseWheel>', self.on_mouse_wheel)
-        delete_button.bind('<Button-4>', self.on_mouse_wheel)
-        delete_button.bind('<Button-5>', self.on_mouse_wheel)
 
         # Store row data
         row_data = {
@@ -468,12 +474,11 @@ class VMAutomationGUI:
                     dropdown_y <= click_y <= dropdown_y + dropdown_height):
                 self.hide_address_dropdown()
 
-
-
     def check_hide_dropdown(self):
         """Check if dropdown should be hidden after focus loss"""
         # Only hide if dropdown still exists and entry doesn't have focus
-        if self.address_dropdown and not self.address_entry.focus_get():
+
+        if self.address_dropdown and not self.current_address_entry.focus_get():
             self.hide_address_dropdown()
 
     def on_address_focus_out(self, event):

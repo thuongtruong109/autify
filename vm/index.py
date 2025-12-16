@@ -131,7 +131,7 @@ def start_vm():
 
 def shutdown_vm():
     move_click(30, 1003)
-    delay(0.8)
+    delay(1)
     move_click(30, 953)
     delay(0.8)
     move_click(30, 868)
@@ -156,16 +156,16 @@ def stop_on_goless_success(x, y):
     print("🟢 Goless success detected. Stopping script!")
     GOLESS_SUCCESS_FLAG = True
 
-def install_software_callback(x, y):
-    # Verify install chrome (some driver has this issue)
+# Verify install chrome (some driver has this issue)
+def install_chrome_callback(x, y):
     click_mouse(x, y)
     delay(35)
-    move_click(431, 405)
+    move_click(396, 720)
     delay(2)
-    move_click(431, 405)
+    move_click(396, 720)
     for _ in range(30):
         move_click(491, 123)
-        delay(0.2)
+        delay(0.3)
         move_click(491, 148)
         delay(0.2)
         move_click(699, 248)
@@ -207,8 +207,8 @@ watchers = [
     ScreenWatcher("./templates/update_driver_iso.png", min_delay=5),
     ScreenWatcher("./templates/update_driver_iso.png", min_delay=10),
 
-    ScreenWatcher("./templates/cancel_capture.png", min_delay=150),
-    ScreenWatcher("./templates/install_software.png", callback=install_software_callback),
+    # ScreenWatcher("./templates/cancel_capture.png", min_delay=250),
+    ScreenWatcher("./templates/install_software.png", callback=install_chrome_callback),
     ScreenWatcher("./templates/skip_location_vi.png"),
     ScreenWatcher("./templates/skip_location_us.png"),
     ScreenWatcher("./templates/restart_vm.png"),
@@ -237,7 +237,6 @@ try:
         print("✗ Cancelled by user")
         sys.exit(0)
 
-    # info = (rows_data, iso_path, mode)
     rows_data = info[0]
     iso_path = info[1]
     mode = info[2]
@@ -296,6 +295,21 @@ preset_switch = {
     4: preset_misc
 }
 
+def retry_locate(image_path, confidence=0.65, retries=3, delay_between=1.0, callback=None):
+    for attempt in range(1, retries + 1):
+        location = safe_locate(image_path, confidence=confidence)
+        if location is not None:
+            x, y = location
+            if callback:
+                callback(x, y)
+            return True
+        else:
+            print(f"⚠ Attempt {attempt}/{retries}: {image_path} not found, retrying...")
+            time.sleep(delay_between)
+
+    print(f"⚠ {image_path} not found after all retries")
+    return False
+
 def vm_setup(name, sock, address):
     iso = iso_path if iso_path else (default_iso or result.stdout.strip())
     host, port, user, passwd = (sock.split(":") + [""] * 4)[:4]
@@ -304,16 +318,15 @@ def vm_setup(name, sock, address):
     hotkey('ctrl', 'n')
     delay(1.2)
 
-    create_vm_location = safe_locate('templates/create_vm.png', confidence=0.7)
-
-    if create_vm_location is not None:
-        pyautogui.moveTo(create_vm_location, duration=0.3)
+    def click_create_vm_modal_location(x, y):
+        pyautogui.moveTo(x, y, duration=0.3)
         pyautogui.mouseDown()
         pyautogui.moveTo(590, 129, duration=0.7)
         pyautogui.mouseUp()
         print("Clicked create new VM modal")
-    else:
-        print("⚠ create_vm.png not found on screen → continue")
+
+    success_1 = retry_locate('templates/create_vm.png', confidence=0.7, callback=click_create_vm_modal_location)
+    if not success_1:
         return False
 
     # Name and Operating System
@@ -386,18 +399,16 @@ def vm_setup(name, sock, address):
     hotkey('ctrl', 's')
     delay(1.2)
 
-    setting_vm_location = safe_locate('templates/setting_vm.png', confidence=0.65)
-
-    if setting_vm_location is not None:
-        x, y = setting_vm_location
-        delay(0.5)
+    def click_setting_vm_modal_location(x, y):
+        time.sleep(0.5)
         pyautogui.moveTo(x, y - 77, duration=0.3)
         pyautogui.mouseDown()
         pyautogui.moveTo(666, 273, duration=0.7)
         pyautogui.mouseUp()
         print("Clicked setting new VM modal")
-    else:
-        print("⚠ setting_vm.png not found on screen → continue")
+
+    success_2 = retry_locate('templates/setting_vm.png', callback=click_setting_vm_modal_location)
+    if not success_2:
         return False
 
     move_click(648, 351)
@@ -440,14 +451,14 @@ def vm_setup(name, sock, address):
     move_click(1000, 500)
     move_click(1090, 530)
 
-    delay(300)
+    delay(350)
 
     # Open fullsize VM window
     move_click(1100, 1060)
     move_click(1857, 89)
 
     # Wait install chrome
-    delay(80)
+    delay(90)
     move_click(1100, 1060, clicks=2)
     delay(2)
 
@@ -473,10 +484,7 @@ def goless_setup():
     move_click(23, 903)
     delay(1)
 
-    window_setting_location = safe_locate('templates/window_settings.png', confidence=0.7)
-
-    if window_setting_location is not None:
-        x, y = window_setting_location
+    def click_window_setting_location(x, y):
         move_mouse(x, y - 60)
         delay(0.3)
         click_mouse(x, y - 60)
@@ -484,8 +492,9 @@ def goless_setup():
         delay(0.5)
         click_mouse(1002, 92)
         print("Clicked window setting modal")
-    else:
-        print("⚠ window_settings.png not found on screen → continue")
+
+    success_3 = retry_locate('templates/window_settings.png', confidence=0.7, callback=click_window_setting_location)
+    if not success_3:
         return False
 
     # Turn on virtual keyboard
@@ -497,14 +506,12 @@ def goless_setup():
     move_click(365, 300)
     delay(0.8)
 
-    keyboard_location = safe_locate('templates/keyboard.png', confidence=0.7)
-
-    if keyboard_location is not None:
-        move_mouse(keyboard_location[0], keyboard_location[1])
+    def click_keyboard_location(x, y):
+        move_mouse(x, y)
         delay(0.3)
-        click_mouse(keyboard_location[0], keyboard_location[1])
+        click_mouse(x, y)
         delay(0.3)
-        click_mouse(keyboard_location[0], keyboard_location[1])
+        click_mouse(x, y)
         delay(0.3)
         mouse_down()
         delay(0.8)
@@ -512,8 +519,9 @@ def goless_setup():
         time.sleep(1)
         mouse_up()
         print("Clicked window keyboard modal")
-    else:
-        print("⚠ keyboard.png not found on screen → continue")
+
+    success_4 = retry_locate('templates/keyboard.png', confidence=0.7, callback=click_keyboard_location)
+    if not success_4:
         return False
 
     # Open Chrome
@@ -662,6 +670,7 @@ def goless_setup():
     # Open new window and search
     move_click(341, 940)
     move_click(891, 880)
+    minimize_keyboard_vm()
     search_vm("https://www.shopify.com/")
     keyboard_vm("enter")
     delay(1)
@@ -696,7 +705,8 @@ def cleanup_after_vm():
         w.reset()
     delay(1)
     close_vm_app()
-    delay(5)
+    delay(6)
+    hotkey('alt', 'f4')
 
 if mode == "vm":
     turn_off_capslock()
@@ -716,7 +726,9 @@ if mode == "vm":
         cleanup_after_vm()
 
     print(f"\n✅ Completed all {len(rows_data)} items!")
+
     safe_exit(0)
+
 elif mode == "goless":
     turn_off_capslock()
     goless_setup()
